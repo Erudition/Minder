@@ -13,8 +13,8 @@ import Replicated.Change as Change exposing (Change, Creator, Parent)
 import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNode)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
+import Replicated.Op.ID as OpID
 import Replicated.Op.Op as Op exposing (Op)
-import Replicated.Op.OpID as OpID
 import Replicated.Reducer.Register as Reg exposing (RW, Reg)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Moment as Moment

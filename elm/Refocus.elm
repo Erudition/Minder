@@ -14,7 +14,7 @@ import NativeScript.Notification as Notif exposing (Notification)
 import Profile exposing (Profile)
 import Random
 import Replicated.Change as Change exposing (Change)
-import Replicated.Op.OpID as OpID
+import Replicated.Op.ID as OpID
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Shared.Model exposing (..)

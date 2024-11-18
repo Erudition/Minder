@@ -8,8 +8,8 @@ import Platform exposing (Task)
 import Replicated.Change as Change
 import Replicated.Codec as Codec exposing (SkelCodec)
 import Replicated.Node.Node as Node exposing (Node, OpImportWarning)
+import Replicated.Op.ID as OpID
 import Replicated.Op.Op as Op
-import Replicated.Op.OpID as OpID
 import SmartTime.Moment as Moment exposing (Moment)
 import Task
 
@@ -182,6 +182,3 @@ saveEffect framesToSave =
 
         _ ->
             Task.perform (ApplyFrames framesToSave) Moment.now
-
-
-

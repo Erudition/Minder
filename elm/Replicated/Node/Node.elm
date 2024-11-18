@@ -10,15 +10,15 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Parser.Advanced as Parser
-import Set.Any as AnySet exposing (AnySet)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), ComplexAtom, PendingID, Pointer(..), pendingIDToString)
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
+import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OpIDSortable, OutCounter)
 import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
-import Replicated.Op.OpID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OpIDSortable, OutCounter)
 import Set exposing (Set)
+import Set.Any as AnySet exposing (AnySet)
 import SmartTime.Moment exposing (Moment)
 
 
@@ -265,9 +265,9 @@ updateNodeWithChunk chunk old =
 
                 Just firstOpenOp ->
                     case ( firstOpenOp.objectSpecified, firstOpenOp.reducerSpecified, firstOpenOp.reference ) of
-                        (  Just explicitObject, Just explicitReducer, _ ) ->
+                        ( Just explicitObject, Just explicitReducer, _ ) ->
                             -- closed ops - reducer and objectID are explicit
-                            Ok (  explicitReducer, explicitObject )
+                            Ok ( explicitReducer, explicitObject )
 
                         ( _, _, Op.ReducerReference reducerID ) ->
                             -- It's a header / creation op, no need to lookup
@@ -277,6 +277,7 @@ updateNodeWithChunk chunk old =
                             case lookupObject old.node referencedOpID of
                                 Just foundBoth ->
                                     Ok foundBoth
+
                                 Nothing ->
                                     Err (UnknownReference referencedOpID)
 
@@ -433,8 +434,6 @@ apply timeMaybe testMode node (Change.Frame { changes, description }) =
                 , [ "Delayed Updates:" ]
                 , [ Op.closedChunksToFrameText (List.concat step2OutChunks) ]
                 ]
-
-
     in
     Log.logMessageOnly logApplyResults
         { outputFrame = outChunks
@@ -484,21 +483,23 @@ getReversibleOps ops =
     in
     List.filterMap getCreationIDs ops
 
+
 {-| Find all Ops that use the given Op as a reference.
 TODO just index the OpDb by reference
 -}
 findAllReferencesToOp : Node -> OpID -> List Op
 findAllReferencesToOp node opID =
     AnyDict.filter (\_ op -> Op.opIDFromReference (Op.reference op) == Just opID) node.ops
-    |> AnyDict.values
+        |> AnyDict.values
 
 
 {-| Given a list of OpIDs representing the original change, find the Ops of their latest reversion.
 
 TODO: once OpDb is indexed by object and reference, eliminate the recursive search.
+
 -}
 findFinalOpsToRevert : Node -> Change.UndoData -> List Op
-findFinalOpsToRevert node opIDsToRevert = 
+findFinalOpsToRevert node opIDsToRevert =
     let
         findFinalReversionOp earlierOpID =
             let
@@ -507,15 +508,15 @@ findFinalOpsToRevert node opIDsToRevert =
                     AnyDict.get earlierOpID node.ops
 
                 earlierOpPatternMaybe =
-                    Maybe.map (Op.pattern) earlierOpMaybe
+                    Maybe.map Op.pattern earlierOpMaybe
 
                 -- if the op is normal, the next reversion will be a deletion op.
                 -- if the op is a deletion already, the next reversion (undeletion) will look like a normal opID.
-                opPatternToLookFor = 
+                opPatternToLookFor =
                     case earlierOpPatternMaybe of
                         Just Op.DeletionOp ->
                             Op.UnDeletionOp
-                        
+
                         Just Op.UnDeletionOp ->
                             Op.DeletionOp
 
@@ -525,20 +526,19 @@ findFinalOpsToRevert node opIDsToRevert =
                 allOpsReferringToEarlierOp =
                     findAllReferencesToOp node earlierOpID
             in
-                case List.filter (\op -> Op.pattern op == opPatternToLookFor ) allOpsReferringToEarlierOp of
-                    [] ->
-                        -- Looks like this op was never reverted, so it's the final op
-                        earlierOpMaybe
+            case List.filter (\op -> Op.pattern op == opPatternToLookFor) allOpsReferringToEarlierOp of
+                [] ->
+                    -- Looks like this op was never reverted, so it's the final op
+                    earlierOpMaybe
 
-                    [foundReversionOp] ->
-                        -- the earlier op has been reverted, repeat the process with the newfound reversion
-                        findFinalReversionOp (Op.id foundReversionOp)
+                [ foundReversionOp ] ->
+                    -- the earlier op has been reverted, repeat the process with the newfound reversion
+                    findFinalReversionOp (Op.id foundReversionOp)
 
-                    firstOpFound :: moreFound ->
-                        Log.crashInDev "When trying to find reversions of an op, I found multiple..." (Just firstOpFound)
+                firstOpFound :: moreFound ->
+                    Log.crashInDev "When trying to find reversions of an op, I found multiple..." (Just firstOpFound)
     in
     List.filterMap findFinalReversionOp (AnySet.toList opIDsToRevert)
-
 
 
 {-| Collects info on what ObjectIDs map back to what placeholder IDs from before they were initialized. In case we want to reference the new object same-frame.
@@ -553,8 +553,6 @@ type alias UpdatesSoFar =
 
 keepChangeSetIfNonempty changeSetMaybe =
     Maybe.Extra.filter (not << Change.isEmptyChangeSet) changeSetMaybe
-
-
 
 
 {-| Passed to mapAccuml, so must have accumulator and change as last params
@@ -599,7 +597,6 @@ oneChangeSetToOpChunks node ( inCounter, inMapping ) (ChangeSet changeSet) =
 
         outMapping =
             { postExistingMapping | delayed = postExistingMapping.delayed ++ changeSet.delayed }
-
 
         -- logOps =
         --     List.map (\op -> Op.closedOpToString Op.OpenOps op ++ "\n") (List.concat generatedChunks)

@@ -11,7 +11,7 @@ import Log
 import Maybe.Extra
 import Replicated.Change as Change exposing (Change, Changer, Creator)
 import Replicated.Codec as Codec exposing (NullCodec)
-import Replicated.Op.OpID as OpID
+import Replicated.Op.ID as OpID
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)

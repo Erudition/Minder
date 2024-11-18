@@ -59,7 +59,7 @@ import Replicated.Change as Change exposing (Frame)
 import Replicated.Codec
 import Replicated.Framework as Framework
 import Replicated.Node.Node
-import Replicated.Op.OpID
+import Replicated.Op.ID
 import Replicated.Reducer.RepDb as RepDb
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Shared.PopupType as PopupType

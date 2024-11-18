@@ -17,7 +17,7 @@ import Profile exposing (..)
 import Replicated.Codec as Codec
 import Replicated.Node.Node as Node
 import Replicated.Op.Op as Op
-import Replicated.Op.OpID as OpID
+import Replicated.Op.ID as OpID
 import OldShared.Model exposing (..)
 import SmartTime.Human.Duration exposing (HumanDuration(..))
 import Url

@@ -14,8 +14,8 @@ import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object
+import Replicated.Op.ID as OpID exposing (OpID, OpIDSortable)
 import Replicated.Op.Op as Op exposing (Op)
-import Replicated.Op.OpID as OpID exposing (OpID, OpIDSortable)
 import SmartTime.Moment as Moment exposing (Moment)
 
 

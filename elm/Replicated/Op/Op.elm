@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, Context(..), FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, Problem(..), ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, contextStackToString, create, id, initObject, object, pattern, payload, payloadToJsonValue, problemToString, reducer, reference, ronParser, opIDFromReference)
+module Replicated.Op.Op exposing (ClosedChunk, Context(..), FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, Problem(..), ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, contextStackToString, create, id, initObject, object, opIDFromReference, pattern, payload, payloadToJsonValue, problemToString, reducer, reference, ronParser)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -8,7 +8,7 @@ import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Parser.Advanced as Parser exposing ((|.), (|=), Token(..), float, inContext, succeed, symbol)
-import Replicated.Op.OpID as OpID exposing (ObjectID, OpID)
+import Replicated.Op.ID as OpID exposing (ObjectID, OpID)
 import Result.Extra
 import Set exposing (Set)
 import SmartTime.Moment as Moment

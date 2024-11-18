@@ -5,7 +5,7 @@ import IntDict exposing (IntDict)
 import Log
 import Replicated.Change exposing (Pointer(..))
 import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec)
-import Replicated.Op.OpID as OpID
+import Replicated.Op.ID as OpID
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar exposing (CalendarDate)
 import SmartTime.Human.Clock exposing (TimeOfDay)

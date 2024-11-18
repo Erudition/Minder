@@ -1,6 +1,6 @@
 module ID exposing
     ( ID
-    , getObjectID, fromPointer, toInt, toPointer, toString, fromObjectID
+    , fromObjectID, fromPointer, getObjectID, toInt, toPointer, toString
     )
 
 {-| This package exposes a really simple type called `ID`.
@@ -77,7 +77,7 @@ import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Log
 import Replicated.Change as Change exposing (Pointer)
-import Replicated.Op.OpID as OpID exposing (OpID)
+import Replicated.Op.ID as OpID exposing (OpID)
 
 
 type ID userType

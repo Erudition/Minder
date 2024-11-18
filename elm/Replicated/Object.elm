@@ -8,8 +8,8 @@ import List.Nonempty as Nonempty exposing (Nonempty)
 import Log
 import Replicated.Change as Change exposing (ChangeSet)
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Op.ID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
 import Replicated.Op.Op as Op exposing (Op, OpPayloadAtoms)
-import Replicated.Op.OpID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
 import SmartTime.Moment as Moment exposing (Moment)
 
 

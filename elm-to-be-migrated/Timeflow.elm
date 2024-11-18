@@ -25,12 +25,12 @@ import Incubator.IntDict.Extra as IntDict
 import IntDict exposing (IntDict)
 import List.Extra as List
 import Log
+import OldShared.Model exposing (..)
 import Profile exposing (..)
 import Refocus
 import Replicated.Change as Change exposing (ChangeSet, Frame)
-import Replicated.Op.OpID as OpID exposing (OpID)
+import Replicated.Op.ID as OpID exposing (OpID)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
-import OldShared.Model exposing (..)
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar as Calendar exposing (CalendarDate, equal)
 import SmartTime.Human.Calendar.Week as Week
