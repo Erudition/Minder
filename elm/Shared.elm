@@ -129,7 +129,8 @@ init flagsResult route =
       , tickEnabled = False
       , oddModel = oddModel
       }
-    , Effect.sendCmd (Cmd.map OddUpdate oddInit)
+    , Effect.none
+      -- DISABLED FOR NOW -- Effect.sendCmd (Cmd.map OddUpdate oddInit)
       -- TODO Effect.saveChanges "init" initChanges
     )
 

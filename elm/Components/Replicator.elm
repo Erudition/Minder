@@ -33,7 +33,7 @@ type alias ReplicaError =
 -}
 type alias ReplicatorConfig replica yourFrameDesc =
     { launchTime : Maybe Moment
-    , replicaCodec : SkelCodec ReplicaError replica
+    , replicaCodec : WrappedOrSkelCodec ReplicaError replica
     , outPort : String -> Cmd (Msg yourFrameDesc)
     }
 
@@ -45,7 +45,7 @@ init { launchTime, replicaCodec, outPort } =
             Codec.startNodeFromRoot launchTime replicaCodec
 
         ( startReplica, replicaDecodeWarnings ) =
-            Codec.forceDecodeFromNode replicaCodec startNode
+            Codec.decodeFromNode replicaCodec startNode
     in
     -- TODO return warnings?
     ( ReplicatorModel
@@ -74,7 +74,7 @@ update msg (ReplicatorModel oldReplicator) =
         LoadRon originalFrameCount [] ->
             let
                 ( newReplica, problemMaybe ) =
-                    Codec.forceDecodeFromNode oldReplicator.replicaCodec oldReplicator.node
+                    Codec.decodeFromNode oldReplicator.replicaCodec oldReplicator.node
 
                 problemAsWarning =
                     case problemMaybe of
