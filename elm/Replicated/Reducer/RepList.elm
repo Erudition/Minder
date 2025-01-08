@@ -81,8 +81,8 @@ reducerID =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (Location -> memberType -> Maybe OpID -> Change.ObjectChange) -> Changer (RepList memberType) -> RepList memberType
-buildFromReplicaDb targetObject payloadToMember memberAdder init =
+buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (Location -> memberType -> Maybe OpID -> Change.ObjectChange) -> Changer (RepList memberType) -> Maybe (RepList memberType) -> RepList memberType
+buildFromReplicaDb targetObject payloadToMember memberAdder init oldRepListMaybe =
     let
         compareEvents : ( OpID, Object.Event ) -> ( OpID, Object.Event ) -> Order
         compareEvents ( eventIDA, eventA ) ( eventIDB, eventB ) =
@@ -94,6 +94,7 @@ buildFromReplicaDb targetObject payloadToMember memberAdder init =
                     LT
 
                 EQ ->
+                    -- same reference
                     case compare (OpID.toSortablePrimitives eventIDA) (OpID.toSortablePrimitives eventIDB) of
                         GT ->
                             -- later additions come first
@@ -124,13 +125,25 @@ buildFromReplicaDb targetObject payloadToMember memberAdder init =
                 _ ->
                     Nothing
     in
-    RepList
-        { pointer = Object.getPointer targetObject
-        , members = sortedEventsAsItems
-        , memberAdder = memberAdder
-        , included = Object.getIncluded targetObject
-        , startWith = init
-        }
+    case oldRepListMaybe of
+        Just (RepList existing) ->
+            --TODO
+            RepList
+                { pointer = Object.getPointer targetObject
+                , members = sortedEventsAsItems
+                , memberAdder = memberAdder
+                , included = Object.getIncluded targetObject
+                , startWith = init
+                }
+
+        Nothing ->
+            RepList
+                { pointer = Object.getPointer targetObject
+                , members = sortedEventsAsItems
+                , memberAdder = memberAdder
+                , included = Object.getIncluded targetObject
+                , startWith = init
+                }
 
 
 

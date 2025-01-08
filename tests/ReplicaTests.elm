@@ -10,7 +10,7 @@ import List.Extra
 import Log
 import Maybe.Extra
 import Replicated.Change as Change exposing (Change, Creator, Parent)
-import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNode)
+import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, decodeFromNodeAgain)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.ID as OpID
@@ -46,7 +46,7 @@ nodeFromCodecWithoutDefaults profileCodec =
             Node.startNewNode Nothing []
 
         tryDecoding =
-            Codec.decodeFromNode profileCodec newNode
+            Codec.decodeFromNodeAgain profileCodec newNode
 
         logStart =
             Log.proseToString
@@ -71,7 +71,7 @@ nodeFromCodecWithDefaults profileCodec =
             Codec.encodeDefaults Node.testNode profileCodec
 
         tryDecoding =
-            Codec.decodeFromNode profileCodec newNode
+            Codec.decodeFromNodeAgain profileCodec newNode
 
         logStart =
             Log.proseToString
@@ -267,7 +267,7 @@ nodeModifications =
                 |> Maybe.withDefault (OpID.fromStringForced "5+here")
 
         changedObjectDecoded =
-            Codec.decodeFromNode writableObjectCodec afterNode
+            Codec.decodeFromNodeAgain writableObjectCodec afterNode
     in
     describe "Modifying a simple node with a writable root object."
         [ describe "Checking the node has changed in correct places"
@@ -332,14 +332,14 @@ repListEncodeThenDecode =
         \_ ->
             let
                 generatedRepList =
-                    Codec.decodeFromNode simpleListCodec fakeNodeWithSimpleList
+                    Codec.decodeFromNodeAgain simpleListCodec fakeNodeWithSimpleList
             in
             Result.map RepList.listValues generatedRepList |> Expect.equal (Ok simpleList)
 
 
 fakeNodeWithModifiedList : Node
 fakeNodeWithModifiedList =
-    case Codec.decodeFromNode simpleListCodec fakeNodeWithSimpleList of
+    case Codec.decodeFromNodeAgain simpleListCodec fakeNodeWithSimpleList of
         Ok repList ->
             let
                 listItems =
@@ -388,7 +388,7 @@ repListInsertAndRemove =
         \_ ->
             let
                 generatedRepList =
-                    Codec.decodeFromNode simpleListCodec fakeNodeWithModifiedList
+                    Codec.decodeFromNodeAgain simpleListCodec fakeNodeWithModifiedList
 
                 list =
                     Result.map RepList.listValues generatedRepList
@@ -605,7 +605,7 @@ modifiedNestedStressTestIntegrityCheck =
             AnyDict.values subject.ops
 
         decodedNSTReg =
-            Codec.decodeFromNode nestedStressTestCodec subject
+            Codec.decodeFromNodeAgain nestedStressTestCodec subject
 
         decodedNST =
             decodedNSTReg
@@ -738,7 +738,7 @@ testDelayedCreation =
                     Debug.todo ("did not decode the test object from node successfully. ran into codec error. " ++ Debug.toString problem)
 
         expectAfterDecodingFrom node fromRoot expected =
-            Codec.decodeFromNode delayTestReplicaCodec tryAddingToNestedList.updatedNode |> expectOkAndEqualWhenMapped (\root -> fromRoot (Reg.latest root)) expected
+            Codec.decodeFromNodeAgain delayTestReplicaCodec tryAddingToNestedList.updatedNode |> expectOkAndEqualWhenMapped (\root -> fromRoot (Reg.latest root)) expected
 
         tryChangingPropA =
             afterChange (\obj -> [ obj.propA.set "Nondefault" ])
@@ -859,7 +859,7 @@ testSpawning =
                     Debug.todo ("did not decode the test object from node successfully. ran into codec error. " ++ Debug.toString problem)
 
         expectAfterDecodingFrom node fromRoot expected =
-            Codec.decodeFromNode spawnTestReplicaCodec tryAddingItemToRepList.updatedNode |> expectOkAndEqualWhenMapped (\root -> fromRoot (Reg.latest root)) expected
+            Codec.decodeFromNodeAgain spawnTestReplicaCodec tryAddingItemToRepList.updatedNode |> expectOkAndEqualWhenMapped (\root -> fromRoot (Reg.latest root)) expected
 
         tryAddingItemToRepList : { outputFrame : List Op.ClosedChunk, updatedNode : Node, created : List OpID.ObjectID }
         tryAddingItemToRepList =
