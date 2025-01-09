@@ -37,8 +37,8 @@ import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 
-type NodeDecoder a
-    = NodeDecoder (NodeDecoderInputs a -> RonPayloadDecoder a)
+type alias NodeDecoder a =
+    NodeDecoderInputs a -> RonPayloadDecoder a
 
 
 type alias NodeDecoderInputs t =
@@ -47,6 +47,7 @@ type alias NodeDecoderInputs t =
     , position : Location
     , cutoff : Maybe Moment
     , oldMaybe : Maybe t
+    , changedObjectIDs : List ObjectID
     }
 
 
@@ -60,4 +61,4 @@ type alias NodeDecoderInputsNoVariable =
 
 primitive : RonPayloadDecoder a -> NodeDecoder a
 primitive ronDecoder =
-    NodeDecoder (\_ -> ronDecoder)
+    \_ -> ronDecoder

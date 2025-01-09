@@ -1135,8 +1135,8 @@ repList memberCodec =
                 _ ->
                     Nothing
 
-        repListRonDecoder : NodeDecoderInputs NodeDecoder (RepList memberType)
-        repListRonDecoder { node, parent, cutoff, position } =
+        repListRonDecoder : NodeDecoder (RepList memberType)
+        repListRonDecoder { node, parent, cutoff, position, oldMaybe, changedObjectIDs } =
             let
                 repListBuilder foundObjectIDs =
                     let
@@ -1157,7 +1157,7 @@ repList memberCodec =
                     in
                     Ok <| RepList.buildFromReplicaDb object finalPayloadToMember finalMemberChanger nonChanger
             in
-            reuseOldIfUnchanged old RepList.getPointer changedObjects <|
+            reuseOldIfUnchanged oldMaybe RepList.getPointer changedObjectIDs <|
                 JD.map repListBuilder concurrentObjectIDsDecoder
 
         repListRonEncoder : NodeEncoder (RepList memberType) SoloObject
@@ -1990,7 +1990,7 @@ daysOfWeekCodec =
 ```
 
 -}
-quickEnum : a -> List a -> PrimitiveCodec e a
+quickEnum : a -> List a -> PrimitiveCodec a
 quickEnum defaultItem items =
     let
         getIndex value =
@@ -2596,7 +2596,7 @@ updateRegisterPostChildInit parentPointer fieldIdentifier pendingChildToWrap =
 
 {-| RON what to do when decoding a (potentially nested!) object field.
 -}
-registerReadOnlyFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Codec e fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe fieldType, List RepDecodeError )
+registerReadOnlyFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Codec fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe fieldType, List RepDecodeError )
 registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback fieldCodec inputs =
     let
         regAsParent =
