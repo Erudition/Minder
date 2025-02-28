@@ -121,7 +121,7 @@ update msg (ReplicatorModel oldReplicator) =
                 applyFrame givenFrame ( inNode, outputsSoFar ) =
                     let
                         { outputFrame, updatedNode } =
-                            Node.apply (Just newTime) False inNode givenFrame
+                            Node.applyChanges (Just newTime) False inNode givenFrame
                     in
                     ( updatedNode, outputsSoFar ++ outputFrame )
             in

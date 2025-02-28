@@ -75,9 +75,9 @@ import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, Com
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.BytesDecoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
-import Replicated.Codec.JsonDecoder as JsonDecoder exposing (JsonDecoder)
-import Replicated.Codec.NodeDecoder as NodeDecoder exposing (NodeDecoder)
-import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder)
+import Replicated.Codec.JsonDecoder as JsonDecoder exposing (WrappedJsonDecoder)
+import Replicated.Codec.NodeDecoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
+import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
@@ -315,22 +315,6 @@ singlePrimitiveOut singlePrimitiveAtom =
 
 
 -- DECODE
--- {-| Pass in the codec for the root object.
--- -}
--- decodeFromNode : WrappedOrSkelCodec e s root -> Node -> root -> Result (RepDecodeErrore) root
--- decodeFromNode rootCodec node oldRoot =
---     let
---         rootEncoded =
---             node.root
---                 -- TODO we need to get rid of those quotes, but JD.string expects them for now
---                 |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
---                 |> Maybe.withDefault "\"[]\""
---     in
---     case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "dFN", cutoff = Nothing, position = Location.none, old = Just oldRoot }) (prepDecoder rootEncoded) of
---         Ok value ->
---             Log.logMessageOnly "Decoding Node again." value
---         Err jdError ->
---             Err (JDError jdError)
 
 
 {-| Pass in the codec for the root object.
@@ -338,9 +322,10 @@ singlePrimitiveOut singlePrimitiveAtom =
 decodeFromNode : WrappedOrSkelCodec s root -> Node -> Maybe root -> ( root, Maybe RepDecodeError )
 decodeFromNode rootCodec node oldRootMaybe =
     let
-        rootEncoded =
+        rootIDAsJsonString =
             node.root
-                -- TODO we need to get rid of those quotes, but JD.string expects them for now
+                -- legacy decoder is Json so needs a valid Json string
+                -- turn root ID into a Json list string
                 |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
                 |> Maybe.withDefault "\"[]\""
 
@@ -351,16 +336,32 @@ decodeFromNode rootCodec node oldRootMaybe =
 
                 Nothing ->
                     new rootCodec (Change.startContext "fDFN")
+
+        { decoder, obSubs } =
+            getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "dFN", cutoff = Nothing, position = Location.none, oldMaybe = oldRootMaybe, changedObjectIDs = [] }
+
+        decodedRoot =
+            case decoder of
+                RonPayloadDecoderLegacy jdDecoder ->
+                    -- run legacy JD Decoder on the artificial json string containing only the root ID
+                    case JD.decodeString jdDecoder (prepRonAtomForLegacyDecoder rootIDAsJsonString) of
+                        Ok unwrappedResult ->
+                            unwrappedResult
+
+                        Err jdError ->
+                            -- error happened at the level of the outer result (legacy wrapper), flatten to RepDecodeError
+                            Err <| JDError <| Debug.log "decodeFromNode: Json Decoder (legacy Result wrapper) error... " <| jdError
+
+                RonPayloadDecoderNew ronPayloadDecoder ->
+                    -- turn the root object ID into a fake ron payload with zero or one OpID atoms
+                    ronPayloadDecoder (Maybe.Extra.toList (Maybe.map Op.IDPointerAtom node.root))
     in
-    case JD.decodeString (getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "dFN", cutoff = Nothing, position = Location.none }) (prepDecoder rootEncoded) of
-        Ok (Ok success) ->
+    case decodedRoot of
+        Ok success ->
             ( Log.logMessageOnly "Decoding Node again." success, Nothing )
 
-        Err jdError ->
-            ( fallback, Just (JDError <| Debug.log "forceDecodeFromNode: forcing success, but there was an error... " <| jdError) )
-
-        Ok (Err err) ->
-            ( fallback, Debug.todo "nested error - come up with nicer presentation" )
+        Err err ->
+            ( Log.crashInDev ("decodeFromNode failed with error: " ++ Error.toString err) fallback, Just err )
 
 
 {-| Create something new, from its Codec!
@@ -422,7 +423,7 @@ getBytesDecoder (Codec m) =
 
 {-| Extracts the JSON `Decoder` contained inside the `Codec`.
 -}
-getJsonDecoder : Codec s o a -> JsonDecoder a
+getJsonDecoder : Codec s o a -> WrappedJsonDecoder a
 getJsonDecoder (Codec m) =
     m.jsonDecoder
 
@@ -1261,7 +1262,7 @@ list codec =
                     in
                     { complex = Nonempty.concat <| Nonempty.indexedMap memberNodeEncoded (Nonempty headItem moreItems) }
 
-        nodeDecoder : NodeDecoderInputs -> JD.Decoder (Result RepDecodeError (List a))
+        nodeDecoder : NodeDecoderInputs (List a) -> JD.Decoder (Result RepDecodeError (List a))
         nodeDecoder _ =
             JD.oneOf
                 [ JD.andThen
@@ -2678,8 +2679,8 @@ registerWritableFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
             ( Nothing, errorsSoFar )
 
 
-prepDecoder : String -> String
-prepDecoder inputString =
+prepRonAtomForLegacyDecoder : String -> String
+prepRonAtomForLegacyDecoder inputString =
     case String.startsWith ">" inputString of
         True ->
             "\"" ++ String.dropLeft 1 (String.dropRight 1 inputString) ++ "\""
@@ -2888,7 +2889,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
                             JD.succeed <| Ok <| regToRecord regCanBeBuilt Nothing
 
                         Nothing ->
-                            JD.succeed <| Err WrongCutoff
+                            JD.succeed <| Err <| WrongCutoff cutoff regPointer
             in
             JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder
 
@@ -3086,7 +3087,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                             JD.succeed <| Ok <| Register { pointer = regPointer, included = Object.All, latest = regToRecord regCanBeBuilt Nothing, older = Just >> regToRecord regCanBeBuilt, history = history, init = nonChanger }
 
                         Nothing ->
-                            JD.succeed <| Err WrongCutoff
+                            JD.succeed <| Err <| WrongCutoff cutoff regPointer
             in
             JD.andThen registerDecoder concurrentObjectIDsDecoder
 
@@ -3440,7 +3441,7 @@ type RegisterFieldEncoderOutput
 
 {-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded.
 -}
-newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> FieldFallback parentSeed fieldSeed fieldType -> Codec e fieldSeed o fieldType -> (RegisterFieldEncoderInputs fieldType -> RegisterFieldEncoderOutput)
+newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> FieldFallback parentSeed fieldSeed fieldType -> Codec fieldSeed o fieldType -> (RegisterFieldEncoderInputs fieldType -> RegisterFieldEncoderOutput)
 newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldCodec { mode, node, regPointer, history, existingValMaybe } =
     let
         regAsParent =
@@ -3637,7 +3638,7 @@ map fromAtoB fromBtoA codec =
                 Err err ->
                     Err err
 
-        wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result RepDecodeError b)
+        wrappedNodeDecoder : NodeDecoderInputs b -> JD.Decoder (Result RepDecodeError b)
         wrappedNodeDecoder inputs =
             getNodeDecoder codec inputs |> JD.map fromResultData
 
@@ -3684,7 +3685,7 @@ makeOpaque fromAtoB fromBtoA codec =
                 Err err ->
                     Err err
 
-        wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result RepDecodeError b)
+        wrappedNodeDecoder : NodeDecoderInputs b -> JD.Decoder (Result RepDecodeError b)
         wrappedNodeDecoder inputs =
             getNodeDecoder codec inputs |> JD.map fromResultData
 
@@ -3780,7 +3781,7 @@ I recommend writing tests for Codecs that use `mapValid` to make sure you get ba
 mapValid : (a -> Result e b) -> (b -> a) -> SelfSeededCodec o a -> SelfSeededCodec o b
 mapValid fromBytes_ toBytes_ codec =
     let
-        wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result RepDecodeError b)
+        wrappedNodeDecoder : NodeDecoderInputs b -> JD.Decoder (Result RepDecodeError b)
         wrappedNodeDecoder inputs =
             getNodeDecoder codec inputs |> JD.map wrapCustomError
 
@@ -3822,18 +3823,18 @@ mapValid fromBytes_ toBytes_ codec =
 
 {-| Map errors generated by `mapValid`.
 -}
-mapError : (e1 -> e2) -> PrimitiveCodec e1 a -> PrimitiveCodec e2 a
+mapError : (e1 -> e2) -> PrimitiveCodec a -> PrimitiveCodec a
 mapError mapFunc codec =
     let
-        wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result RepDecodeError a)
+        wrappedNodeDecoder : NodeDecoderInputs a -> JD.Decoder (Result RepDecodeError a)
         wrappedNodeDecoder inputs =
-            getNodeDecoder codec inputs |> JD.map (mapErrorHelper mapFunc)
+            getNodeDecoder codec inputs |> JD.map mapFunc
     in
     buildNestableCodec
         (getBytesEncoder codec)
-        (getBytesDecoder codec |> BD.map (mapErrorHelper mapFunc))
+        (getBytesDecoder codec |> BD.map mapFunc)
         (getJsonEncoder codec)
-        (getJsonDecoder codec |> JD.map (mapErrorHelper mapFunc))
+        (getJsonDecoder codec |> JD.map mapFunc)
         (getNodeEncoder codec)
         wrappedNodeDecoder
 
@@ -3869,7 +3870,7 @@ Be careful here, and test your codecs using elm-test with larger inputs than you
 lazy : (() -> Codec s o a) -> Codec s o a
 lazy f =
     let
-        lazyNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result RepDecodeError a)
+        lazyNodeDecoder : NodeDecoderInputs a -> JD.Decoder (Result RepDecodeError a)
         lazyNodeDecoder inputs =
             JD.succeed () |> JD.andThen (\() -> getNodeDecoder (f ()) inputs)
 
@@ -4057,7 +4058,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                 -- not this variantBuilder, pass along to other variantBuilder decoders
                 priorVariants.bytesDecoder tagNumToDecode orElse
 
-        unwrapJD : Int -> JD.Decoder (Result RepDecodeError) -> JD.Decoder (Result RepDecodeError)
+        unwrapJD : Int -> JD.Decoder (Result RepDecodeError v) -> JD.Decoder (Result RepDecodeError v)
         unwrapJD tagNumToDecode orElse =
             if tagNumToDecode == tagNum then
                 -- variantBuilder match! now decode the pieces
@@ -4101,7 +4102,7 @@ variant0 tag ctor =
         (\_ -> JD.succeed (Ok ctor))
 
 
-passNDInputs : Int -> NodeDecoderInputs -> NodeDecoderInputs
+passNDInputs : Int -> NodeDecoderInputs a -> NodeDecoderInputs a
 passNDInputs pieceNum inputsND =
     { inputsND
         | parent = Change.becomeInstantParent <| Change.newPointer { parent = inputsND.parent, position = Location.nest inputsND.position "piece" pieceNum, reducerID = "variant" }
@@ -4356,11 +4357,11 @@ variant4 tag ctor codec1 codec2 codec3 codec4 =
 
 result4 :
     (value -> a -> b -> c -> d)
-    -> Result value
-    -> Result a
-    -> Result b
-    -> Result c
-    -> Result d
+    -> Result error value
+    -> Result error a
+    -> Result error b
+    -> Result error c
+    -> Result error d
 result4 ctor v1 v2 v3 v4 =
     case T4 v1 v2 v3 v4 of
         T4 (Ok ok1) (Ok ok2) (Ok ok3) (Ok ok4) ->
@@ -4865,7 +4866,7 @@ result8 ctor v1 v2 ( v3, v4 ) ( v5, v6 ) ( v7, v8 ) =
 
 {-| Finish creating a codec for a custom type.
 -}
-finishCustomType : CustomTypeCodec () e (a -> VariantEncoder) a -> NullCodec e a
+finishCustomType : CustomTypeCodec () (a -> VariantEncoder) a -> NullCodec a
 finishCustomType (CustomTypeCodec priorVariants) =
     let
         nodeEncoder : NodeEncoder a {}
@@ -4888,7 +4889,7 @@ finishCustomType (CustomTypeCodec priorVariants) =
             in
             { complex = getNodeVariantEncoder nodeMatcher }
 
-        nodeDecoder : NodeDecoder e a
+        nodeDecoder : NodeDecoder a
         nodeDecoder inputs =
             let
                 getTagNum tag =
@@ -4897,7 +4898,7 @@ finishCustomType (CustomTypeCodec priorVariants) =
                         |> Maybe.andThen String.toInt
                         |> Maybe.Extra.withDefaultLazy (\_ -> -1)
 
-                findDecoderMatchingTag : JD.Decoder (Result RepDecodeError)
+                findDecoderMatchingTag : JD.Decoder (Result RepDecodeError a)
                 findDecoderMatchingTag =
                     let
                         nestedDecoderFromTag tag =
@@ -5001,7 +5002,7 @@ Hence, inputs are modified to NodeEncoderInputsNoVariable and outputs are just L
 The input type variable is taken care of early on, and the output type is converted to NodeENcoderOutput in the last mile.
 
 -}
-getNodeEncoderModifiedForVariants : Int -> Codec e ia o a -> a -> VariantNodeEncoder
+getNodeEncoderModifiedForVariants : Int -> Codec ia o a -> a -> VariantNodeEncoder
 getNodeEncoderModifiedForVariants index codec thingToEncode =
     let
         finishInputs : NodeEncoderInputsNoVariable -> NodeEncoderInputs a

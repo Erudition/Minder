@@ -30,6 +30,7 @@ import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
 import Set exposing (Set)
+import SmartTime.Human.Moment as HumanMoment
 import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
@@ -49,10 +50,7 @@ type RepDecodeError
     | EmptyList
     | BadByteString String
     | BadIndex Int
-
-
-
--- | WrongCutoff -- TODO what exactly goes wrong with wrong-cutoff errors, may not be named correctly
+    | WrongCutoff (Maybe Moment) Pointer -- TODO what exactly goes wrong with wrong-cutoff errors, may not be named correctly
 
 
 toString : RepDecodeError -> String
@@ -93,6 +91,9 @@ toString codecError =
 
         EmptyList ->
             "I was trying to parse a nonempty list, but the list I found was empty."
+
+        WrongCutoff cutoff pointer ->
+            "Naked register cutoff function for object " ++ Debug.toString pointer ++ " with cutoff " ++ Maybe.withDefault "(No cutoff)" (Maybe.map HumanMoment.toStandardString cutoff)
 
 
 

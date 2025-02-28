@@ -121,12 +121,12 @@ startNewNode nowMaybe testMode givenStartChanges =
             }
 
         { updatedNode, created, outputFrame } =
-            apply nowMaybe testMode startNode firstChangeFrame
+            applyChanges nowMaybe testMode startNode firstChangeFrame
     in
     { newNode = updatedNode, startFrame = outputFrame }
 
 
-{-| Update a node with some Ops.
+{-| Update a node with some Ops. All changes, internal and external, pass through this function.
 -}
 updateWithClosedOps : Node -> List Op -> Node
 updateWithClosedOps node newOps =
@@ -137,9 +137,12 @@ updateWithClosedOps node newOps =
                     { node
                         | ops = AnyDict.insert (Op.id newOp) newOp nodeToUpdate.ops
                         , highestSeenClock = max nodeToUpdate.highestSeenClock (OpID.getClock (Op.id newOp))
+
+                        -- , recentlyTouchedObjects = AnySet.insert (Op.object newOp) nodeToUpdate.recentlyTouchedObjects
                     }
 
                 Just _ ->
+                    -- TODO error if op is different despite same ID
                     Debug.log ("Already have op " ++ OpID.toString (Op.id newOp) ++ "as an object..")
                         { node
                             | ops = AnyDict.insert (Op.id newOp) newOp nodeToUpdate.ops
@@ -347,7 +350,7 @@ Always supply the current time (`Just moment`).
 (Else, new Ops will be timestamped as if they occurred mere milliseconds after the previous save, which can cause them to always be considered "older" than other ops that happened between.)
 If the clock is set backwards or another node loses track of time, we will never go backwards in timestamps.
 -}
-apply :
+applyChanges :
     Maybe Moment
     -> Bool
     -> Node
@@ -357,7 +360,7 @@ apply :
         , updatedNode : Node
         , created : List ObjectID
         }
-apply timeMaybe testMode node (Change.Frame { changes, description }) =
+applyChanges timeMaybe testMode node (Change.Frame { changes, description }) =
     let
         nextUnseenCounter =
             OpID.importCounter (node.highestSeenClock + 1)
