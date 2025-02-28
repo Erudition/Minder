@@ -7,8 +7,10 @@
 - Node needs to store objects again, for lazy updates - object must store their parents too
 
 - [X] Remove custom error type variable to simplify code
+    - [] allow user to provide string codec to handle errors with their custom error type
 - [X] Split codec module into pieces to simplify code
 - [] decoder functions compare to previous object for skipping
+    - [] Decoders return ObSubs (Object subscriptions) - list of ObjectIDs that are contained within them
 - [] consider removing custom error type from JSON/Bytes decoders entirely
 - [] separate reducers from reptypes, many reptypes are just collections
 - [] Make Node contain objects in already reduced form, with already decoded values
@@ -25,6 +27,9 @@
     - When converting changes to ops, fill in any ReversibleOps placeholder with the frame's reversible OpIDs
     - When converting reversal changes to reversal ops, calculate OpIDs' ExistingObjectIDs and merge into ChangeSets
 
+- Codecs
+    - [] Create elm-review rule to auto generate codecs - already supports elm-serialize
+        - https://package.elm-lang.org/packages/gampleman/elm-review-derive/latest/
 
 # Task list
 - "////" in title causes slow/infinite loop - properly escape?
