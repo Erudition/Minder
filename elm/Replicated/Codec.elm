@@ -2,9 +2,10 @@ module Replicated.Codec exposing
     ( string, bool, float, int, unit, bytes, byte
     , maybe, array, dict, set, pair, triple, result
     , record, field, finishRecord
+    , CustomTypeCodec, customType, variant0, variant1, variant2, variant3, variant4, variant5, variant6, variant7, variant8, finishCustomType
     , map, mapValid, mapError
     , lazy
-    , FieldIdentifier, FieldName, FieldSlot, FieldValue, NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, SmartJsonFieldEncoder, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, char, coreR, coreRW, decodeFromNode, fieldDb, fieldDict, fieldList, fieldRW, fieldRWM, fieldRec, fieldReg, fieldStore, finishRegister, finishSeededRecord, finishSeededRegister, id, list, makeOpaque, maybeR, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges, nonempty, obsolete, quickEnum, repDb, repDict, repList, repStore, seededR, seededRW, seedlessPair, todo, customType, variant0, variant1, variant2, variant3, variant4, variant5, variant6, variant7, variant8, finishCustomType, CustomTypeCodec, VariantTag
+    , FieldIdentifier, FieldName, FieldSlot, FieldValue, NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, SmartJsonFieldEncoder, VariantTag, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, char, coreR, coreRW, decodeFromNode, fieldDb, fieldDict, fieldList, fieldRW, fieldRWM, fieldRec, fieldReg, fieldStore, finishRegister, finishSeededRecord, finishSeededRegister, id, list, makeOpaque, maybeR, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges, nonempty, obsolete, quickEnum, repDb, repDict, repList, repStore, seededR, seededRW, seedlessPair, todo
     )
 
 {-|
@@ -82,6 +83,7 @@ import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, Com
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.Base as Base
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
+import Replicated.Codec.CustomType
 import Replicated.Codec.DataStructures.Immutable.SyncSafe
 import Replicated.Codec.DataStructures.Immutable.SyncUnsafe
 import Replicated.Codec.DataStructures.Mutable
@@ -105,7 +107,6 @@ import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
 import Set exposing (Set)
 import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
-import Replicated.Codec.CustomType
 
 
 
@@ -1137,8 +1138,8 @@ type alias VariantTag =
 
 {-| A partially built codec for a custom type.
 -}
-type CustomTypeCodec a matcher v
-    = Replicated.Codec.CustomType.CustomTypeCodec a matcher v
+type alias CustomTypeCodec a matcher v =
+    Replicated.Codec.CustomType.CustomTypeCodec a matcher v
 
 
 {-| Starts building a `Codec` for a custom type.
@@ -1176,8 +1177,6 @@ customType matcher =
     Replicated.Codec.CustomType.customType matcher
 
 
-
-
 {-| Define a variantBuilder with 0 parameters for a custom type.
 -}
 variant0 : VariantTag -> v -> CustomTypeCodec z (VariantEncoder -> a) v -> CustomTypeCodec () a v
@@ -1195,6 +1194,7 @@ variant1 :
     -> CustomTypeCodec () partial v
 variant1 tag ctor codec1 =
     Replicated.Codec.CustomType.variant1 tag ctor codec1
+
 
 {-| Define a variantBuilder with 2 parameters for a custom type.
 -}
@@ -1253,6 +1253,7 @@ variant5 :
 variant5 tag ctor codec1 codec2 codec3 codec4 codec5 =
     Replicated.Codec.CustomType.variant5 tag ctor codec1 codec2 codec3 codec4 codec5
 
+
 {-| Define a variantBuilder with 6 parameters for a custom type.
 -}
 variant6 :
@@ -1305,6 +1306,7 @@ variant8 :
     -> CustomTypeCodec () partial v
 variant8 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
     Replicated.Codec.CustomType.variant8 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8
+
 
 {-| Finish creating a codec for a custom type.
 -}

@@ -729,7 +729,7 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
 
 {-| Not exposed - for all `readable` functions
 -}
-readableHelper : FieldIdentifier -> (full -> fieldType) -> Codec fieldSeed o fieldType -> FieldFallback parentSeed fieldSeed fieldType -> PartialRegister parentSeed full (fieldType -> remaining) -> PartialRegister parentSeed full remaining
+readableHelper : FieldIdentifier -> (full -> fieldType) -> Codec fieldSeed o fieldType -> Fallback parentSeed fieldSeed fieldType -> PartialRegister parentSeed full (fieldType -> remaining) -> PartialRegister parentSeed full remaining
 readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (PartialRegister recordCodecSoFar) =
     let
         newFieldIndex =
@@ -840,7 +840,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
 
 {-| Not exposed - for all `writable` functions
 -}
-writableHelper : FieldIdentifier -> (full -> RW fieldType) -> Codec fieldSeed o fieldType -> FieldFallback parentSeed fieldSeed fieldType -> Bool -> PartialRegister parentSeed full (RW fieldType -> remaining) -> PartialRegister parentSeed full remaining
+writableHelper : FieldIdentifier -> (full -> RW fieldType) -> Codec fieldSeed o fieldType -> Fallback parentSeed fieldSeed fieldType -> Bool -> PartialRegister parentSeed full (RW fieldType -> remaining) -> PartialRegister parentSeed full remaining
 writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback isDelayable (PartialRegister recordCodecSoFar) =
     let
         newFieldIndex =
@@ -961,7 +961,7 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback isDelaya
         }
 
 
-fieldDefaultMaybe : FieldFallback parentSeed fieldSeed fieldType -> Maybe fieldType
+fieldDefaultMaybe : Fallback parentSeed fieldSeed fieldType -> Maybe fieldType
 fieldDefaultMaybe fallback =
     case fallback of
         HardcodedDefault default ->

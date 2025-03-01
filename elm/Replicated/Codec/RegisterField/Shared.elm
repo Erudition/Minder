@@ -17,7 +17,7 @@ type alias FieldValue =
     String
 
 
-type FieldFallback parentSeed fieldSeed fieldType
+type Fallback parentSeed fieldSeed fieldType
     = HardcodedDefault fieldType
     | PlaceholderDefault fieldSeed
     | InitWithParentSeed (parentSeed -> fieldSeed)

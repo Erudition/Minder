@@ -22,9 +22,10 @@ import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, Com
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
-import Replicated.Codec.Json.Decoder as JsonDecoder exposing (WrappedJsonDecoder)
+import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
+import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
@@ -72,7 +73,7 @@ type Output
 
 {-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded.
 -}
-newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> FieldFallback parentSeed fieldSeed fieldType -> Codec fieldSeed o fieldType -> (RegisterFieldEncoder.Inputs fieldType -> RegisterFieldEncoder.Output)
+newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> Fallback parentSeed fieldSeed fieldType -> Codec fieldSeed o fieldType -> (RegisterFieldEncoder.Inputs fieldType -> RegisterFieldEncoder.Output)
 newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldCodec { mode, node, regPointer, history, existingValMaybe } =
     let
         regAsParent =

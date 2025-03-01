@@ -1,4 +1,4 @@
-module Replicated.Codec.Base exposing (NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, buildCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, lazy, makeOpaque, map, mapError, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
+module Replicated.Codec.Base exposing (NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, lazy, makeOpaque, map, mapError, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
 
 {-| Internal-only module defining the base of a Codec.
 Only the aliases are exposed.
@@ -220,23 +220,23 @@ map fromAtoB fromBtoA codec =
         wrappedNodeDecoder inputs =
             getNodeDecoder codec inputs |> JD.map fromResultData
 
-        wrappedInitializer : InitializerInputs b -> b
+        wrappedInitializer : Initializer.Inputs b -> b
         wrappedInitializer inputs =
-            getInitializer codec (InitializerInputs inputs.parent inputs.position (fromBtoA inputs.seed))
+            getInitializer codec (Initializer.Inputs inputs.parent inputs.position (fromBtoA inputs.seed))
                 |> fromAtoB
 
-        mapNodeEncoderInputs : NodeEncoderInputs b -> NodeEncoderInputs a
+        mapNodeEncoderInputs : NodeEncoder.Inputs b -> NodeEncoder.Inputs a
         mapNodeEncoderInputs inputs =
-            NodeEncoderInputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
+            NodeEncoder.Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
 
-        mapThingToEncode : ThingToEncode b -> ThingToEncode a
+        mapThingToEncode : NodeEncoder.ThingToEncode b -> NodeEncoder.ThingToEncode a
         mapThingToEncode original =
             case original of
-                EncodeThis a ->
-                    EncodeThis (fromBtoA a)
+                NodeEncoder.EncodeThis a ->
+                    NodeEncoder.EncodeThis (fromBtoA a)
 
-                EncodeObjectOrThis objectIDs fieldVal ->
-                    EncodeObjectOrThis objectIDs (fromBtoA fieldVal)
+                NodeEncoder.EncodeObjectOrThis objectIDs fieldVal ->
+                    NodeEncoder.EncodeObjectOrThis objectIDs (fromBtoA fieldVal)
     in
     Codec
         { bytesEncoder = \v -> fromBtoA v |> getBytesEncoder codec
@@ -267,23 +267,23 @@ makeOpaque fromAtoB fromBtoA codec =
         wrappedNodeDecoder inputs =
             getNodeDecoder codec inputs |> JD.map fromResultData
 
-        wrappedInitializer : InitializerInputs i -> b
+        wrappedInitializer : Initializer.Inputs i -> b
         wrappedInitializer inputs =
-            getInitializer codec (InitializerInputs inputs.parent inputs.position inputs.seed)
+            getInitializer codec (Initializer.Inputs inputs.parent inputs.position inputs.seed)
                 |> fromAtoB
 
-        mapNodeEncoderInputs : NodeEncoderInputs b -> NodeEncoderInputs a
+        mapNodeEncoderInputs : NodeEncoder.Inputs b -> NodeEncoder.Inputs a
         mapNodeEncoderInputs inputs =
-            NodeEncoderInputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
+            NodeEncoder.Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
 
-        mapThingToEncode : ThingToEncode b -> ThingToEncode a
+        mapThingToEncode : NodeEncoder.ThingToEncode b -> NodeEncoder.ThingToEncode a
         mapThingToEncode original =
             case original of
-                EncodeThis a ->
-                    EncodeThis (fromBtoA a)
+                NodeEncoder.EncodeThis a ->
+                    NodeEncoder.EncodeThis (fromBtoA a)
 
-                EncodeObjectOrThis objectIDs fieldVal ->
-                    EncodeObjectOrThis objectIDs (fromBtoA fieldVal)
+                NodeEncoder.EncodeObjectOrThis objectIDs fieldVal ->
+                    NodeEncoder.EncodeObjectOrThis objectIDs (fromBtoA fieldVal)
     in
     Codec
         { bytesEncoder = \v -> fromBtoA v |> getBytesEncoder codec
@@ -303,14 +303,14 @@ makeOpaque fromAtoB fromBtoA codec =
 --         wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result (RepDecodeError) b)
 --         wrappedNodeDecoder inputs =
 --             getNodeDecoder codec inputs |> JD.map fromResultAtoResultB
---         wrappedInitializer : InitializerInputs b -> b
+--         wrappedInitializer : Initializer.Inputs b -> b
 --         wrappedInitializer inputs =
---             getInitializer codec (InitializerInputs inputs.parent inputs.position (fromBtoA inputs.seed))
+--             getInitializer codec (Initializer.Inputs inputs.parent inputs.position (fromBtoA inputs.seed))
 --             |> fromAtoB
---         mapNodeEncoderInputs : NodeEncoderInputs b -> NodeEncoderInputs a
+--         mapNodeEncoderInputs : NodeEncoder.Inputs b -> NodeEncoder.Inputs a
 --         mapNodeEncoderInputs inputs =
---             NodeEncoderInputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
---         mapThingToEncode : ThingToEncode b -> ThingToEncode a
+--             NodeEncoder.Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
+--         mapThingToEncode : NodeEncoder.ThingToEncode b -> NodeEncoder.ThingToEncode a
 --         mapThingToEncode original =
 --             case original of
 --                 EncodeThis a ->
@@ -363,18 +363,18 @@ mapValid fromBytes_ toBytes_ codec =
         wrappedNodeDecoder inputs =
             getNodeDecoder codec inputs |> JD.map wrapCustomError
 
-        mapNodeEncoderInputs : NodeEncoderInputs b -> NodeEncoderInputs a
+        mapNodeEncoderInputs : NodeEncoder.Inputs b -> NodeEncoder.Inputs a
         mapNodeEncoderInputs inputs =
-            NodeEncoderInputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
+            NodeEncoder.Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
 
-        mapThingToEncode : ThingToEncode b -> ThingToEncode a
+        mapThingToEncode : NodeEncoder.ThingToEncode b -> NodeEncoder.ThingToEncode a
         mapThingToEncode original =
             case original of
-                EncodeThis a ->
-                    EncodeThis (toBytes_ a)
+                NodeEncoder.EncodeThis a ->
+                    NodeEncoder.EncodeThis (toBytes_ a)
 
-                EncodeObjectOrThis objectIDs fieldVal ->
-                    EncodeObjectOrThis objectIDs (toBytes_ fieldVal)
+                NodeEncoder.EncodeObjectOrThis objectIDs fieldVal ->
+                    NodeEncoder.EncodeObjectOrThis objectIDs (toBytes_ fieldVal)
 
         wrapCustomError value =
             case value of
@@ -408,13 +408,14 @@ mapError mapFunc codec =
         wrappedNodeDecoder inputs =
             getNodeDecoder codec inputs |> JD.map mapFunc
     in
-    buildCodec
-        (getBytesEncoder codec)
-        (getBytesDecoder codec |> BD.map mapFunc)
-        (getJsonEncoder codec)
-        (getJsonDecoder codec |> JD.map mapFunc)
-        (getNodeEncoder codec)
-        wrappedNodeDecoder
+    { bytesEncoder = getBytesEncoder codec
+    , bytesDecoder = getBytesDecoder codec |> BD.map mapFunc
+    , jsonEncoder = getJsonEncoder codec
+    , jsonDecoder = getJsonDecoder codec |> JD.map mapFunc
+    , nodeEncoder = getNodeEncoder codec
+    , nodeDecoder = wrappedNodeDecoder
+    , nodePlaceholder = Initializer.flatInit
+    }
 
 
 lazy : (() -> Codec s o a) -> Codec s o a

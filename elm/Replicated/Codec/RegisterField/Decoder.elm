@@ -22,9 +22,10 @@ import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, Com
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
-import Replicated.Codec.Json.Decoder as JsonDecoder exposing (WrappedJsonDecoder)
+import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
+import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
@@ -54,7 +55,7 @@ type alias RegisterFieldDecoderInputs =
 
 {-| RON what to do when decoding a (potentially nested!) object field.
 -}
-registerReadOnlyFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Codec fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe fieldType, List RepDecodeError )
+registerReadOnlyFieldDecoder : Int -> ( FieldSlot, FieldName ) -> Fallback parentSeed fieldSeed fieldType -> Codec fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe fieldType, List RepDecodeError )
 registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback fieldCodec inputs =
     let
         regAsParent =
@@ -105,7 +106,7 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
                     ( default, [ FailedToDecodeRegField fieldSlot fieldName (Op.payloadToJsonValue foundField |> JE.encode 0) jsonDecodeError ] )
 
 
-registerWritableFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Bool -> Codec fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe (RW fieldType), List RepDecodeError )
+registerWritableFieldDecoder : Int -> ( FieldSlot, FieldName ) -> Fallback parentSeed fieldSeed fieldType -> Bool -> Codec fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe (RW fieldType), List RepDecodeError )
 registerWritableFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback isDelayable fieldCodec inputs =
     let
         regAsParent =
