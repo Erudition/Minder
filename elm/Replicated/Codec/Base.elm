@@ -1,4 +1,4 @@
-module Replicated.Codec.Base exposing (NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, buildCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, makeOpaque, map, mapError, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
+module Replicated.Codec.Base exposing (NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, buildCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, lazy, makeOpaque, map, mapError, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
 
 {-| Internal-only module defining the base of a Codec.
 Only the aliases are exposed.
@@ -415,6 +415,28 @@ mapError mapFunc codec =
         (getJsonDecoder codec |> JD.map mapFunc)
         (getNodeEncoder codec)
         wrappedNodeDecoder
+
+
+lazy : (() -> Codec s o a) -> Codec s o a
+lazy f =
+    let
+        lazyNodeDecoder : NodeDecoderInputs a -> JD.Decoder (Result RepDecodeError a)
+        lazyNodeDecoder inputs =
+            JD.succeed () |> JD.andThen (\() -> getNodeDecoder (f ()) inputs)
+
+        lazyNodeEncoder : NodeEncoder a o
+        lazyNodeEncoder inputs =
+            getNodeEncoder (f ()) inputs
+    in
+    Codec
+        { bytesEncoder = \value -> getBytesEncoder (f ()) value
+        , bytesDecoder = BD.succeed () |> BD.andThen (\() -> getBytesDecoder (f ()))
+        , jsonEncoder = \value -> getJsonEncoder (f ()) value
+        , jsonDecoder = JD.succeed () |> JD.andThen (\() -> getJsonDecoder (f ()))
+        , nodeEncoder = lazyNodeEncoder
+        , nodeDecoder = lazyNodeDecoder
+        , nodePlaceholder = \inputs -> getInitializer (f ()) inputs
+        }
 
 
 

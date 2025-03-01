@@ -1,4 +1,4 @@
-module Replicated.Codec.Json.Decoder exposing (..)
+module Replicated.Codec.Json.Decoder exposing (JsonDecoder, prepRonAtomForLegacyDecoder)
 
 {-| Wrapper for whatever Json decoding library is currently chosen.
 -}
@@ -27,3 +27,13 @@ import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 
 type alias JsonDecoder a =
     Json.Decode.Decoder (Result RepDecodeError a)
+
+
+prepRonAtomForLegacyDecoder : String -> String
+prepRonAtomForLegacyDecoder inputString =
+    case String.startsWith ">" inputString of
+        True ->
+            "\"" ++ String.dropLeft 1 (String.dropRight 1 inputString) ++ "\""
+
+        False ->
+            inputString

@@ -50,3 +50,106 @@ type alias RegisterFieldDecoderInputs =
     , history : FieldHistoryDict
     , cutoff : Maybe Moment
     }
+
+
+{-| RON what to do when decoding a (potentially nested!) object field.
+-}
+registerReadOnlyFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Codec fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe fieldType, List RepDecodeError )
+registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback fieldCodec inputs =
+    let
+        regAsParent =
+            Change.becomeDelayedParent inputs.regPointer (updateRegisterPostChildInit inputs.regPointer fieldIdentifier)
+
+        position =
+            Location.new (fieldLocationLabel fieldName fieldSlot) index
+
+        runFieldDecoder thingToDecode =
+            JD.decodeValue
+                (getNodeDecoder fieldCodec
+                    { node = inputs.node, position = position, parent = regAsParent, cutoff = inputs.cutoff }
+                )
+                thingToDecode
+
+        generatedDefaultMaybe =
+            case fallback of
+                PlaceholderDefault fieldSeed ->
+                    Just <| getInitializer fieldCodec { parent = regAsParent, seed = fieldSeed, position = position }
+
+                _ ->
+                    Nothing
+
+        default =
+            Maybe.Extra.or (fieldDefaultMaybe fallback) generatedDefaultMaybe
+    in
+    case getFieldLatestOnly inputs.history fieldIdentifier of
+        Nothing ->
+            -- field was never set - fall back to default
+            case default of
+                Just _ ->
+                    ( default, [] )
+
+                Nothing ->
+                    Log.crashInDev ("registerReadOnlyFieldDecoder: Failed to decode a field (" ++ fieldName ++ ") that should always decode (required missing, or nested should return defaults), there's no default to fall back to")
+                        ( default, [ MissingRequiredField fieldSlot fieldName ] )
+
+        Just foundField ->
+            -- field was set before
+            case runFieldDecoder (Op.payloadToJsonValue foundField) of
+                Ok (Ok goodValue) ->
+                    ( Just goodValue, [] )
+
+                Ok (Err problem) ->
+                    ( default, [ problem ] )
+
+                Err jsonDecodeError ->
+                    ( default, [ FailedToDecodeRegField fieldSlot fieldName (Op.payloadToJsonValue foundField |> JE.encode 0) jsonDecodeError ] )
+
+
+registerWritableFieldDecoder : Int -> ( FieldSlot, FieldName ) -> FieldFallback parentSeed fieldSeed fieldType -> Bool -> Codec fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe (RW fieldType), List RepDecodeError )
+registerWritableFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier) fallback isDelayable fieldCodec inputs =
+    let
+        regAsParent =
+            if isDelayable then
+                Change.becomeDelayedParent inputs.regPointer (updateRegisterPostChildInit inputs.regPointer ( fieldSlot, fieldName ))
+
+            else
+                Change.becomeInstantParent inputs.regPointer
+
+        fieldEncoder newValue =
+            getNodeEncoder fieldCodec
+                { node = inputs.node
+                , mode = defaultEncodeMode
+                , thingToEncode = EncodeThis newValue
+                , parent = regAsParent
+                , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
+                }
+
+        wrapRW : Change.Pointer -> fieldType -> RW fieldType
+        wrapRW targetObject head =
+            buildRW targetObject fieldIdentifier fieldEncoder head
+    in
+    case registerReadOnlyFieldDecoder index fieldIdentifier fallback fieldCodec inputs of
+        ( Just thingToWrap, errorsSoFar ) ->
+            ( Just (wrapRW inputs.regPointer thingToWrap), errorsSoFar )
+
+        ( previousShowstopper, errorsSoFar ) ->
+            ( Nothing, errorsSoFar )
+
+
+
+-- HELPERS
+
+
+extractFieldEventFromObjectPayload : Object.EventPayload -> Result String ( FieldIdentifier, FieldPayload )
+extractFieldEventFromObjectPayload payload =
+    case payload of
+        (Op.IntegerAtom fieldSlot) :: (Op.NakedStringAtom fieldName) :: rest ->
+            case rest of
+                [] ->
+                    Err <| "Register: Missing payload for field " ++ fieldName
+
+                head :: tail ->
+                    Ok ( ( fieldSlot, fieldName ), Nonempty head tail )
+
+        badList ->
+            Err ("Register: Failed to extract field slot, field name, event payload from the given op payload because the value list is supposed to have 3+ elements and I found " ++ String.fromInt (List.length badList))

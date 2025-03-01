@@ -1,4 +1,4 @@
-module Replicated.Codec.Node.Decoder exposing (NodeDecoder, NodeDecoderInputs, NodeDecoderInputsNoVariable, emptyObSubs, primitive, reuseOldIfUnchanged)
+module Replicated.Codec.Node.Decoder exposing (NodeDecoder, NodeDecoderInputs, NodeDecoderInputsNoVariable, concurrentObjectIDsDecoder, emptyObSubs, primitive, reuseOldIfUnchanged)
 
 import Array exposing (Array)
 import Base64
@@ -106,3 +106,33 @@ reuseOldIfUnchanged oldMaybe getPointer changedObjectIDList fallbackDecoder =
 
         _ ->
             fallbackDecoder
+
+
+concurrentObjectIDsDecoder : JD.Decoder (List OpID.ObjectID)
+concurrentObjectIDsDecoder =
+    let
+        try givenString =
+            case OpID.fromString (unquoteObjectID givenString) of
+                Just opID ->
+                    JD.succeed opID
+
+                Nothing ->
+                    Log.log ("Codec.concurrentObjectIDsDecoder warning: got bad opID: " ++ givenString) <|
+                        JD.fail (givenString ++ " is not a valid OpID...")
+
+        unquoteObjectID quoted =
+            case String.startsWith ">" quoted of
+                True ->
+                    String.dropLeft 1 quoted
+
+                False ->
+                    quoted
+
+        quotedObjectDecoder =
+            JD.andThen try JD.string
+    in
+    JD.oneOf
+        [ JD.list quotedObjectDecoder
+        , JD.map List.singleton quotedObjectDecoder
+        , JD.succeed [] -- TODO this may swallow errors.. currently needed to allow blank objects to initialize
+        ]
