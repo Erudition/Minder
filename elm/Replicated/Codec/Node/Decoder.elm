@@ -1,4 +1,4 @@
-module Replicated.Codec.NodeDecoder exposing (NodeDecoder, NodeDecoderInputs, NodeDecoderInputsNoVariable, primitive)
+module Replicated.Codec.Node.Decoder exposing (NodeDecoder, NodeDecoderInputs, NodeDecoderInputsNoVariable, emptyObSubs, primitive, reuseOldIfUnchanged)
 
 import Array exposing (Array)
 import Base64
@@ -21,11 +21,11 @@ import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.Error exposing (RepDecodeError(..))
-import Replicated.Codec.JsonDecoder as JsonDecoder exposing (JsonDecoder)
+import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
-import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
+import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OpIDSortable, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Reducer.Register as Reg exposing (..)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
@@ -38,7 +38,7 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 
 type alias NodeDecoder a =
-    NodeDecoderInputs a -> RonPayloadDecoder a
+    NodeDecoderInputs a -> NodeDecoderOutput a
 
 
 type alias NodeDecoderInputs t =
@@ -48,6 +48,12 @@ type alias NodeDecoderInputs t =
     , cutoff : Maybe Moment
     , oldMaybe : Maybe t
     , changedObjectIDs : List ObjectID
+    }
+
+
+type alias NodeDecoderOutput t =
+    { decoder : RonPayloadDecoder t
+    , obSubs : ObSubs
     }
 
 
@@ -61,4 +67,42 @@ type alias NodeDecoderInputsNoVariable =
 
 primitive : RonPayloadDecoder a -> NodeDecoder a
 primitive ronDecoder =
-    \_ -> ronDecoder
+    \_ ->
+        { decoder = ronDecoder
+        , obSubs = emptyObSubs
+        }
+
+
+type alias ObSubs =
+    AnyDict OpIDSortable ObjectID (List ObjectID)
+
+
+emptyObSubs : ObSubs
+emptyObSubs =
+    AnyDict.empty OpID.toSortablePrimitives
+
+
+
+-- HELPERS
+
+
+{-| Allows reptypes to lazily skip their decoders if their objectIDs were not listed as changed. Pass the Maybe reptype and the reptype's pointer getter.
+-}
+reuseOldIfUnchanged : Maybe a -> (a -> Pointer) -> List ObjectID -> JD.Decoder (Result RepDecodeError a) -> JD.Decoder (Result RepDecodeError a)
+reuseOldIfUnchanged oldMaybe getPointer changedObjectIDList fallbackDecoder =
+    case ( oldMaybe, changedObjectIDList ) of
+        ( Just old, [ _ ] ) ->
+            case getPointer old of
+                ExistingObjectPointer { object } ->
+                    -- an old copy of the reptype exists and we have its objectID, we can check if it's unchanged.
+                    if List.member object changedObjectIDList then
+                        JD.succeed (Ok old)
+
+                    else
+                        fallbackDecoder
+
+                _ ->
+                    fallbackDecoder
+
+        _ ->
+            fallbackDecoder

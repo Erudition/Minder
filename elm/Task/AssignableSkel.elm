@@ -60,7 +60,7 @@ type alias AssignableSkel =
 
 create : String -> Changer (Reg AssignableSkel) -> Creator (Reg AssignableSkel)
 create title changer c =
-    Codec.seededNewWithChanges codec c title changer
+    Codec.newWithSeedAndChanges codec c title changer
 
 
 codec : Codec String ( String, Changer (Reg AssignableSkel) ) Codec.SoloObject (Reg AssignableSkel)

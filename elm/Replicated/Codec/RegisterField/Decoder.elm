@@ -1,4 +1,4 @@
-module Replicated.Codec.BytesDecoder exposing (..)
+module Replicated.Codec.RegisterField.Decoder exposing (RegisterFieldDecoder)
 
 import Array exposing (Array)
 import Base64
@@ -20,7 +20,12 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Codec.Error exposing (RepDecodeError(..))
+import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
+import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
+import Replicated.Codec.Json.Decoder as JsonDecoder exposing (WrappedJsonDecoder)
+import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
+import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
+import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
@@ -35,5 +40,13 @@ import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 
-type BytesDecoder a
-    = BytesDecoder (BD.Decoder (Result RepDecodeError a))
+type alias RegisterFieldDecoder remaining =
+    RegisterFieldDecoderInputs -> ( Maybe remaining, List RepDecodeError )
+
+
+type alias RegisterFieldDecoderInputs =
+    { node : Node
+    , regPointer : Pointer
+    , history : FieldHistoryDict
+    , cutoff : Maybe Moment
+    }

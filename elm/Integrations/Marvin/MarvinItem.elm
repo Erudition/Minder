@@ -861,11 +861,11 @@ marvinTimeBlockToDocketTimeBlock profile assignments marvinBlock =
                     Just ( marvinLabelID, Activity.getID activity )
 
         buildWithActivity activityFound context =
-            Codec.seededNew TimeBlock.codec context <|
+            Codec.newWithSeed TimeBlock.codec context <|
                 TimeBlock.TimeBlockSeed (TimeBlock.Activity activityFound) marvinBlock.date marvinBlock.time marvinBlock.duration
 
         buildWithTag tag context =
-            Codec.seededNew TimeBlock.codec context <|
+            Codec.newWithSeed TimeBlock.codec context <|
                 TimeBlock.TimeBlockSeed (TimeBlock.Tag tag) marvinBlock.date marvinBlock.time marvinBlock.duration
 
         logBad =

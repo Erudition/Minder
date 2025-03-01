@@ -191,7 +191,7 @@ switchTracking : Moment -> TimeTrackable -> RepList HistorySession -> List Chang
 switchTracking now trackable timelineRepList =
     let
         newSession context =
-            Codec.seededNew codec
+            Codec.newWithSeed codec
                 context
                 { started = now
                 , endedMaybe = Nothing

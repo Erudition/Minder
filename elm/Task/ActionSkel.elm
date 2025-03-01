@@ -54,7 +54,7 @@ type alias ActionID =
 
 newActionSkel : Context (Reg ActionSkel) -> String -> Changer (Reg ActionSkel) -> Reg ActionSkel
 newActionSkel c title changer =
-    Codec.seededNewWithChanges codec c title changer
+    Codec.newWithSeedAndChanges codec c title changer
 
 
 codec : Codec String ( String, Changer (Reg ActionSkel) ) Codec.SoloObject (Reg ActionSkel)

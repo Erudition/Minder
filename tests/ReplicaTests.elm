@@ -533,7 +533,7 @@ nodeWithModifiedNestedStressTest =
                     Codec.newWithChanges writableObjectCodec c woChanges
 
                 newKidsList p =
-                    SomeOfBoth (Codec.newN 1 (Codec.repList exampleSubObjectCodec) p) (Codec.newN 2 (Codec.repList exampleSubObjectCodec) p)
+                    SomeOfBoth (Codec.newUnique 1 (Codec.repList exampleSubObjectCodec) p) (Codec.newUnique 2 (Codec.repList exampleSubObjectCodec) p)
 
                 applied =
                     Node.applyChanges Nothing startNode (Change.saveUserChanges "modifying the nested stress test" changes)
