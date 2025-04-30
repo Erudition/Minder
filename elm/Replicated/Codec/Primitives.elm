@@ -351,11 +351,11 @@ bytes =
                 ]
         )
         (BD.unsignedInt32 BytesEncoder.endian |> BD.andThen (\length -> BD.bytes length |> BD.map Ok))
-        (replaceBase64Chars >> JE.string)
+        (BytesEncoder.replaceBase64Chars >> JE.string)
         (JD.string
             |> JD.map
                 (\text ->
-                    case decodeStringToBytes text of
+                    case BytesDecoder.decodeStringToBytes text of
                         Just bytes_ ->
                             Ok bytes_
 
@@ -363,12 +363,12 @@ bytes =
                             Err (BadByteString text)
                 )
         )
-        (\inputs -> singlePrimitiveOut <| Change.StringAtom <| replaceBase64Chars <| getEncodedPrimitive inputs.thingToEncode)
+        (\inputs -> NodeEncoder.singlePrimitiveOut <| Change.StringAtom <| BytesEncoder.replaceBase64Chars <| NodeEncoder.getEncodedPrimitive inputs.thingToEncode)
         (\_ ->
             JD.string
                 |> JD.map
                     (\text ->
-                        case decodeStringToBytes text of
+                        case BytesDecoder.decodeStringToBytes text of
                             Just bytes_ ->
                                 Ok bytes_
 
@@ -385,7 +385,7 @@ byte =
         (BD.unsignedInt8 |> BD.map Ok)
         (modBy 256 >> JE.int)
         (JD.int |> JD.map Ok)
-        (\{ thingToEncode } -> singlePrimitiveOut <| Change.IntegerAtom <| modBy 256 <| getEncodedPrimitive thingToEncode)
+        (\{ thingToEncode } -> NodeEncoder.singlePrimitiveOut <| Change.IntegerAtom <| modBy 256 <| NodeEncoder.getEncodedPrimitive thingToEncode)
         (\_ -> JD.int |> JD.map Ok)
 
 
@@ -416,13 +416,13 @@ quickEnum defaultItem items =
             else
                 getAt (index - 1) items |> Maybe.withDefault defaultItem |> Ok
 
-        intNodeEncoder : NodeEncoder a Primitive
+        intNodeEncoder : NodeEncoder a NodeEncoder.Primitive
         intNodeEncoder { thingToEncode } =
-            singlePrimitiveOut <| Change.IntegerAtom <| getIndex <| getEncodedPrimitive <| thingToEncode
+            NodeEncoder.singlePrimitiveOut <| Change.IntegerAtom <| getIndex <| NodeEncoder.getEncodedPrimitive <| thingToEncode
     in
     buildCodec
-        (getIndex >> BE.unsignedInt32 endian)
-        (BD.unsignedInt32 endian |> BD.map getItem)
+        (getIndex >> BE.unsignedInt32 BytesEncoder.endian)
+        (BD.unsignedInt32 BytesEncoder.endian |> BD.map getItem)
         (getIndex >> JE.int)
         (JD.int |> JD.map getItem)
         intNodeEncoder
@@ -459,7 +459,7 @@ todo bogusValue =
         , bytesDecoder = BD.fail
         , jsonEncoder = \_ -> JE.null
         , jsonDecoder = JD.fail "TODO"
-        , nodeEncoder = \_ -> singlePrimitiveOut <| Change.StringAtom "TODO"
+        , nodeEncoder = \_ -> NodeEncoder.singlePrimitiveOut <| Change.StringAtom "TODO"
         , nodeDecoder = \_ -> JD.fail "TODO"
         , nodePlaceholder = \_ -> bogusValue
         }

@@ -319,38 +319,7 @@ decodeFromJson codec json =
 
 decodeStringToBytes : String -> Maybe Bytes.Bytes
 decodeStringToBytes base64text =
-    let
-        replaceChar rematch =
-            case rematch.match of
-                "-" ->
-                    "+"
-
-                _ ->
-                    "/"
-
-        strlen =
-            String.length base64text
-
-        replaceFromUrl : Regex
-        replaceFromUrl =
-            Regex.fromString "[-_]" |> Maybe.withDefault Regex.never
-    in
-    if strlen == 0 then
-        BE.encode (BE.sequence []) |> Just
-
-    else
-        let
-            hanging =
-                modBy 4 strlen
-
-            ilen =
-                if hanging == 0 then
-                    0
-
-                else
-                    4 - hanging
-        in
-        Regex.replace replaceFromUrl replaceChar (base64text ++ String.repeat ilen "=") |> Base64.toBytes
+    BytesDecoder.decodeStringToBytes base64text
 
 
 

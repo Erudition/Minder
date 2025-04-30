@@ -11,6 +11,7 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Replicated.Change as Change exposing (Change, Changer)
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Object as Object
@@ -65,16 +66,13 @@ getContext (Register register) _ =
     Change.Context (Location.newSingle "RegLateFieldInit") (Change.becomeInstantParent register.pointer)
 
 
-type alias FieldIdentifier =
-    ( FieldSlot, FieldName )
 
-
-type alias FieldName =
-    String
-
-
-type alias FieldSlot =
-    Int
+-- type alias FieldIdentifier =
+--     ( FieldSlot, FieldName )
+-- type alias FieldName =
+--     String
+-- type alias FieldSlot =
+--     Int
 
 
 type alias RW fieldVal =

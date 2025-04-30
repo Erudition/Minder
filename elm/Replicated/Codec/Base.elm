@@ -1,4 +1,4 @@
-module Replicated.Codec.Base exposing (Codec, NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, lazy, makeOpaque, map, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
+module Replicated.Codec.Base exposing (Codec(..), NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, lazy, makeOpaque, map, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
 
 {-| Internal-only module defining the base of a Codec.
 Only the aliases are exposed.

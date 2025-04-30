@@ -20,6 +20,7 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Codec.Base as Base exposing (Codec(..))
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
@@ -73,7 +74,7 @@ type Output
 
 {-| Adds an item to the list of replica encoders, for encoding a single Register field into an Op, if applicable. This field may contain further nested fields which also are encoded.
 -}
-newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> Fallback parentSeed fieldSeed fieldType -> Codec fieldSeed o fieldType -> (RegisterFieldEncoder.Inputs fieldType -> RegisterFieldEncoder.Output)
+newRegisterFieldEncoderEntry : Int -> FieldIdentifier -> Fallback parentSeed fieldSeed fieldType -> Codec fieldSeed o fieldType -> (Inputs fieldType -> Output)
 newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldCodec { mode, node, regPointer, history, existingValMaybe } =
     let
         regAsParent =
