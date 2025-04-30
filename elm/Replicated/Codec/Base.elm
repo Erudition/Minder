@@ -1,4 +1,4 @@
-module Replicated.Codec.Base exposing (NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, lazy, makeOpaque, map, mapError, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
+module Replicated.Codec.Base exposing (Codec, NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, lazy, makeOpaque, map, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
 
 {-| Internal-only module defining the base of a Codec.
 Only the aliases are exposed.
@@ -30,7 +30,7 @@ import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Initializer as Initializer exposing (Initializer)
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.Json.Encoder as JsonEncoder exposing (JsonEncoder)
-import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
+import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
@@ -222,146 +222,46 @@ makeOpaque fromAtoB fromBtoA codec =
         }
 
 
-
--- mapHelper : (Result (RepDecodeError) a -> Result (RepDecodeError) b) -> (b -> a) -> Codec e a o a -> Codec e b o b
--- mapHelper fromResultAtoResultB fromBtoA codec =
---     let
---         wrappedNodeDecoder : NodeDecoderInputs -> JD.Decoder (Result (RepDecodeError) b)
---         wrappedNodeDecoder inputs =
---             getNodeDecoder codec inputs |> JD.map fromResultAtoResultB
---         wrappedInitializer : Initializer.Inputs b -> b
---         wrappedInitializer inputs =
---             getInitializer codec (Initializer.Inputs inputs.parent inputs.position (fromBtoA inputs.seed))
---             |> fromAtoB
---         mapNodeEncoderInputs : NodeEncoder.Inputs b -> NodeEncoder.Inputs a
---         mapNodeEncoderInputs inputs =
---             NodeEncoder.Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
---         mapThingToEncode : NodeEncoder.ThingToEncode b -> NodeEncoder.ThingToEncode a
---         mapThingToEncode original =
---             case original of
---                 EncodeThis a ->
---                     EncodeThis (fromBtoA a)
---                 EncodeObjectOrThis objectIDs fieldVal ->
---                     EncodeObjectOrThis objectIDs (fromBtoA fieldVal)
---     in
---     Codec
---     { bytesEncoder = \v -> fromBtoA v |> getBytesEncoder codec
---     , bytesDecoder = getBytesDecoder codec |> BD.map fromResultAtoResultB
---     , jsonEncoder = \v -> fromBtoA v |> getJsonEncoder codec
---     , jsonDecoder = getJsonDecoder codec |> JD.map fromResultAtoResultB
---     , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec
---     , nodeDecoder = wrappedNodeDecoder
---     , init = wrappedInitializer
---     }
-
-
 {-| Map from one codec to another codec in a way that can potentially fail when decoding.
 
-    -- Email module is from https://package.elm-lang.org/packages/tricycle/elm-email/1.0.2/
-
-
-    import Email
-    import Serialize as S
-
-    emailCodec : S.Codec String Float
-    emailCodec =
-        S.string
-            |> S.mapValid
-                (\text ->
-                    case Email.fromString text of
-                        Just email ->
-                            Ok email
-
-                        Nothing ->
-                            Err "Invalid email"
-                )
-                Email.toString
-
-Note that there's nothing preventing you from encoding Elm values that will produce Err when you decode them.
-I recommend writing tests for Codecs that use `mapValid` to make sure you get back the same Elm value you put in.
-[Here's some helper functions to get you started.](https://github.com/MartinSStewart/elm-geometry-serialize/blob/6f2244c28631ede1b864cb43541d1573dc628904/tests/Tests.elm#L49-L74)
+You can provide your own custom error string, which can be decoded later.
 
 -}
-mapValid : (a -> Result e b) -> (b -> a) -> SelfSeededCodec o a -> SelfSeededCodec o b
-mapValid fromBytes_ toBytes_ codec =
-    let
-        wrappedNodeDecoder : NodeDecoderInputs b -> JD.Decoder (Result RepDecodeError b)
-        wrappedNodeDecoder inputs =
-            getNodeDecoder codec inputs |> JD.map wrapCustomError
-
-        mapNodeEncoderInputs : NodeEncoder.Inputs b -> NodeEncoder.Inputs a
-        mapNodeEncoderInputs inputs =
-            NodeEncoder.Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
-
-        mapThingToEncode : NodeEncoder.ThingToEncode b -> NodeEncoder.ThingToEncode a
-        mapThingToEncode original =
-            case original of
-                NodeEncoder.EncodeThis a ->
-                    NodeEncoder.EncodeThis (toBytes_ a)
-
-                NodeEncoder.EncodeObjectOrThis objectIDs fieldVal ->
-                    NodeEncoder.EncodeObjectOrThis objectIDs (toBytes_ fieldVal)
-
-        wrapCustomError value =
-            case value of
-                Ok ok ->
-                    fromBytes_ ok |> Result.mapError CustomError
-
-                Err err ->
-                    Err err
-    in
+mapValid : (a -> Result Error.CustomError b) -> (b -> a) -> SelfSeededCodec o a -> SelfSeededCodec o b
+mapValid fromAtoBResult fromBtoA codec =
+    -- Codec
+    --     { bytesEncoder = \v -> toBytes_ v |> getBytesEncoder codec
+    --     , bytesDecoder =
+    --         getBytesDecoder codec
+    --             |> BD.map wrapCustomError
+    --     , jsonEncoder = \v -> toBytes_ v |> getJsonEncoder codec
+    --     , jsonDecoder =
+    --         getJsonDecoder codec
+    --             |> JD.map wrapCustomError
+    --     , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec
+    --     , nodeDecoder = wrappedNodeDecoder
+    --     , nodePlaceholder = Initializer.flatInit -- required, cant't have initializer returning an error
+    --     }
     Codec
-        { bytesEncoder = \v -> toBytes_ v |> getBytesEncoder codec
-        , bytesDecoder =
-            getBytesDecoder codec
-                |> BD.map wrapCustomError
-        , jsonEncoder = \v -> toBytes_ v |> getJsonEncoder codec
-        , jsonDecoder =
-            getJsonDecoder codec
-                |> JD.map wrapCustomError
-        , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec
-        , nodeDecoder = wrappedNodeDecoder
+        { bytesEncoder = BytesEncoder.map fromBtoA (getBytesEncoder codec)
+        , bytesDecoder = BytesDecoder.mapTry fromAtoBResult (getBytesDecoder codec)
+        , jsonEncoder = JsonEncoder.map fromBtoA (getJsonEncoder codec)
+        , jsonDecoder = JsonDecoder.mapTry fromAtoBResult (getJsonDecoder codec)
+        , nodeEncoder = NodeEncoder.map fromBtoA (getNodeEncoder codec)
+        , nodeDecoder = NodeDecoder.mapTry fromAtoBResult fromBtoA (getNodeDecoder codec)
         , nodePlaceholder = Initializer.flatInit -- required, cant't have initializer returning an error
         }
 
 
-{-| Map errors generated by `mapValid`.
--}
-mapError : (e1 -> e2) -> PrimitiveCodec a -> PrimitiveCodec a
-mapError mapFunc codec =
-    let
-        wrappedNodeDecoder : NodeDecoderInputs a -> JD.Decoder (Result RepDecodeError a)
-        wrappedNodeDecoder inputs =
-            getNodeDecoder codec inputs |> JD.map mapFunc
-    in
-    { bytesEncoder = getBytesEncoder codec
-    , bytesDecoder = getBytesDecoder codec |> BD.map mapFunc
-    , jsonEncoder = getJsonEncoder codec
-    , jsonDecoder = getJsonDecoder codec |> JD.map mapFunc
-    , nodeEncoder = getNodeEncoder codec
-    , nodeDecoder = wrappedNodeDecoder
-    , nodePlaceholder = Initializer.flatInit
-    }
-
-
 lazy : (() -> Codec s o a) -> Codec s o a
 lazy f =
-    let
-        lazyNodeDecoder : NodeDecoderInputs a -> JD.Decoder (Result RepDecodeError a)
-        lazyNodeDecoder inputs =
-            JD.succeed () |> JD.andThen (\() -> getNodeDecoder (f ()) inputs)
-
-        lazyNodeEncoder : NodeEncoder a o
-        lazyNodeEncoder inputs =
-            getNodeEncoder (f ()) inputs
-    in
     Codec
         { bytesEncoder = \value -> getBytesEncoder (f ()) value
-        , bytesDecoder = BD.succeed () |> BD.andThen (\() -> getBytesDecoder (f ()))
+        , bytesDecoder = BytesDecoder.lazy (getBytesDecoder (f ()))
         , jsonEncoder = \value -> getJsonEncoder (f ()) value
-        , jsonDecoder = JD.succeed () |> JD.andThen (\() -> getJsonDecoder (f ()))
-        , nodeEncoder = lazyNodeEncoder
-        , nodeDecoder = lazyNodeDecoder
+        , jsonDecoder = JsonDecoder.lazy (\v -> getJsonDecoder (f v))
+        , nodeEncoder = \value -> getNodeEncoder (f ()) value
+        , nodeDecoder = NodeDecoder.lazy (\v -> getNodeDecoder (f v))
         , nodePlaceholder = \inputs -> getInitializer (f ()) inputs
         }
 

@@ -24,14 +24,15 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Codec.Base as Base exposing (Codec(..))
+import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SelfSeededCodec, getBytesDecoder, getBytesEncoder, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Bytes.Encoder as BytesEncoder exposing (BytesEncoder)
+import Replicated.Codec.DataStructures.Immutable.SyncSafe as SyncSafe exposing (pair)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Initializer as Initializer exposing (Initializer)
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.Json.Encoder exposing (JsonEncoder)
-import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
+import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
@@ -71,7 +72,7 @@ list codec =
 
         nodeEncoder : NodeEncoder (List a) {}
         nodeEncoder inputs =
-            case getEncodedPrimitive inputs.thingToEncode of
+            case NodeEncoder.getEncodedPrimitive inputs.thingToEncode of
                 [] ->
                     { complex = Nonempty.singleton <| Change.FromPrimitiveAtom <| Change.NakedStringAtom "[]"
                     }
@@ -83,7 +84,7 @@ list codec =
                             getNodeEncoder codec
                                 { mode = inputs.mode
                                 , node = inputs.node
-                                , thingToEncode = EncodeThis item
+                                , thingToEncode = NodeEncoder.EncodeThis item
                                 , parent = inputs.parent -- not quite.
                                 , position = Location.new "primitiveListItem" index
                                 }
@@ -91,7 +92,7 @@ list codec =
                     in
                     { complex = Nonempty.concat <| Nonempty.indexedMap memberNodeEncoded (Nonempty headItem moreItems) }
 
-        nodeDecoder : NodeDecoderInputs (List a) -> JD.Decoder (Result RepDecodeError (List a))
+        nodeDecoder : Inputs (List a) -> JD.Decoder (Result RepDecodeError (List a))
         nodeDecoder _ =
             JD.oneOf
                 [ JD.andThen
@@ -110,9 +111,9 @@ list codec =
     Codec
         { bytesEncoder = listEncodeHelper (getBytesEncoder codec)
         , bytesDecoder =
-            BD.unsignedInt32 endian
+            BD.unsignedInt32 BytesEncoder.endian
                 |> BD.andThen
-                    (\length -> BD.loop ( length, [] ) (listStep (getBytesDecoder codec)))
+                    (\length -> BD.loop ( length, [] ) (listStepHelper (getBytesDecoder codec)))
         , jsonEncoder = JE.list (getJsonEncoder codec)
         , jsonDecoder = normalJsonDecoder
         , nodeEncoder = nodeEncoder
@@ -125,7 +126,7 @@ listEncodeHelper : (a -> BE.Encoder) -> List a -> BE.Encoder
 listEncodeHelper encoder_ list_ =
     list_
         |> List.map encoder_
-        |> (::) (BE.unsignedInt32 endian (List.length list_))
+        |> (::) (BE.unsignedInt32 BytesEncoder.endian (List.length list_))
         |> BE.sequence
 
 
@@ -160,18 +161,18 @@ nonempty wrappedCodec =
         listCodec =
             list wrappedCodec
 
-        mapNodeEncoderInputs : NodeEncoderInputs (Nonempty a) -> NodeEncoderInputs (List a)
+        mapNodeEncoderInputs : NodeEncoder.Inputs (Nonempty a) -> NodeEncoder.Inputs (List a)
         mapNodeEncoderInputs inputs =
-            NodeEncoderInputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
+            NodeEncoder.Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
 
-        mapThingToEncode : ThingToEncode (Nonempty a) -> ThingToEncode (List a)
+        mapThingToEncode : NodeEncoder.ThingToEncode (Nonempty a) -> NodeEncoder.ThingToEncode (List a)
         mapThingToEncode original =
             case original of
-                EncodeThis a ->
-                    EncodeThis (Nonempty.toList a)
+                NodeEncoder.EncodeThis a ->
+                    NodeEncoder.EncodeThis (Nonempty.toList a)
 
-                EncodeObjectOrThis objectIDs fieldVal ->
-                    EncodeObjectOrThis objectIDs (Nonempty.toList fieldVal)
+                NodeEncoder.EncodeObjectOrThis objectIDs fieldVal ->
+                    NodeEncoder.EncodeObjectOrThis objectIDs (Nonempty.toList fieldVal)
     in
     Codec
         { bytesEncoder = \v -> Nonempty.toList v |> getBytesEncoder listCodec
@@ -190,12 +191,12 @@ nonempty wrappedCodec =
 
 array : SelfSeededCodec o a -> SelfSeededCodec {} (Array a)
 array codec =
-    list codec |> map Array.fromList Array.toList
+    list codec |> Base.map Array.fromList Array.toList
 
 
 dict : PrimitiveCodec comparable -> Codec s o a -> SelfSeededCodec {} (Dict comparable a)
 dict keyCodec valueCodec =
-    list (pair keyCodec valueCodec)
+    list (SyncSafe.pair keyCodec valueCodec)
         |> map Dict.fromList Dict.toList
 
 

@@ -9,7 +9,7 @@ import Console
 import Css exposing (None)
 import Dict exposing (Dict)
 import Dict.Any as AnyDict exposing (AnyDict)
-import Html exposing (input, th)
+import Html exposing (b, input, th)
 import ID exposing (ID)
 import Json.Decode as JD
 import Json.Encode as JE
@@ -20,7 +20,7 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Codec.Error exposing (RepDecodeError(..))
+import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
@@ -45,3 +45,58 @@ type RonPayloadDecoder a
 -- fromJsonDecoder : JD.Decoder a -> RonPayloadDecoder a
 -- fromJsonDecoder jsonDecoder =
 --     RonPayloadDecoderLegacy jsonDecoder
+
+
+map : (a -> b) -> RonPayloadDecoder a -> RonPayloadDecoder b
+map fromAtoB decoderA =
+    let
+        fromResultData value =
+            case value of
+                Ok ok ->
+                    fromAtoB ok |> Ok
+
+                Err err ->
+                    Err err
+    in
+    case decoderA of
+        RonPayloadDecoderLegacy jsonDecoder ->
+            RonPayloadDecoderLegacy (JD.map fromResultData jsonDecoder)
+
+        RonPayloadDecoderNew payloadDecoderA ->
+            RonPayloadDecoderNew (\opPayloadAtomsB -> Result.map fromAtoB (payloadDecoderA opPayloadAtomsB))
+
+
+mapTry : (a -> Result Error.CustomError b) -> RonPayloadDecoder a -> RonPayloadDecoder b
+mapTry fromAtoBResult decoderA =
+    let
+        fromResultData : Result RepDecodeError a -> Result RepDecodeError b
+        fromResultData value =
+            case value of
+                Ok ok ->
+                    case fromAtoBResult ok of
+                        Ok out ->
+                            Ok out
+
+                        Err customErr ->
+                            Err (Error.Custom customErr)
+
+                Err err ->
+                    Err err
+    in
+    case decoderA of
+        RonPayloadDecoderLegacy jsonDecoder ->
+            RonPayloadDecoderLegacy (JD.map fromResultData jsonDecoder)
+
+        RonPayloadDecoderNew payloadDecoderA ->
+            RonPayloadDecoderNew (\opPayloadAtomsB -> fromResultData (payloadDecoderA opPayloadAtomsB))
+
+
+lazy : (() -> RonPayloadDecoder a) -> RonPayloadDecoder a
+lazy thunkToDecoder =
+    case thunkToDecoder () of
+        RonPayloadDecoderLegacy jsonDecoder ->
+            RonPayloadDecoderLegacy (JD.succeed () |> JD.andThen (\() -> jsonDecoder))
+
+        RonPayloadDecoderNew payloadDecoder ->
+            -- TODO this is probably not lazy
+            RonPayloadDecoderNew payloadDecoder

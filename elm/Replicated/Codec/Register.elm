@@ -30,7 +30,7 @@ import Replicated.Codec.DataStructures.Immutable.SyncUnsafe
 import Replicated.Codec.DataStructures.Mutable
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
-import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
+import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.Primitives as Primitives
 import Replicated.Codec.RegisterField.Decoder as RegisterFieldDecoder exposing (RegisterFieldDecoder)

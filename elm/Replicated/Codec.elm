@@ -78,18 +78,18 @@ import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
-import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.Base as Base
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
+import Replicated.Codec.Bytes.Encoder exposing (BytesEncoder)
 import Replicated.Codec.CustomType
 import Replicated.Codec.DataStructures.Immutable.SyncSafe
 import Replicated.Codec.DataStructures.Immutable.SyncUnsafe
 import Replicated.Codec.DataStructures.Mutable
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
-import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
+import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.Primitives as Primitives
 import Replicated.Codec.Register
@@ -405,24 +405,7 @@ encodeToJson codec value =
 
 replaceBase64Chars : Bytes.Bytes -> String
 replaceBase64Chars =
-    let
-        replaceChar rematch =
-            case rematch.match of
-                "+" ->
-                    "-"
-
-                "/" ->
-                    "_"
-
-                _ ->
-                    ""
-    in
-    Base64.fromBytes >> Maybe.withDefault "" >> Regex.replace replaceForUrl replaceChar
-
-
-replaceForUrl : Regex
-replaceForUrl =
-    Regex.fromString "[\\+/=]" |> Maybe.withDefault Regex.never
+    BytesEncoder.replaceBase64Chars
 
 
 {-| Start a new node

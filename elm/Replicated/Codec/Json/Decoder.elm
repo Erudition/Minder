@@ -1,4 +1,4 @@
-module Replicated.Codec.Json.Decoder exposing (JsonDecoder, map, prepRonAtomForLegacyDecoder)
+module Replicated.Codec.Json.Decoder exposing (JsonDecoder, lazy, map, mapTry, prepRonAtomForLegacyDecoder)
 
 {-| Wrapper for whatever Json decoding library is currently chosen.
 -}
@@ -51,3 +51,30 @@ map fromAtoB jdA =
                     Err err
     in
     Json.Decode.map fromResultData jdA
+
+
+mapTry : (a -> Result Error.CustomError b) -> JsonDecoder a -> JsonDecoder b
+mapTry fromAtoBResult jdA =
+    let
+        fromResultData value =
+            case value of
+                Ok ok ->
+                    case fromAtoBResult ok of
+                        Ok out ->
+                            Ok out
+
+                        Err customErr ->
+                            Err (Error.Custom customErr)
+
+                Err err ->
+                    Err err
+    in
+    Json.Decode.map fromResultData jdA
+
+
+lazy dec =
+    Json.Decode.lazy dec
+
+
+
+--Json.Decode.succeed () |> Json.Decode.andThen (\() -> dec)

@@ -1,4 +1,4 @@
-module Replicated.Codec.Node.Encoder exposing (ChangesToGenerate, Inputs, InputsNoVariable, NodeEncoder, Output, Primitive, PrimitiveOutput, SoloObject, SoloObjectOutput, ThingToEncode(..), defaultMode, justInit, map, singlePrimitiveOut, soloOut)
+module Replicated.Codec.Node.Encoder exposing (ChangesToGenerate, Inputs, InputsNoVariable, NodeEncoder, Output, Primitive, PrimitiveOutput, SoloObject, SoloObjectOutput, ThingToEncode(..), defaultMode, getEncodedPrimitive, justInit, map, singlePrimitiveOut, soloOut)
 
 import Array exposing (Array)
 import Base64
@@ -23,7 +23,7 @@ import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
-import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
+import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Object as Object exposing (Object)
@@ -107,6 +107,16 @@ defaultMode =
 
 type alias NodeEncoder a o =
     Inputs a -> Output o
+
+
+getEncodedPrimitive : ThingToEncode a -> a
+getEncodedPrimitive thingToEncode =
+    case thingToEncode of
+        EncodeThis thing ->
+            thing
+
+        EncodeObjectOrThis _ thing ->
+            Log.crashInDev "primitive encoder was passed an objectID to encode?" thing
 
 
 

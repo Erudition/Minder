@@ -38,7 +38,7 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 {-| Possible errors that can occur when node-decoding. These are all the user-facing possibilies in the codec library.
 -}
 type RepDecodeError
-    = CustomError String
+    = Custom CustomError
     | BinaryDataCorrupted
     | ObjectNotFound OpID
     | JDError JD.Error
@@ -53,10 +53,14 @@ type RepDecodeError
     | WrongCutoff (Maybe Moment) Pointer -- TODO what exactly goes wrong with wrong-cutoff errors, may not be named correctly
 
 
+type alias CustomError =
+    String
+
+
 toString : RepDecodeError -> String
 toString codecError =
     case codecError of
-        CustomError errMsg ->
+        Custom errMsg ->
             errMsg
 
         BinaryDataCorrupted ->

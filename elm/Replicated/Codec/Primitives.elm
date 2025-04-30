@@ -23,14 +23,14 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Codec.Base as Base exposing (Codec(..))
+import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SelfSeededCodec)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Bytes.Encoder as BytesEncoder exposing (BytesEncoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Initializer as Initializer exposing (Initializer)
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.Json.Encoder exposing (JsonEncoder)
-import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
+import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
@@ -69,7 +69,7 @@ buildCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoder ronDecoder =
         , jsonDecoder = jsonDecoder
         , nodeEncoder = ronEncoder
         , nodeDecoder = ronDecoder
-        , nodePlaceholder = flatInit
+        , nodePlaceholder = Initializer.flatInit
         }
 
 
@@ -80,19 +80,19 @@ buildCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoder ronDecoder =
 string : PrimitiveCodec String
 string =
     let
-        nodeEncoder : NodeEncoderInputs String -> PrimitiveEncoderOutput
+        nodeEncoder : NodeEncoder.Inputs String -> NodeEncoder.PrimitiveOutput
         nodeEncoder inputs =
-            singlePrimitiveOut <| Change.StringAtom <| getEncodedPrimitive inputs.thingToEncode
+            NodeEncoder.singlePrimitiveOut <| Change.StringAtom <| NodeEncoder.getEncodedPrimitive inputs.thingToEncode
     in
     Codec
         { bytesEncoder =
             \text ->
                 BE.sequence
-                    [ BE.unsignedInt32 endian (BE.getStringWidth text)
+                    [ BE.unsignedInt32 BytesEncoder.endian (BE.getStringWidth text)
                     , BE.string text
                     ]
         , bytesDecoder =
-            BD.unsignedInt32 endian
+            BD.unsignedInt32 BytesEncoder.endian
                 |> BD.andThen
                     (\charCount -> BD.string charCount |> BD.map Ok)
         , jsonEncoder = JE.string
@@ -168,21 +168,21 @@ id =
                             -- Or is this better to switch to canonical ObjectIDs
                             ID.fromPointer (ExistingObjectPointer (Change.ExistingID reducerID objectID))
 
-        nodeEncoder : NodeEncoderInputs (ID userType) -> PrimitiveEncoderOutput
+        nodeEncoder : NodeEncoder.Inputs (ID userType) -> NodeEncoder.PrimitiveOutput
         nodeEncoder inputs =
-            { complex = Nonempty.singleton <| idToChangeAtom (getEncodedPrimitive inputs.thingToEncode)
-            , primitive = Nonempty.singleton <| idToPrimitiveAtom (getEncodedPrimitive inputs.thingToEncode)
+            { complex = Nonempty.singleton <| idToChangeAtom (NodeEncoder.getEncodedPrimitive inputs.thingToEncode)
+            , primitive = Nonempty.singleton <| idToPrimitiveAtom (NodeEncoder.getEncodedPrimitive inputs.thingToEncode)
             }
     in
     Codec
         { bytesEncoder =
             \i ->
                 BE.sequence
-                    [ BE.unsignedInt32 endian (BE.getStringWidth (toString i))
+                    [ BE.unsignedInt32 BytesEncoder.endian (BE.getStringWidth (toString i))
                     , BE.string (toString i)
                     ]
         , bytesDecoder =
-            BD.unsignedInt32 endian
+            BD.unsignedInt32 BytesEncoder.endian
                 |> BD.andThen
                     (\charCount -> BD.string charCount |> BD.map (fromString Nothing >> Ok))
         , jsonEncoder = toString >> JE.string
@@ -196,13 +196,13 @@ id =
 bool : PrimitiveCodec Bool
 bool =
     let
-        boolNodeEncoder : NodeEncoder Bool Primitive
+        boolNodeEncoder : NodeEncoder Bool NodeEncoder.Primitive
         boolNodeEncoder { thingToEncode } =
-            if getEncodedPrimitive thingToEncode then
-                singlePrimitiveOut <| Change.NakedStringAtom "true"
+            if NodeEncoder.getEncodedPrimitive thingToEncode then
+                NodeEncoder.singlePrimitiveOut <| Change.NakedStringAtom "true"
 
             else
-                singlePrimitiveOut <| Change.NakedStringAtom "false"
+                NodeEncoder.singlePrimitiveOut <| Change.NakedStringAtom "false"
 
         boolNodeDecoder : NodeDecoder Bool
         boolNodeDecoder _ =
@@ -257,12 +257,12 @@ bool =
 int : PrimitiveCodec Int
 int =
     buildCodec
-        (toFloat >> BE.float64 endian)
-        (BD.float64 endian |> BD.map (round >> Ok))
+        (toFloat >> BE.float64 BytesEncoder.endian)
+        (BD.float64 BytesEncoder.endian |> BD.map (round >> Ok))
         JE.int
         (JD.int |> JD.map Ok)
         (\{ thingToEncode } ->
-            singlePrimitiveOut <| Change.IntegerAtom <| getEncodedPrimitive thingToEncode
+            NodeEncoder.singlePrimitiveOut <| Change.IntegerAtom <| NodeEncoder.getEncodedPrimitive thingToEncode
         )
         (\_ -> JD.int |> JD.map Ok)
 
@@ -270,12 +270,12 @@ int =
 float : PrimitiveCodec Float
 float =
     buildCodec
-        (BE.float64 endian)
-        (BD.float64 endian |> BD.map Ok)
+        (BE.float64 BytesEncoder.endian)
+        (BD.float64 BytesEncoder.endian |> BD.map Ok)
         JE.float
         (JD.float |> JD.map Ok)
         (\{ thingToEncode } ->
-            singlePrimitiveOut <| Change.FloatAtom <| getEncodedPrimitive thingToEncode
+            NodeEncoder.singlePrimitiveOut <| Change.FloatAtom <| NodeEncoder.getEncodedPrimitive thingToEncode
         )
         (\_ -> JD.float |> JD.map Ok)
 
@@ -285,13 +285,13 @@ char =
     let
         charEncode text =
             BE.sequence
-                [ BE.unsignedInt32 endian (String.length text)
+                [ BE.unsignedInt32 BytesEncoder.endian (String.length text)
                 , BE.string text
                 ]
     in
     buildCodec
         (String.fromChar >> charEncode)
-        (BD.unsignedInt32 endian
+        (BD.unsignedInt32 BytesEncoder.endian
             |> BD.andThen (\charCount -> BD.string charCount)
             |> BD.map
                 (\text ->
@@ -315,7 +315,7 @@ char =
                             Err (BadChar text)
                 )
         )
-        (\{ thingToEncode } -> singlePrimitiveOut <| Change.StringAtom <| String.fromChar <| getEncodedPrimitive thingToEncode)
+        (\{ thingToEncode } -> NodeEncoder.singlePrimitiveOut <| Change.StringAtom <| String.fromChar <| NodeEncoder.getEncodedPrimitive thingToEncode)
         (\_ ->
             JD.string
                 |> JD.map
@@ -337,7 +337,7 @@ unit =
         (BD.succeed (Ok ()))
         (\_ -> JE.int 0)
         (JD.succeed (Ok ()))
-        (\_ -> singlePrimitiveOut <| Change.IntegerAtom 0)
+        (\_ -> NodeEncoder.singlePrimitiveOut <| Change.IntegerAtom 0)
         (\_ -> JD.succeed (Ok ()))
 
 
@@ -346,11 +346,11 @@ bytes =
     buildCodec
         (\bytes_ ->
             BE.sequence
-                [ BE.unsignedInt32 endian (Bytes.width bytes_)
+                [ BE.unsignedInt32 BytesEncoder.endian (Bytes.width bytes_)
                 , BE.bytes bytes_
                 ]
         )
-        (BD.unsignedInt32 endian |> BD.andThen (\length -> BD.bytes length |> BD.map Ok))
+        (BD.unsignedInt32 BytesEncoder.endian |> BD.andThen (\length -> BD.bytes length |> BD.map Ok))
         (replaceBase64Chars >> JE.string)
         (JD.string
             |> JD.map

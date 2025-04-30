@@ -23,14 +23,14 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Codec.Base as Base exposing (Codec(..))
+import Replicated.Codec.Base as Base exposing (Codec(..), NullCodec, getBytesDecoder, getBytesEncoder, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Bytes.Encoder as BytesEncoder exposing (BytesEncoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Initializer as Initializer exposing (Initializer)
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.Json.Encoder exposing (JsonEncoder)
-import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
+import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
@@ -147,7 +147,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
         wrapBE : List BE.Encoder -> VariantEncoder
         wrapBE variantPieces =
             VariantEncoder
-                { bytes = BE.unsignedInt16 endian tagNum :: variantPieces |> BE.sequence
+                { bytes = BE.unsignedInt16 BytesEncoder.endian tagNum :: variantPieces |> BE.sequence
                 , json = JE.null
                 , node = \_ -> Nonempty.singleton (Change.NestedAtoms (Nonempty.singleton nodeTag))
                 }
@@ -239,7 +239,7 @@ variant0 tag ctor =
         (\_ -> JD.succeed (Ok ctor))
 
 
-passNDInputs : Int -> NodeDecoderInputs a -> NodeDecoderInputs a
+passNDInputs : Int -> NodeDecoder.Inputs a -> NodeDecoder.Inputs a
 passNDInputs pieceNum inputsND =
     { inputsND
         | parent = Change.becomeInstantParent <| Change.newPointer { parent = inputsND.parent, position = Location.nest inputsND.position "piece" pieceNum, reducerID = "variant" }
@@ -991,7 +991,7 @@ finishCustomType (CustomTypeCodec priorVariants) =
         nodeEncoder : NodeEncoder a {}
         nodeEncoder nodeEncoderInputs =
             let
-                newInputs : NodeEncoderInputsNoVariable
+                newInputs : NodeEncoder.InputsNoVariable
                 newInputs =
                     { node = nodeEncoderInputs.node
                     , mode = nodeEncoderInputs.mode
@@ -1001,7 +1001,7 @@ finishCustomType (CustomTypeCodec priorVariants) =
 
                 nodeMatcher : VariantEncoder
                 nodeMatcher =
-                    priorVariants.nodeMatcher (getEncodedPrimitive nodeEncoderInputs.thingToEncode)
+                    priorVariants.nodeMatcher (NodeEncoder.getEncodedPrimitive nodeEncoderInputs.thingToEncode)
 
                 getNodeVariantEncoder (VariantEncoder encoders) =
                     encoders.node newInputs
@@ -1095,7 +1095,7 @@ finishCustomType (CustomTypeCodec priorVariants) =
     Codec
         { bytesEncoder = priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes)
         , bytesDecoder =
-            BD.unsignedInt16 endian
+            BD.unsignedInt16 BytesEncoder.endian
                 |> BD.andThen
                     (\tag ->
                         priorVariants.bytesDecoder tag (BD.succeed (Err (NoMatchingVariant (String.fromInt tag))))
@@ -1124,11 +1124,11 @@ The input type variable is taken care of early on, and the output type is conver
 getNodeEncoderModifiedForVariants : Int -> Codec ia o a -> a -> VariantNodeEncoder
 getNodeEncoderModifiedForVariants index codec thingToEncode =
     let
-        finishInputs : NodeEncoderInputsNoVariable -> NodeEncoderInputs a
+        finishInputs : NodeEncoder.InputsNoVariable -> NodeEncoder.Inputs a
         finishInputs modifiedEncoder =
             { node = modifiedEncoder.node
             , mode = modifiedEncoder.mode
-            , thingToEncode = EncodeThis thingToEncode
+            , thingToEncode = NodeEncoder.EncodeThis thingToEncode
             , position = Location.nest modifiedEncoder.position "piece" index
             , parent = modifiedEncoder.parent
             }

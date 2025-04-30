@@ -1,6 +1,9 @@
-module Replicated.Codec.Bytes.Decoder exposing (BytesDecoder, map)
+module Replicated.Codec.Bytes.Decoder exposing (BytesDecoder, lazy, map, mapTry)
 
 {-| Wrapper for whatever Bytes decoding library is currently chosen.
+
+TODO: Switch to <https://package.elm-lang.org/packages/zwilias/elm-bytes-parser/latest/Bytes-Parser>
+
 -}
 
 import Array exposing (Array)
@@ -31,3 +34,29 @@ map fromAtoB (BytesDecoder bdA) =
                     Err err
     in
     BytesDecoder (Bytes.Decode.map fromResultData bdA)
+
+
+mapTry : (a -> Result Error.CustomError b) -> BytesDecoder a -> BytesDecoder b
+mapTry fromAtoBResult (BytesDecoder bdA) =
+    let
+        fromResultData value =
+            case value of
+                Ok ok ->
+                    case fromAtoBResult ok of
+                        Ok out ->
+                            Ok out
+
+                        Err customErr ->
+                            Err (Error.Custom customErr)
+
+                Err err ->
+                    Err err
+    in
+    BytesDecoder (Bytes.Decode.map fromResultData bdA)
+
+
+lazy : BytesDecoder a -> BytesDecoder a
+lazy (BytesDecoder dec) =
+    Bytes.Decode.succeed ()
+        |> Bytes.Decode.andThen (\() -> dec)
+        |> BytesDecoder

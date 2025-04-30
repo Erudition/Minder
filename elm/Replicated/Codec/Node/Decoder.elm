@@ -1,4 +1,4 @@
-module Replicated.Codec.Node.Decoder exposing (NodeDecoder, NodeDecoderInputs, NodeDecoderInputsNoVariable, NodeDecoderOutput, concurrentObjectIDsDecoder, emptyObSubs, map, primitive, reuseOldIfUnchanged)
+module Replicated.Codec.Node.Decoder exposing (Inputs, NodeDecoder, NodeDecoderInputsNoVariable, Output, concurrentObjectIDsDecoder, emptyObSubs, lazy, map, mapTry, primitive, reuseOldIfUnchanged)
 
 import Array exposing (Array)
 import Base64
@@ -20,7 +20,7 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Codec.Error exposing (RepDecodeError(..))
+import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder)
 import Replicated.Node.Node as Node exposing (Node)
@@ -38,10 +38,10 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 
 type alias NodeDecoder a =
-    NodeDecoderInputs a -> NodeDecoderOutput a
+    Inputs a -> Output a
 
 
-type alias NodeDecoderInputs t =
+type alias Inputs t =
     { node : Node
     , parent : Parent
     , position : Location
@@ -51,7 +51,7 @@ type alias NodeDecoderInputs t =
     }
 
 
-type alias NodeDecoderOutput t =
+type alias Output t =
     { decoder : RonPayloadDecoder t
     , obSubs : ObSubs
     }
@@ -141,10 +141,10 @@ concurrentObjectIDsDecoder =
 map : (a -> b) -> (b -> a) -> NodeDecoder a -> NodeDecoder b
 map fromAtoB fromBtoA nodeDecoderA =
     let
-        newDecoder : NodeDecoderInputs b -> NodeDecoderOutput b
+        newDecoder : Inputs b -> Output b
         newDecoder inputsB =
             let
-                runADecoderWithBInputs : NodeDecoderOutput a
+                runADecoderWithBInputs : Output a
                 runADecoderWithBInputs =
                     nodeDecoderA
                         { node = inputsB.node
@@ -155,23 +155,45 @@ map fromAtoB fromBtoA nodeDecoderA =
                         , changedObjectIDs = inputsB.changedObjectIDs
                         }
             in
-            case runADecoderWithBInputs.decoder of
-                RonPayloadDecoder.RonPayloadDecoderLegacy jsonDecoder ->
-                    { decoder = RonPayloadDecoder.RonPayloadDecoderLegacy (JD.map fromResultData jsonDecoder)
-                    , obSubs = runADecoderWithBInputs.obSubs
-                    }
-
-                RonPayloadDecoder.RonPayloadDecoderNew payloadDecoderA ->
-                    { decoder = RonPayloadDecoder.RonPayloadDecoderNew (\opPayloadAtomsB -> Result.map fromAtoB (payloadDecoderA opPayloadAtomsB))
-                    , obSubs = runADecoderWithBInputs.obSubs
-                    }
-
-        fromResultData value =
-            case value of
-                Ok ok ->
-                    fromAtoB ok |> Ok
-
-                Err err ->
-                    Err err
+            { decoder = RonPayloadDecoder.map fromAtoB runADecoderWithBInputs.decoder
+            , obSubs = runADecoderWithBInputs.obSubs
+            }
     in
     newDecoder
+
+
+mapTry : (a -> Result Error.CustomError b) -> (b -> a) -> NodeDecoder a -> NodeDecoder b
+mapTry fromAtoBResult fromBtoA nodeDecoderA =
+    let
+        newDecoder : Inputs b -> Output b
+        newDecoder inputsB =
+            let
+                runADecoderWithBInputs : Output a
+                runADecoderWithBInputs =
+                    nodeDecoderA
+                        { node = inputsB.node
+                        , parent = inputsB.parent
+                        , position = inputsB.position
+                        , cutoff = inputsB.cutoff
+                        , oldMaybe = Maybe.map fromBtoA inputsB.oldMaybe
+                        , changedObjectIDs = inputsB.changedObjectIDs
+                        }
+            in
+            { decoder = RonPayloadDecoder.mapTry fromAtoBResult runADecoderWithBInputs.decoder
+            , obSubs = runADecoderWithBInputs.obSubs
+            }
+    in
+    newDecoder
+
+
+lazy : (() -> NodeDecoder a) -> NodeDecoder a
+lazy unitToNodeDecoder =
+    let
+        runNow =
+            unitToNodeDecoder ()
+    in
+    \input ->
+        -- TODO is this lazy
+        { decoder = RonPayloadDecoder.lazy (\() -> (runNow input).decoder)
+        , obSubs = (runNow input).obSubs
+        }
