@@ -1,4 +1,4 @@
-module Replicated.Codec.Node.Encoder exposing (ChangesToGenerate, Inputs, InputsNoVariable, NodeEncoder, Output, Primitive, PrimitiveOutput, SoloObject, SoloObjectOutput, ThingToEncode(..), defaultMode, justInit, singlePrimitiveOut, soloOut)
+module Replicated.Codec.Node.Encoder exposing (ChangesToGenerate, Inputs, InputsNoVariable, NodeEncoder, Output, Primitive, PrimitiveOutput, SoloObject, SoloObjectOutput, ThingToEncode(..), defaultMode, justInit, map, singlePrimitiveOut, soloOut)
 
 import Array exposing (Array)
 import Base64
@@ -107,6 +107,29 @@ defaultMode =
 
 type alias NodeEncoder a o =
     Inputs a -> Output o
+
+
+
+-- MAPPING ------------------------------
+
+
+map : (b -> a) -> NodeEncoder a o -> NodeEncoder b o
+map fromBtoA encoderA =
+    let
+        mapNodeEncoderInputs : Inputs b -> Inputs a
+        mapNodeEncoderInputs inputs =
+            Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
+
+        mapThingToEncode : ThingToEncode b -> ThingToEncode a
+        mapThingToEncode original =
+            case original of
+                EncodeThis a ->
+                    EncodeThis (fromBtoA a)
+
+                EncodeObjectOrThis objectIDs fieldVal ->
+                    EncodeObjectOrThis objectIDs (fromBtoA fieldVal)
+    in
+    \inputs -> encoderA (mapNodeEncoderInputs inputs)
 
 
 

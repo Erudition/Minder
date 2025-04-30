@@ -1,4 +1,4 @@
-module Replicated.Codec.Bytes.Decoder exposing (BytesDecoder)
+module Replicated.Codec.Bytes.Decoder exposing (BytesDecoder, map)
 
 {-| Wrapper for whatever Bytes decoding library is currently chosen.
 -}
@@ -17,3 +17,17 @@ endian =
 
 type BytesDecoder a
     = BytesDecoder (Bytes.Decode.Decoder (Result RepDecodeError a))
+
+
+map : (a -> b) -> BytesDecoder a -> BytesDecoder b
+map fromAtoB (BytesDecoder bdA) =
+    let
+        fromResultData value =
+            case value of
+                Ok ok ->
+                    fromAtoB ok |> Ok
+
+                Err err ->
+                    Err err
+    in
+    BytesDecoder (Bytes.Decode.map fromResultData bdA)

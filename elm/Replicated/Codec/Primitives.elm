@@ -1,4 +1,4 @@
-module Replicated.Codec.Primitives exposing (bool, byte, bytes, char, float, id, int, quickEnum, string, unit)
+module Replicated.Codec.Primitives exposing (bool, byte, bytes, char, float, id, int, quickEnum, string, todo, unit)
 
 {-| Codecs for "primitive" types, which in our case just means types that aren't some sort of collection.
 -}
@@ -450,3 +450,16 @@ findIndexHelp index predicate list_ =
 
             else
                 findIndexHelp (index + 1) predicate xs
+
+
+todo : a -> PrimitiveCodec a
+todo bogusValue =
+    Codec
+        { bytesEncoder = \_ -> BE.unsignedInt8 9
+        , bytesDecoder = BD.fail
+        , jsonEncoder = \_ -> JE.null
+        , jsonDecoder = JD.fail "TODO"
+        , nodeEncoder = \_ -> singlePrimitiveOut <| Change.StringAtom "TODO"
+        , nodeDecoder = \_ -> JD.fail "TODO"
+        , nodePlaceholder = \_ -> bogusValue
+        }

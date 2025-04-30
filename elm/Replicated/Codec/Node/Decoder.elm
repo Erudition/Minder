@@ -1,4 +1,4 @@
-module Replicated.Codec.Node.Decoder exposing (NodeDecoder, NodeDecoderInputs, NodeDecoderInputsNoVariable, concurrentObjectIDsDecoder, emptyObSubs, primitive, reuseOldIfUnchanged)
+module Replicated.Codec.Node.Decoder exposing (NodeDecoder, NodeDecoderInputs, NodeDecoderInputsNoVariable, NodeDecoderOutput, concurrentObjectIDsDecoder, emptyObSubs, map, primitive, reuseOldIfUnchanged)
 
 import Array exposing (Array)
 import Base64
@@ -136,3 +136,42 @@ concurrentObjectIDsDecoder =
         , JD.map List.singleton quotedObjectDecoder
         , JD.succeed [] -- TODO this may swallow errors.. currently needed to allow blank objects to initialize
         ]
+
+
+map : (a -> b) -> (b -> a) -> NodeDecoder a -> NodeDecoder b
+map fromAtoB fromBtoA nodeDecoderA =
+    let
+        newDecoder : NodeDecoderInputs b -> NodeDecoderOutput b
+        newDecoder inputsB =
+            let
+                runADecoderWithBInputs : NodeDecoderOutput a
+                runADecoderWithBInputs =
+                    nodeDecoderA
+                        { node = inputsB.node
+                        , parent = inputsB.parent
+                        , position = inputsB.position
+                        , cutoff = inputsB.cutoff
+                        , oldMaybe = Maybe.map fromBtoA inputsB.oldMaybe
+                        , changedObjectIDs = inputsB.changedObjectIDs
+                        }
+            in
+            case runADecoderWithBInputs.decoder of
+                RonPayloadDecoder.RonPayloadDecoderLegacy jsonDecoder ->
+                    { decoder = RonPayloadDecoder.RonPayloadDecoderLegacy (JD.map fromResultData jsonDecoder)
+                    , obSubs = runADecoderWithBInputs.obSubs
+                    }
+
+                RonPayloadDecoder.RonPayloadDecoderNew payloadDecoderA ->
+                    { decoder = RonPayloadDecoder.RonPayloadDecoderNew (\opPayloadAtomsB -> Result.map fromAtoB (payloadDecoderA opPayloadAtomsB))
+                    , obSubs = runADecoderWithBInputs.obSubs
+                    }
+
+        fromResultData value =
+            case value of
+                Ok ok ->
+                    fromAtoB ok |> Ok
+
+                Err err ->
+                    Err err
+    in
+    newDecoder

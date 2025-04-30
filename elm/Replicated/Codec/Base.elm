@@ -29,7 +29,7 @@ import Replicated.Codec.Bytes.Encoder as BytesEncoder exposing (BytesEncoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Initializer as Initializer exposing (Initializer)
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
-import Replicated.Codec.Json.Encoder exposing (JsonEncoder)
+import Replicated.Codec.Json.Encoder as JsonEncoder exposing (JsonEncoder)
 import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder, NodeDecoderInputs)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
@@ -189,63 +189,21 @@ getInitializer (Codec codecDetails) inputs =
 ---- MAPPING
 
 
-{-| Map from one codec to another codec
+{-| Map from one codec to another codec.
 
-    import Serialize as S
-
-    type UserId
-        = UserId Int
-
-    userIdCodec : S.Codec e UserId
-    userIdCodec =
-        S.int |> S.map UserId (\(UserId id) -> id)
-
-Note that there's nothing preventing you from encoding Elm values that will map to some different value when you decode them.
-I recommend writing tests for Codecs that use `map` to make sure you get back the same Elm value you put in.
-[Here's some helper functions to get you started.](https://github.com/MartinSStewart/elm-geometry-serialize/blob/6f2244c28631ede1b864cb43541d1573dc628904/tests/Tests.elm#L49-L74)
+Seed values must be the same type as the codec and will be mapped the same way.
 
 -}
 map : (a -> b) -> (b -> a) -> Codec a o a -> Codec b o b
 map fromAtoB fromBtoA codec =
-    let
-        fromResultData value =
-            case value of
-                Ok ok ->
-                    fromAtoB ok |> Ok
-
-                Err err ->
-                    Err err
-
-        wrappedNodeDecoder : NodeDecoderInputs b -> JD.Decoder (Result RepDecodeError b)
-        wrappedNodeDecoder inputs =
-            getNodeDecoder codec inputs |> JD.map fromResultData
-
-        wrappedInitializer : Initializer.Inputs b -> b
-        wrappedInitializer inputs =
-            getInitializer codec (Initializer.Inputs inputs.parent inputs.position (fromBtoA inputs.seed))
-                |> fromAtoB
-
-        mapNodeEncoderInputs : NodeEncoder.Inputs b -> NodeEncoder.Inputs a
-        mapNodeEncoderInputs inputs =
-            NodeEncoder.Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
-
-        mapThingToEncode : NodeEncoder.ThingToEncode b -> NodeEncoder.ThingToEncode a
-        mapThingToEncode original =
-            case original of
-                NodeEncoder.EncodeThis a ->
-                    NodeEncoder.EncodeThis (fromBtoA a)
-
-                NodeEncoder.EncodeObjectOrThis objectIDs fieldVal ->
-                    NodeEncoder.EncodeObjectOrThis objectIDs (fromBtoA fieldVal)
-    in
     Codec
-        { bytesEncoder = \v -> fromBtoA v |> getBytesEncoder codec
-        , bytesDecoder = getBytesDecoder codec |> BD.map fromResultData
-        , jsonEncoder = \v -> fromBtoA v |> getJsonEncoder codec
-        , jsonDecoder = getJsonDecoder codec |> JD.map fromResultData
-        , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec
-        , nodeDecoder = wrappedNodeDecoder
-        , nodePlaceholder = wrappedInitializer
+        { bytesEncoder = BytesEncoder.map fromBtoA (getBytesEncoder codec)
+        , bytesDecoder = BytesDecoder.map fromAtoB (getBytesDecoder codec)
+        , jsonEncoder = JsonEncoder.map fromBtoA (getJsonEncoder codec)
+        , jsonDecoder = JsonDecoder.map fromAtoB (getJsonDecoder codec)
+        , nodeEncoder = NodeEncoder.map fromBtoA (getNodeEncoder codec)
+        , nodeDecoder = NodeDecoder.map fromAtoB fromBtoA (getNodeDecoder codec)
+        , nodePlaceholder = Initializer.mapFlat fromAtoB fromBtoA (getInitializer codec)
         }
 
 
@@ -253,46 +211,14 @@ map fromAtoB fromBtoA codec =
 -}
 makeOpaque : (a -> b) -> (b -> a) -> Codec i o a -> Codec i o b
 makeOpaque fromAtoB fromBtoA codec =
-    -- TODO reduce duplicate code
-    let
-        fromResultData value =
-            case value of
-                Ok ok ->
-                    fromAtoB ok |> Ok
-
-                Err err ->
-                    Err err
-
-        wrappedNodeDecoder : NodeDecoderInputs b -> JD.Decoder (Result RepDecodeError b)
-        wrappedNodeDecoder inputs =
-            getNodeDecoder codec inputs |> JD.map fromResultData
-
-        wrappedInitializer : Initializer.Inputs i -> b
-        wrappedInitializer inputs =
-            getInitializer codec (Initializer.Inputs inputs.parent inputs.position inputs.seed)
-                |> fromAtoB
-
-        mapNodeEncoderInputs : NodeEncoder.Inputs b -> NodeEncoder.Inputs a
-        mapNodeEncoderInputs inputs =
-            NodeEncoder.Inputs inputs.node inputs.mode (mapThingToEncode inputs.thingToEncode) inputs.parent inputs.position
-
-        mapThingToEncode : NodeEncoder.ThingToEncode b -> NodeEncoder.ThingToEncode a
-        mapThingToEncode original =
-            case original of
-                NodeEncoder.EncodeThis a ->
-                    NodeEncoder.EncodeThis (fromBtoA a)
-
-                NodeEncoder.EncodeObjectOrThis objectIDs fieldVal ->
-                    NodeEncoder.EncodeObjectOrThis objectIDs (fromBtoA fieldVal)
-    in
     Codec
-        { bytesEncoder = \v -> fromBtoA v |> getBytesEncoder codec
-        , bytesDecoder = getBytesDecoder codec |> BD.map fromResultData
-        , jsonEncoder = \v -> fromBtoA v |> getJsonEncoder codec
-        , jsonDecoder = getJsonDecoder codec |> JD.map fromResultData
-        , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder codec
-        , nodeDecoder = wrappedNodeDecoder
-        , nodePlaceholder = wrappedInitializer
+        { bytesEncoder = BytesEncoder.map fromBtoA (getBytesEncoder codec)
+        , bytesDecoder = BytesDecoder.map fromAtoB (getBytesDecoder codec)
+        , jsonEncoder = JsonEncoder.map fromBtoA (getJsonEncoder codec)
+        , jsonDecoder = JsonDecoder.map fromAtoB (getJsonDecoder codec)
+        , nodeEncoder = NodeEncoder.map fromBtoA (getNodeEncoder codec)
+        , nodeDecoder = NodeDecoder.map fromAtoB fromBtoA (getNodeDecoder codec)
+        , nodePlaceholder = Initializer.mapOutput fromAtoB (getInitializer codec)
         }
 
 
