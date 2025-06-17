@@ -2,5 +2,7 @@
     "editor.formatOnSave": true,
     "editor.formatOnSaveMode": "file",
     "editor.formatOnType": false,
-    "elmLS.elmTestRunner.showElmTestOutput": true
+    "elmLS.elmTestRunner.showElmTestOutput": false,
+    "elmLS.elmPath": "node_modules/.bin/lamdera",
+    "elmLS.elmTestPath": ""
 }
