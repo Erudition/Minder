@@ -7,7 +7,7 @@
     "setup": "pnpm i --shamefully-hoist",
     "start": "pnpm run elm-land-generate && vite",
     "elm-land-generate": "elm-land generate && cp elm-patches/HashRouting.elm .elm-land/src/",
-    "postinstall": "elm-tooling install && pnpm patch-elm",
+    "postinstall": "pnpm patch-elm",
     "build": "tsc && vite build",
     "build-ci": "pnpm run elm-land-generate && vite build",
     "build-sync": "pnpm run elm-land-generate && vite build && cap sync",
@@ -65,28 +65,22 @@
     "@nativescript/core": "^8.5.3",
     "@nativescript/geolocation": "^8.2.0",
     "@nativescript/local-notifications": "link:../nativescript-plugins/packages/local-notifications",
-    "@oddjs/odd": "^0.37.2",
     "@triniwiz/nativescript-toasty": "^4.1.3",
     "circular-dependency-plugin": "^5.2.2",
     "elm-land": "^0.19.3",
     "elm-native-js": "^1.0.3",
     "elm-taskport": "^2.0.1",
-    "elm-test": "0.19.1-revision9",
-    "elm-tooling": "^1.14.0",
     "elm-webpack-loader": "^8.0.0",
     "esbuild": "^0.17.19",
     "flipping": "^1.1.0",
     "insertion-query": "^1.1.0",
     "ionicons": "^7.1.0",
-    "ipfs": "^0.66.0",
-    "ipfs-http-client": "^60.0.0",
     "iso-url": "^1.2.1",
+    "lamdera": "0.19.1-1.3.2",
     "native-run": "^1.7.2",
     "nativescript": "^8.5.3",
     "nativescript-theme-core": "^1.0.6",
-    "orbit-db": "^0.29.0",
-    "pnpm": "^8.5.0",
-    "webnative-elm": "^8.1.0"
+    "pnpm": "^8.5.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^2.0.4",
@@ -97,7 +91,9 @@
     "@nativescript/types": "^8.5.0",
     "@nativescript/webpack": "~5.0.14",
     "changed-log": "^0.13.0",
+    "elm-format": "^0.8.7",
     "elm-live": "^4.0.2",
+    "elm-test-rs": "3.0.0-5",
     "next-update": "^3.6.0",
     "rollup-plugin-polyfill-node": "^0.12.0",
     "typescript": "^5.0.4",
@@ -113,9 +109,7 @@
   },
   "pnpm": {
     "patchedDependencies": {
-      "orbit-db-storage-adapter@0.9.0": "patches/orbit-db-storage-adapter@0.9.0.patch",
-      "@ionic/pwa-elements@3.1.1": "patches/@ionic__pwa-elements@3.1.1.patch",
-      "webnative-elm@8.1.0": "patches/webnative-elm@8.1.0.patch"
+      "@ionic/pwa-elements@3.1.1": "patches/@ionic__pwa-elements@3.1.1.patch"
     }
   }
 }
