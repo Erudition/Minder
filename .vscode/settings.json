@@ -4,5 +4,10 @@
     "editor.formatOnType": false,
     "elmLS.elmTestRunner.showElmTestOutput": false,
     "elmLS.elmPath": "node_modules/.bin/lamdera",
-    "elmLS.elmTestPath": ""
+    "elmLS.elmTestPath": "",
+    "elmLand.compilerFilepath": "node_modules/.bin/lamdera",
+    "elmLand.entrypointFilepaths": [
+      "src/Main.elm",
+      ".elm-land/src/Main.elm"
+    ]
 }
