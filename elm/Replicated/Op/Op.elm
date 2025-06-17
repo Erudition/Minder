@@ -17,10 +17,11 @@ import SmartTime.Moment as Moment
 type Op
     = Op ClosedOp
 
-
+{- Closed Ops have all their pieces, ready to use in memory. They may have come from Open Ops where some missing (implied) pieces had to be deduced.
+-}
 type alias ClosedOp =
     { reducerID : ReducerID
-    , objectID : ObjectID
+    , objectID : ObjectID -- TODO instead of storing the ObjectID, we can store the object itself since it's just a pointer, which might actually use less memory and get us more direct access to the object when needed.
     , operationID : OpID
     , reference : Reference
     , payload : OpPayloadAtoms
@@ -850,6 +851,7 @@ jsonValueToAtom valueJE =
 
 
 type alias ReducerID =
+    -- TODO - this can be a custom type, so thousands of ops aren't storing copies of the same string
     String
 
 

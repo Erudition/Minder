@@ -15,7 +15,8 @@ import Replicated.Op.Op exposing (Op)
 -- Why we would want to index by ref:
 -- - To tell whether an op is reverted, we need to see if any reversion ops reference it, and then check if any revert that reversion, and so on.
 --   - Worth the recursion if only done at undo time? Just store reversion status in the op?
-
+-- UPDATE:
+-- On second thought, we're already storing our ops in a reference-based datastructure (no other way to go about it in Elm?) and having a "copy" of a non-primitive in Elm is actually just a pointer to the original since it's all immutable - so we're not saving much by avoiding it
 
 type alias OpDb =
     AnyDict OpIDSortable OpID Op
