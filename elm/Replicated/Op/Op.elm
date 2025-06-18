@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, Context(..), FrameChunk, Op(..), OpPattern(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, Problem(..), ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, contextStackToString, create, id, initObject, object, opIDFromReference, pattern, payload, payloadToJsonValue, problemToString, reducer, reference, ronParser)
+module Replicated.Op.Op exposing (ClosedChunk, Context(..), FrameChunk, Op(..), OpPayloadAtom(..), OpPayloadAtoms, OpenTextOp, OpenTextRonFrame, Problem(..), ReducerID, Reference(..), RonFormat(..), atomToJsonValue, atomToRonString, closedChunksToFrameText, closedOpToString, contextStackToString, create, id, initObject, objectID, opIDFromReference, payload, payloadToJsonValue, problemToString, reducer, reference, ronParser)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -14,17 +14,69 @@ import Set exposing (Set)
 import SmartTime.Moment as Moment
 
 
-type Op
-    = Op ClosedOp
+{-| Closed Ops have all their pieces, ready to use in memory. They may have come from Open Ops where some missing (implied) pieces had to be deduced.
 
-{- Closed Ops have all their pieces, ready to use in memory. They may have come from Open Ops where some missing (implied) pieces had to be deduced.
+We now merge in the OpPattern as well.
+
+Not implemented:
+
+Op with "+" in ID, "-" in Ref = "Acknowledgement"
+Op with "$", "+" or "$", "-" = "Annotation"
+where $ is the same as an omitted ID atom
+
 -}
-type alias ClosedOp =
-    { reducerID : ReducerID
-    , objectID : ObjectID -- TODO instead of storing the ObjectID, we can store the object itself since it's just a pointer, which might actually use less memory and get us more direct access to the object when needed.
-    , operationID : OpID
+type Op
+    = NormalOp NormalOpInfo
+    | DeletionOp DeletionOpInfo
+    | UnDeletionOp UnDeletionOpInfo
+    | CreationOp CreationOpInfo
+
+
+{-| A generic Op. Unused
+-}
+type alias ClosedOpInfo =
+    { operationID : OpID
+    , reducer : ReducerID
+    , object : ObjectID
     , reference : Reference
     , payload : OpPayloadAtoms
+    }
+
+
+{-| Reducer is implied by object. Ref cannot be a reducer.
+
+Unchecked: Referenced Op must be a Normal or Creation Op (referencing an Un/Deletion Op is Acknowledgement, not yet implemented)
+
+-}
+type alias NormalOpInfo =
+    { operationID : OpID
+    , object : CreationOpInfo
+    , earlierOpRef : Op
+    , payload : OpPayloadAtoms
+    }
+
+
+{-| Cannot have payload. Object is implied by reference. Reducer is implied by object. Ref cannot be a reducer.
+-}
+type alias DeletionOpInfo =
+    { operationID : OpID
+    , revertedOpRef : Op
+    }
+
+
+{-| Cannot have payload. Object is implied by reference. Reducer is implied by object. Ref cannot be a reducer.
+-}
+type alias UnDeletionOpInfo =
+    { operationID : OpID
+    , revertedOpRef : Op
+    }
+
+
+{-| ObjectID is OpID. Ref is implied by reducer. Cannot have payload.
+-}
+type alias CreationOpInfo =
+    { operationID : OpID
+    , reducer : ReducerID
     }
 
 
@@ -206,12 +258,12 @@ objectIDStarter =
 
 lwwName : Token Problem
 lwwName =
-    Token "lww" ExpectingReducerName
+    Token lwwTag ExpectingReducerName
 
 
 repListName : Token Problem
 repListName =
-    Token "replist" ExpectingReducerName
+    Token repListTag ExpectingReducerName
 
 
 opSeparator : Token Problem
@@ -404,6 +456,11 @@ type alias OpenTextRonFrame =
     }
 
 
+type UnresolvedOpReference
+    = UnresolvedOpReference OpID
+    | UnresolvedReducerReference ReducerID
+
+
 {-| RON: "Open notation is just a shorted version of closed one. Reducer id and object id are omitted in this case, as those could be deduced from full DB and reference id."
 
 The ChainSpanOpenOp is part of a Chain Span, from which it infers its OpID (spans have incremental OpIDs).
@@ -413,7 +470,7 @@ type alias OpenTextOp =
     { reducerSpecified : Maybe ReducerID
     , objectSpecified : Maybe ObjectID
     , opID : OpID
-    , reference : Reference
+    , reference : UnresolvedOpReference
     , payload : OpPayloadAtoms
     , endOfChunk : Maybe FrameChunkType
     }
@@ -426,19 +483,24 @@ opLineParser prevOpIDMaybe =
             succeed identity
                 |. symbol referenceStarter
                 |= Parser.oneOf
-                    -- TODO allow any reducer name
-                    [ succeed (ReducerReference "lww")
-                        |. Parser.keyword lwwName
-                    , succeed (ReducerReference "replist")
-                        |. Parser.keyword repListName
-                    , succeed OpReference
+                    -- TODO allow any reducer name?
+                    [ Parser.map UnresolvedReducerReference <|
+                        succeed identity
+                            |= reducerIDParser
+                    , succeed UnresolvedOpReference
                         |= opIDParser
                     ]
 
         reducerIDParser : RonParser ReducerID
         reducerIDParser =
-            Parser.getChompedString (Parser.chompWhile Char.isAlpha)
-                |> Parser.andThen (\reducerID -> succeed reducerID)
+            -- Parser.getChompedString (Parser.chompWhile Char.isAlpha)
+            --     |> Parser.andThen (\reducerID -> succeed reducerID)
+            Parser.oneOf
+                [ succeed LWWReducer
+                    |. Parser.keyword lwwName
+                , succeed RepListReducer
+                    |. Parser.keyword repListName
+                ]
 
         optionalReducerIDParser =
             Parser.oneOf
@@ -478,7 +540,7 @@ opLineParser prevOpIDMaybe =
                 Just prevOpID ->
                     Parser.oneOf
                         [ opRefparser
-                        , Parser.map OpReference <| succeed prevOpID
+                        , Parser.map UnresolvedOpReference <| succeed prevOpID
                         ]
 
                 _ ->
@@ -740,25 +802,25 @@ whitespace =
 
 
 type Reference
-    = OpReference OpID
+    = OpReference Op
     | ReducerReference ReducerID
 
 
 referenceToString : Reference -> String
 referenceToString givenRef =
     case givenRef of
-        OpReference opID ->
-            OpID.toString opID
+        OpReference op ->
+            OpID.toString (id op)
 
         ReducerReference reducerID ->
-            reducerID
+            reducerIDToString reducerID
 
 
 opIDFromReference : Reference -> Maybe OpID
 opIDFromReference givenRef =
     case givenRef of
-        OpReference opID ->
-            Just opID
+        OpReference op ->
+            Just (id op)
 
         _ ->
             Nothing
@@ -850,100 +912,171 @@ jsonValueToAtom valueJE =
     StringAtom (JE.encode 0 valueJE)
 
 
-type alias ReducerID =
-    -- TODO - this can be a custom type, so thousands of ops aren't storing copies of the same string
-    String
+lwwTag =
+    "lww"
 
 
-type OpPattern
-    = NormalOp
-    | DeletionOp
-    | UnDeletionOp
-    | CreationOp
-    | Acknowledgement
-    | Annotation
+repListTag =
+    "replist"
 
 
-pattern : Op -> OpPattern
-pattern (Op opRecord) =
-    case ( OpID.isDeletion opRecord.operationID, Maybe.map OpID.isDeletion (opIDFromReference opRecord.reference) ) of
-        ( False, Just False ) ->
-            -- "+", "+"
-            NormalOp
+type ReducerID
+    = LWWReducer
+    | RepListReducer
 
-        ( True, Just False ) ->
-            -- "-", "+"
-            DeletionOp
 
-        ( True, Just True ) ->
-            -- "-", "-"
-            UnDeletionOp
+reducerFromString : String -> Result String ReducerID
+reducerFromString input =
+    if input == lwwTag then
+        Ok LWWReducer
 
-        ( False, Nothing ) ->
-            -- "+", "$"
-            CreationOp
+    else if input == repListTag then
+        Ok RepListReducer
 
-        ( False, Just True ) ->
-            -- "+", "-"
-            Acknowledgement
+    else
+        Err input
 
-        _ ->
-            -- "$", "+" or "$", "-"
-            Annotation
+
+reducerIDToString : ReducerID -> String
+reducerIDToString idString =
+    case idString of
+        LWWReducer ->
+            lwwTag
+
+        RepListReducer ->
+            repListTag
 
 
 type alias Frame =
     Nonempty Op
 
 
-create : ReducerID -> OpID.ObjectID -> OpID -> Reference -> OpPayloadAtoms -> Op
-create givenReducer givenObject opID givenReference givenPayload =
-    let
-        finalReference =
-            if givenReference == OpReference opID then
-                Debug.log "giving op reference to its own ID!!!!" givenReference
+create : ReducerID -> ObjectID -> OpID -> Reference -> OpPayloadAtoms -> Result String Op
+create givenReducerID givenObjectID opID givenReference givenPayload =
+    -- TODO split into createNormalOp, createDeletionOp, etc since only Node does this and it already can validate the Op type
+    case ( OpID.isDeletion opID, Maybe.map OpID.isDeletion (opIDFromReference givenReference), givenReference ) of
+        ( False, Just False, OpReference earlierOp ) ->
+            -- "+", "+"
+            Ok <|
+                NormalOp
+                    { operationID = opID
+                    , object = CreationOpInfo givenObjectID givenReducerID
+                    , earlierOpRef = earlierOp
+                    , payload = givenPayload
+                    }
 
-            else
-                givenReference
-    in
-    Op
-        { reducerID = givenReducer
-        , objectID = givenObject
-        , operationID = opID
-        , reference = finalReference
-        , payload = givenPayload
-        }
+        ( True, Just False, OpReference earlierOp ) ->
+            -- "-", "+"
+            Ok <|
+                DeletionOp
+                    { operationID = opID
+                    , revertedOpRef = earlierOp
+                    }
+
+        ( True, Just True, OpReference earlierOp ) ->
+            -- "-", "-"
+            Ok <|
+                UnDeletionOp
+                    { operationID = opID
+                    , revertedOpRef = earlierOp
+                    }
+
+        ( False, Nothing, ReducerReference reducerID ) ->
+            -- "+", "$"
+            Ok <|
+                CreationOp
+                    { reducer = givenReducerID
+                    , operationID = opID
+                    }
+
+        _ ->
+            Err "Corrupt Op"
 
 
 initObject : ReducerID -> OpID -> Op
 initObject givenReducer opID =
-    Op
-        { reducerID = givenReducer
-        , objectID = opID
+    CreationOp
+        { reducer = givenReducer
         , operationID = opID
-        , reference = ReducerReference givenReducer
-        , payload = []
         }
 
 
-reference (Op op) =
-    op.reference
+reference : Op -> Reference
+reference op =
+    case op of
+        NormalOp { earlierOpRef } ->
+            OpReference earlierOpRef
+
+        DeletionOp { revertedOpRef } ->
+            OpReference revertedOpRef
+
+        UnDeletionOp { revertedOpRef } ->
+            OpReference revertedOpRef
+
+        CreationOp info ->
+            ReducerReference info.reducer
 
 
-reducer (Op op) =
-    op.reducerID
+reducer : Op -> ReducerID
+reducer op =
+    case op of
+        NormalOp info ->
+            info.object.reducer
+
+        DeletionOp info ->
+            reducer info.revertedOpRef
+
+        UnDeletionOp info ->
+            reducer info.revertedOpRef
+
+        CreationOp info ->
+            info.reducer
 
 
-payload (Op op) =
-    op.payload
+payload : Op -> OpPayloadAtoms
+payload op =
+    case op of
+        NormalOp info ->
+            info.payload
+
+        _ ->
+            []
 
 
-id (Op op) =
-    op.operationID
+id : Op -> OpID
+id op =
+    case op of
+        NormalOp info ->
+            info.operationID
+
+        DeletionOp info ->
+            info.operationID
+
+        UnDeletionOp info ->
+            info.operationID
+
+        CreationOp info ->
+            info.operationID
 
 
-object (Op op) =
-    op.objectID
+objectOp op =
+    case op of
+        NormalOp info ->
+            CreationOp info.object
+
+        DeletionOp info ->
+            CreationOp <| objectOp info.revertedOpRef
+
+        UnDeletionOp info ->
+            CreationOp <| objectOp info.revertedOpRef
+
+        CreationOp _ ->
+            op
+
+
+objectID : Op -> OpID
+objectID op =
+    id (objectOp op)
 
 
 type RonFormat
@@ -953,19 +1086,19 @@ type RonFormat
 
 
 closedOpToString : RonFormat -> Op -> String
-closedOpToString format (Op op) =
+closedOpToString format op =
     let
-        reducerID =
-            "*" ++ op.reducerID
+        reducerIDString =
+            "*" ++ reducerIDToString (reducer op)
 
-        objectID =
-            "#" ++ OpID.toString op.objectID
+        objectIDString =
+            "#" ++ OpID.toString (objectID op)
 
-        opID =
-            "@" ++ OpID.toString op.operationID
+        opIDString =
+            "@" ++ OpID.toString (id op)
 
-        ref =
-            ":" ++ referenceToString op.reference
+        refString =
+            ":" ++ referenceToString (reference op)
 
         encodePayloadAtom atom =
             JE.encode 0 atom
@@ -976,29 +1109,29 @@ closedOpToString format (Op op) =
         inclusionList =
             case format of
                 ClosedOps ->
-                    [ reducerID, objectID, opID, ref ]
+                    [ reducerIDString, objectIDString, opIDString, refString ]
 
                 OpenOps ->
-                    [ opID, ref ]
+                    [ opIDString, refString ]
 
                 CompressedOps Nothing ->
-                    [ opID, ref ]
+                    [ opIDString, refString ]
 
-                CompressedOps (Just (Op previousOp)) ->
-                    case ( OpID.isIncremental previousOp.operationID op.operationID && not (OpID.isDeletion op.operationID), op.reference == OpReference previousOp.operationID ) of
+                CompressedOps (Just previousOp) ->
+                    case ( OpID.isIncremental (id previousOp) (id op) && not (OpID.isDeletion (id op)), reference op == OpReference previousOp ) of
                         ( True, True ) ->
                             [ emptyAtom, emptyAtom ]
 
                         ( True, False ) ->
-                            [ emptyAtom, ref ]
+                            [ emptyAtom, refString ]
 
                         ( False, True ) ->
-                            [ opID, emptyAtom ]
+                            [ opIDString, emptyAtom ]
 
                         ( False, False ) ->
-                            [ opID, emptyAtom ]
+                            [ opIDString, emptyAtom ]
     in
-    String.join "\t" (inclusionList ++ List.map atomToRonString op.payload)
+    String.join "\t" (inclusionList ++ List.map atomToRonString (payload op))
 
 
 
