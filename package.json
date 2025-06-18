@@ -70,6 +70,7 @@
     "elm-land": "^0.19.3",
     "elm-native-js": "^1.0.3",
     "elm-taskport": "^2.0.1",
+    "elm-test": "0.19.1-revision15",
     "elm-webpack-loader": "^8.0.0",
     "esbuild": "^0.17.19",
     "flipping": "^1.1.0",
