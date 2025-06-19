@@ -148,7 +148,7 @@ id =
                             Log.crashInDev ("Failed to sucessfully un-serialize OpID " ++ asString ++ ", is it in ron pointer form?") OpID.fromStringForced asString
 
                 finalPointer reducerID =
-                    ID.fromPointer (ExistingObjectPointer (Change.Op.ObjectHeder reducerID opID))
+                    ID.fromPointer (ExistingObjectPointer (Change.Op.ObjectHeader reducerID opID))
             in
             case nodeMaybe of
                 Nothing ->
@@ -161,12 +161,12 @@ id =
                             Log.crashInDev
                                 ("Un-serializing an ID " ++ asString ++ " but I couldn't find the object referenced in the node!")
                                 ID.fromPointer
-                                (ExistingObjectPointer (Change.Op.ObjectHeder "error" opID))
+                                (ExistingObjectPointer (Change.Op.ObjectHeader "error" opID))
 
                         Just ( reducerID, objectID ) ->
                             -- TODO should we use the OpID instead? For versioning?
                             -- Or is this better to switch to canonical ObjectIDs
-                            ID.fromPointer (ExistingObjectPointer (Change.Op.ObjectHeder reducerID objectID))
+                            ID.fromPointer (ExistingObjectPointer (Change.Op.ObjectHeader reducerID objectID))
 
         nodeEncoder : NodeEncoder.Inputs (ID userType) -> NodeEncoder.PrimitiveOutput
         nodeEncoder inputs =

@@ -17,7 +17,7 @@ import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Object as Object exposing (Object)
 import Replicated.Op.Db as OpDb exposing (OpDb)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OpIDSortable, OutCounter)
-import Replicated.Op.Op as Op exposing (Op, ReducerID, create)
+import Replicated.Op.Op as Op exposing (ObjectHeader, Op, OpenTextOp, ReducerID, Reference(..), UnresolvedOpReference(..))
 import Set exposing (Set)
 import Set.Any as AnySet exposing (AnySet)
 import SmartTime.Moment exposing (Moment)
@@ -258,22 +258,33 @@ update newFrame old =
 updateNodeWithChunk : Op.FrameChunk -> RonProcessedInfo -> RonProcessedInfo
 updateNodeWithChunk chunk old =
     let
+        deduceChunkReducerAndObject : Result OpImportWarning Op.ObjectHeader
         deduceChunkReducerAndObject =
-            case List.head chunk.ops of
-                Nothing ->
+            case chunk.ops of
+                [] ->
                     Err EmptyChunk
 
-                Just firstOpenOp ->
+                firstOpenOp :: moreOpenOps ->
                     case ( firstOpenOp.objectSpecified, firstOpenOp.reducerSpecified, firstOpenOp.reference ) of
-                        ( Just explicitObject, Just explicitReducer, _ ) ->
+                        ( Just explicitObjectID, Just explicitReducer, _ ) ->
                             -- closed ops - reducer and objectID are explicit
-                            Ok ( explicitReducer, explicitObject )
+                            case lookupObject old.node explicitObjectID of
+                                Just foundObject ->
+                                    Ok foundObject
 
-                        ( _, _, Op.ReducerReference reducerID ) ->
-                            -- It's a header / creation op, no need to lookup
-                            Ok ( reducerID, firstOpenOp.opID )
+                                Nothing ->
+                                    Err (UnknownReference explicitObjectID)
 
-                        ( _, _, Op.OpReference referencedOpID ) ->
+                        ( _, _, Op.UnresolvedReducerReference reducerID ) ->
+                            -- It's a header / creation op
+                            case lookupObject old.node firstOpenOp.opID of
+                                Just foundObject ->
+                                    Ok foundObject
+
+                                Nothing ->
+                                    Err (UnknownReference firstOpenOp.opID)
+
+                        ( _, _, Op.UnresolvedOpReference referencedOpID ) ->
                             case lookupObject old.node referencedOpID of
                                 Just foundBoth ->
                                     Ok foundBoth
@@ -281,10 +292,42 @@ updateNodeWithChunk chunk old =
                                 Nothing ->
                                     Err (UnknownReference referencedOpID)
 
+        resolveReference : OpenTextOp -> Maybe Reference
+        resolveReference openTextOp =
+            case openTextOp.reference of
+                UnresolvedReducerReference reducer ->
+                    Just (ReducerReference reducer)
+
+                UnresolvedOpReference opIDToFind ->
+                    AnyDict.get opIDToFind old.node.ops
+                        |> Maybe.map OpReference
+
+        closeOp : Op.ObjectHeader -> Op.OpenTextOp -> Maybe Op
+        closeOp deducedObject openOp =
+            case resolveReference openOp of
+                Just foundRef ->
+                    case
+                        Op.create
+                            (openOp.reducerSpecified |> Maybe.withDefault (Op.reducer deducedObject))
+                            (openOp.objectSpecified |> Maybe.withDefault (Op.id deducedObject))
+                            openOp.opID
+                            foundRef
+                            openOp.payload
+                    of
+                        Ok good ->
+                            Just good
+
+                        Err bad ->
+                            Nothing
+
+                Nothing ->
+                    Nothing
+
         closedOpListResult =
             case deduceChunkReducerAndObject of
-                Ok ( foundReducerID, foundObjectID ) ->
-                    Ok <| List.map (closeOp foundReducerID foundObjectID) chunk.ops
+                Ok foundObject ->
+                    -- TODO propogate errors instead of Nothing
+                    Ok <| List.filterMap (closeOp foundObject) chunk.ops
 
                 Err newErrs ->
                     Err newErrs
@@ -293,7 +336,7 @@ updateNodeWithChunk chunk old =
         Ok closedOps ->
             { node = updateWithClosedOps old.node closedOps
             , warnings = old.warnings
-            , newObjects = old.newObjects ++ creationOpsToObjectIDs closedOps
+            , newObjects = old.newObjects ++ filterObjectHeaders closedOps
             }
 
         Err newErr ->
@@ -301,28 +344,17 @@ updateNodeWithChunk chunk old =
             { old | warnings = old.warnings ++ [ newErr ] }
 
 
-closeOp : ReducerID -> ObjectID -> Op.OpenTextOp -> Op
-closeOp deducedReducer deducedObject openOp =
-    Op.Op <|
-        { reducerID = openOp.reducerSpecified |> Maybe.withDefault deducedReducer
-        , objectID = openOp.objectSpecified |> Maybe.withDefault deducedObject
-        , operationID = openOp.opID
-        , reference = openOp.reference
-        , payload = openOp.payload
-        }
-
-
 {-| Find the opID referenced so we know what object an op belongs to.
 
 First we compare against object creation IDs, then the stored "last seen" IDs, since it will usually be that. Finally, we check all other op IDs.
 
 -}
-lookupObject : Node -> OpID -> Maybe ( ReducerID, ObjectID )
+lookupObject : Node -> OpID -> Maybe ObjectHeader
 lookupObject node opIDToFind =
     case AnyDict.get opIDToFind node.ops of
         -- will even find objects by middle ops (version references)
         Just foundOp ->
-            Just ( Op.reducer foundOp, Op.object foundOp )
+            Just (Op.findObjectCreationOp foundOp)
 
         Nothing ->
             Nothing
@@ -332,7 +364,7 @@ lookupObject node opIDToFind =
 -}
 objectCount : Node -> Int
 objectCount node =
-    List.map (Op.object >> OpID.toSortablePrimitives) (AnyDict.values node.ops)
+    List.map (Op.objectID >> OpID.toSortablePrimitives) (AnyDict.values node.ops)
         |> Set.fromList
         |> Set.size
 
@@ -341,7 +373,7 @@ objectCount node =
 -}
 objects : Node -> List ObjectID
 objects node =
-    List.map Op.object (AnyDict.values node.ops)
+    List.map Op.objectID (AnyDict.values node.ops)
         |> List.uniqueBy OpID.toSortablePrimitives
 
 
@@ -410,7 +442,7 @@ applyChanges timeMaybe testMode node (Change.Frame { changes, description }) =
             updateWithClosedOps node allGeneratedOps
 
         newObjectsCreated =
-            creationOpsToObjectIDs allGeneratedOps
+            filterObjectHeaders allGeneratedOps
 
         -- For Tests : use last output as root object
         finalNode =
@@ -442,13 +474,13 @@ applyChanges timeMaybe testMode node (Change.Frame { changes, description }) =
         }
 
 
-creationOpsToObjectIDs : List Op -> List OpID
-creationOpsToObjectIDs ops =
+filterObjectHeaders : List Op -> List Op.ObjectHeader
+filterObjectHeaders ops =
     let
         getCreationIDs op =
-            case Op.pattern op of
-                Op.CreationOp ->
-                    Just (Op.object op)
+            case op of
+                Op.CreationOp header ->
+                    Just header
 
                 _ ->
                     Nothing
@@ -462,7 +494,7 @@ getReversibleOps : List Op -> List Op
 getReversibleOps ops =
     let
         getCreationIDs op =
-            case Op.pattern op of
+            case op of
                 Op.NormalOp ->
                     Just op
 
@@ -715,13 +747,21 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
                     createPendingObject node postUnstampedOpCounter1b postUnstampedOpMapping1b pendingID
 
         --------- find out when this object was last seen, for stamping
-        lastOpSeen =
-            AnyDict.get objectID postInitMapping.lastSeen
-                |> Maybe.withDefault (getLastSeen node objectID)
+        objectLastOpSeenInNode =
+            getLastSeenOp node objectID
+
+        objectLastOpIDSeen =
+            Maybe.Extra.or
+                -- check newest ops first
+                (AnyDict.get objectID postInitMapping.lastSeen)
+                -- then check old ops
+                (Maybe.map Op.id objectLastOpSeenInNode)
+                -- fall back to assuming this is the first op of object (creation)
+                |> Maybe.withDefault objectID
 
         -- Step 3. Stamp all ops with an incremental ID
         ( ( counterAfterObjectChanges3, newLastOpSeen ), objectChangeOps ) =
-            List.mapAccuml stampChunkOps ( postInitCounter, lastOpSeen ) allUnstampedChunkOps
+            List.mapAccuml stampChunkOps ( postInitCounter, objectLastOpIDSeen ) allUnstampedChunkOps
 
         stampChunkOps : ( InCounter, OpID ) -> UnstampedChunkOp -> ( ( OutCounter, OpID ), Op )
         stampChunkOps ( stampInCounter, opIDToReference ) givenUCO =
@@ -751,7 +791,7 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
 
 
 type alias UnstampedChunkOp =
-    { reference : Maybe OpID, payload : Op.OpPayloadAtoms, deletion : Bool }
+    { reference : Maybe OpID, payload : Op.Op.Payload, deletion : Bool }
 
 
 {-| Get prerequisite ops for an (existing object) change if needed, then process the change into an UnstampedChunkOp, leaving out the other op fields to be added by the caller
@@ -761,8 +801,8 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
     let
         perPiece :
             ComplexAtom
-            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.OpPayloadAtom, mapping : UpdatesSoFar }
-            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.OpPayloadAtom, mapping : UpdatesSoFar }
+            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.Op.Payload.Atom, mapping : UpdatesSoFar }
+            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.Op.Payload.Atom, mapping : UpdatesSoFar }
         perPiece piece accumulated =
             case piece of
                 Change.FromPrimitiveAtom primitiveAtom ->
@@ -968,7 +1008,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
                             SmartTime.Moment.toSmartInt cutoffMoment > OpID.toInt opID
 
                 correctObject op =
-                    List.member (Op.object op) foundSome
+                    List.member (Op.objectID op) foundSome
 
                 findMatchingOps =
                     AnyDict.filter matchingOp node.ops
@@ -996,21 +1036,16 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
 It does not have to be stamped by the local replica.
 Usually used to reference the object by new ops.
 -}
-getLastSeen : Node -> ObjectID -> OpID
-getLastSeen node objectIDToFind =
+getLastSeenOp : Node -> ObjectID -> Maybe Op
+getLastSeenOp node objectIDToFind =
     let
         correctObject op =
-            if Op.object op == objectIDToFind then
-                Just (Op.id op)
-
-            else
-                Nothing
+            Op.objectID op == objectIDToFind
 
         findMatchingOps =
-            List.filterMap correctObject (AnyDict.values node.ops)
+            List.filter correctObject (AnyDict.values node.ops)
     in
     List.last findMatchingOps
-        |> Maybe.withDefault objectIDToFind
 
 
 lastUpdate : Node -> Moment

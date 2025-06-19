@@ -229,7 +229,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
 
 {-| For getting the list of pointers out of the stored ops - perhaps even a bunch of ops, whose atoms can be concatenated (to merge all concurrent inits)
 -}
-extractQuotedObjects : List Op.OpPayloadAtom -> List ObjectID
+extractQuotedObjects : List Op.Op.Payload.Atom -> List ObjectID
 extractQuotedObjects atomList =
     let
         keepUUIDs atom =

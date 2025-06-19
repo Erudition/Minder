@@ -70,12 +70,12 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChang
         eventsAsMemberPairs =
             case Object.getCreationID targetObject of
                 Just objectID ->
-                    List.filterMap (eventToMemberPair (Change.ExistingID reducerID objectID)) (AnyDict.toList (Object.getEvents targetObject))
+                    List.filterMap (eventToMemberPair (Change.Op.ObjectHeader reducerID objectID)) (AnyDict.toList (Object.getEvents targetObject))
 
                 Nothing ->
                     []
 
-        eventToMemberPair : Change.ExistingID -> ( OpID, Object.Event ) -> Maybe ( k, Member v )
+        eventToMemberPair : Change.Op.ObjectHeader -> ( OpID, Object.Event ) -> Maybe ( k, Member v )
         eventToMemberPair containerExistingID ( eventID, event ) =
             case payloadToEntry (Object.eventPayloadAsJson event) of
                 Just (Present key val) ->

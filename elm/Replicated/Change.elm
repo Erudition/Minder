@@ -2,22 +2,18 @@ module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAt
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
-import Html exposing (del)
-import Json.Encode as JE
 import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
-import Log
-import Maybe.Extra
 import Replicated.Change.Location as Location exposing (Location, toString)
 import Replicated.Change.PendingID as PendingID exposing (PendingID)
 import Replicated.Change.Primitive as Primitive
-import Replicated.Op.Atom as Atom exposing (Atom(..))
+import Replicated.Op.Atom exposing (Atom(..))
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID)
 import Replicated.Op.ObjectHeader as ObjectHeader exposing (ObjectHeader)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import Result.Extra
-import Set.Any as AnySet exposing (AnySet)
+import Set.Any exposing (AnySet)
 
 
 type ChangeSet
@@ -114,11 +110,6 @@ emptyChangeSet =
         , existingObjectChanges = emptyExistingObjectChanges
         , delayed = []
         }
-
-
-emptyOpIDSet : AnySet OpID.OpIDSortable OpID
-emptyOpIDSet =
-    AnySet.empty OpID.toSortablePrimitives
 
 
 emptyExistingObjectChanges =
@@ -340,11 +331,6 @@ type ObjectChange
     = NewPayload ComplexPayload
     | NewPayloadWithRef { payload : ComplexPayload, ref : OpID }
     | RevertOp OpID
-
-
-complexFromPrimitive : Primitive.Payload -> ComplexPayload
-complexFromPrimitive primitivePayload =
-    Nonempty.map FromPrimitiveAtom primitivePayload
 
 
 
@@ -740,7 +726,7 @@ getContextParent (Context _ parent) =
 
 
 getContextLocation : Context child -> Location
-getContextLocation (Context location parent) =
+getContextLocation (Context location _) =
     location
 
 
@@ -773,7 +759,7 @@ reuseContext uniqueString (Context location parent) =
 
 
 contextDifferentiatorString : Context childType -> String
-contextDifferentiatorString (Context frameIndex parent) =
+contextDifferentiatorString (Context frameIndex _) =
     "⌔" ++ toString frameIndex
 
 

@@ -36,7 +36,7 @@ type Reg userType
 
 
 type alias FieldPayload =
-    Nonempty Op.OpPayloadAtom
+    Nonempty Op.Op.Payload.Atom
 
 
 type alias FieldHistoryBackwards =

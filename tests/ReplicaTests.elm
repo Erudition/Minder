@@ -410,7 +410,7 @@ expectOkAndEqualWhenMapped mapper expectedValue testedResultValue =
 
 
 getObjectEventList objectID node =
-    List.filter (\o -> Op.object o == objectID) (AnyDict.values node.ops)
+    List.filter (\o -> Op.objectID o == objectID) (AnyDict.values node.ops)
 
 
 

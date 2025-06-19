@@ -96,7 +96,7 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
 
         Just foundField ->
             -- field was set before
-            case runFieldDecoder (Op.payloadToJsonValue foundField) of
+            case runFieldDecoder (Payload.toJsonValue foundField) of
                 Ok (Ok goodValue) ->
                     ( Just goodValue, [] )
 
@@ -104,7 +104,7 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
                     ( default, [ problem ] )
 
                 Err jsonDecodeError ->
-                    ( default, [ FailedToDecodeRegField fieldSlot fieldName (Op.payloadToJsonValue foundField |> JE.encode 0) jsonDecodeError ] )
+                    ( default, [ FailedToDecodeRegField fieldSlot fieldName (Payload.toJsonValue foundField |> JE.encode 0) jsonDecodeError ] )
 
 
 registerWritableFieldDecoder : Int -> ( FieldSlot, FieldName ) -> Fallback parentSeed fieldSeed fieldType -> Bool -> Codec fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe (RW fieldType), List RepDecodeError )

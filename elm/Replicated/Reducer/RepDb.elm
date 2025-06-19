@@ -73,12 +73,12 @@ buildFromReplicaDb object payloadToMember memberAdder init =
         memberDict =
             case Object.getCreationID object of
                 Just objectID ->
-                    AnyDict.foldl (addMemberFromEvent (Change.ExistingID reducerID objectID)) (AnyDict.empty OpID.toSortablePrimitives) (Object.getEvents object)
+                    AnyDict.foldl (addMemberFromEvent (Change.Op.ObjectHeader reducerID objectID)) (AnyDict.empty OpID.toSortablePrimitives) (Object.getEvents object)
 
                 Nothing ->
                     AnyDict.empty OpID.toSortablePrimitives
 
-        addMemberFromEvent : Change.ExistingID -> InclusionOpID -> Object.Event -> AnyDict OpID.OpIDSortable ObjectID (Member memberType) -> AnyDict OpID.OpIDSortable ObjectID (Member memberType)
+        addMemberFromEvent : Change.Op.ObjectHeader -> InclusionOpID -> Object.Event -> AnyDict OpID.OpIDSortable ObjectID (Member memberType) -> AnyDict OpID.OpIDSortable ObjectID (Member memberType)
         addMemberFromEvent containerExistingID inclusionEventID event accumulatedDict =
             case
                 ( Object.extractOpIDFromEventPayload event
