@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, ExistingID, Frame(..), ObjectChange(..), Parent, PendingID, Pointer(..), PrimitiveAtom(..), PrimitivePayload, SoloObjectEncoded, UndoData, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, createReversionFrame, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, pendingIDToComparable, pendingIDToString, primitiveAtomToRonAtom, primitiveAtomToString, redundantObjectChange, reuseContext, saveSystemChanges, saveUserChanges, startContext)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, Frame(..), ObjectChange(..), Parent, Pointer(..), SoloObjectEncoded, UndoData, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, createReversionFrame, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, redundantObjectChange, reuseContext, saveSystemChanges, saveUserChanges, startContext)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -9,8 +9,13 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Replicated.Change.Location as Location exposing (Location, toString)
+import Replicated.Change.PendingID as PendingID exposing (PendingID)
+import Replicated.Change.Primitive as Primitive
+import Replicated.Op.Atom as Atom exposing (Atom(..))
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID)
+import Replicated.Op.ObjectHeader as ObjectHeader exposing (ObjectHeader)
 import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import Result.Extra
 import Set.Any as AnySet exposing (AnySet)
 
@@ -41,26 +46,6 @@ collapseChangesToChangeSet layerName changes =
             List.indexedMap supplyIndexToChange changes
     in
     List.foldl mergeChanges emptyChangeSet listOfChangeSets
-
-
-existingIDToComparable : ExistingID -> ( Op.ReducerID, OpID.ObjectIDString )
-existingIDToComparable { reducer, object } =
-    ( reducer, OpID.toString object )
-
-
-existingIDToString : ExistingID -> String
-existingIDToString { reducer, object } =
-    reducer ++ OpID.toString object
-
-
-pendingIDToComparable : PendingID -> List String
-pendingIDToComparable pendingID =
-    Location.toComparable (pendingObjectGlobalLocation pendingID)
-
-
-pendingIDToString : PendingID -> String
-pendingIDToString pendingID =
-    Location.toString (pendingObjectGlobalLocation pendingID)
 
 
 {-| A helper to union two AnyDicts of Lists, by concatenating the Lists on collision rather than overwriting.
@@ -105,7 +90,7 @@ Decision: real changes only, no repeated ops. Ops to be reverted are specified a
 -}
 type alias ChangeSetDetails =
     { objectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
-    , existingObjectChanges : AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
+    , existingObjectChanges : AnyDict ( ReducerID.ReducerIDString, OpID.ObjectIDString ) ObjectHeader (List ObjectChange)
     , delayed : List DelayedChange
     }
 
@@ -137,12 +122,12 @@ emptyOpIDSet =
 
 
 emptyExistingObjectChanges =
-    AnyDict.empty existingIDToComparable
+    AnyDict.empty ObjectHeader.toComparable
 
 
 emptyObjectsToCreate : AnyDict (List String) PendingID (List ObjectChange)
 emptyObjectsToCreate =
-    AnyDict.empty pendingIDToComparable
+    AnyDict.empty PendingID.toComparable
 
 
 changeSetDebug : Int -> ChangeSet -> String
@@ -167,10 +152,10 @@ changeSetDebug indent (ChangeSet changeSetToDebug) =
                 |> ifNonemptyConcat
 
         sayObjectToCreate ( pendingID, objectChangeList ) =
-            Console.bold ("Pending " ++ (Console.underline <| pendingIDToString pendingID)) ++ " changes: [" ++ sayObjectChangeList objectChangeList ++ "]"
+            Console.bold ("Pending " ++ (Console.underline <| PendingID.toString pendingID)) ++ " changes: [" ++ sayObjectChangeList objectChangeList ++ "]"
 
         sayExistingObject ( existingID, objectChangeList ) =
-            Console.bold ("Existing " ++ (Console.underline <| existingIDToString existingID)) ++ " changes:[" ++ sayObjectChangeList objectChangeList ++ "]"
+            Console.bold ("Existing " ++ (Console.underline <| ObjectHeader.toString existingID)) ++ " changes:[" ++ sayObjectChangeList objectChangeList ++ "]"
 
         sayObjectChangeList objectChangeList =
             if List.isEmpty objectChangeList then
@@ -198,10 +183,10 @@ changeSetDebug indent (ChangeSet changeSetToDebug) =
         sayComplexAtom complexAtom =
             case complexAtom of
                 FromPrimitiveAtom primitiveAtom ->
-                    primitiveAtomToString primitiveAtom
+                    Primitive.toString primitiveAtom
 
                 PendingObjectReferenceAtom { reducer } ->
-                    "<pending " ++ reducer ++ " ref>"
+                    "<pending " ++ ReducerID.toString reducer ++ " ref>"
 
                 ExistingObjectReferenceAtom objectID ->
                     "<" ++ (Console.underline <| OpID.toString objectID) ++ ">"
@@ -226,11 +211,11 @@ changeSetDebug indent (ChangeSet changeSetToDebug) =
                             "\n" ++ changeSetDebug (indent + 2) changeSet
                     in
                     case toReference of
-                        ExistingObjectPointer { reducer, object } ->
-                            "{" ++ saySkippable ++ " nested existing?! " ++ reducer ++ ": " ++ OpID.toString object ++ "}" ++ sayNestedChangeSet
+                        ExistingObjectPointer { reducer, operationID } ->
+                            "{" ++ saySkippable ++ " nested existing?! " ++ ReducerID.toString reducer ++ ": " ++ OpID.toString operationID ++ "}" ++ sayNestedChangeSet
 
                         PlaceholderPointer { reducer } installers ->
-                            "{" ++ saySkippable ++ " nested pending " ++ reducer ++ ", " ++ sayInstaller installers ++ "}" ++ sayNestedChangeSet
+                            "{" ++ saySkippable ++ " nested pending " ++ ReducerID.toString reducer ++ ", " ++ sayInstaller installers ++ "}" ++ sayNestedChangeSet
 
                 NestedAtoms complexPayload ->
                     "Nested Atoms: " ++ sayComplexPayload complexPayload
@@ -284,15 +269,15 @@ delayedChangesToSets delayed =
             case target of
                 ExistingObjectPointer existingID ->
                     ChangeSet <|
-                        { objectsToCreate = AnyDict.empty pendingIDToComparable
-                        , existingObjectChanges = AnyDict.singleton existingID givenObjectChanges existingIDToComparable
+                        { objectsToCreate = AnyDict.empty PendingID.toComparable
+                        , existingObjectChanges = AnyDict.singleton existingID givenObjectChanges ObjectHeader.toComparable
                         , delayed = []
                         }
 
                 PlaceholderPointer pendingID _ ->
                     ChangeSet <|
-                        { objectsToCreate = AnyDict.singleton pendingID givenObjectChanges pendingIDToComparable
-                        , existingObjectChanges = AnyDict.empty existingIDToComparable
+                        { objectsToCreate = AnyDict.singleton pendingID givenObjectChanges PendingID.toComparable
+                        , existingObjectChanges = AnyDict.empty ObjectHeader.toComparable
                         , delayed = []
                         }
     in
@@ -357,75 +342,9 @@ type ObjectChange
     | RevertOp OpID
 
 
-type alias PendingID =
-    { reducer : Op.ReducerID
-    , myLocation : Location
-    , parentLocation : Maybe Location
-    }
-
-
-type alias ExistingID =
-    { reducer : Op.ReducerID
-    , object : ObjectID
-    }
-
-
-
--- PRIMITIVE PAYLOADS
-
-
-{-| Full payload when an encoder only produces primitives - no ID references, no nested changes.
-These can be used for e.g. dictionary keys.
--}
-type alias PrimitivePayload =
-    Nonempty PrimitiveAtom
-
-
-{-| Simple change encoder atoms, to be converted to RON - no standalone objects or references.
-TODO allow IDs so user can use IDs as dict keys, no need for special behavior
--}
-type PrimitiveAtom
-    = NakedStringAtom String
-    | StringAtom String
-    | IntegerAtom Int
-    | FloatAtom Float
-
-
-complexFromPrimitive : PrimitivePayload -> ComplexPayload
+complexFromPrimitive : Primitive.Payload -> ComplexPayload
 complexFromPrimitive primitivePayload =
     Nonempty.map FromPrimitiveAtom primitivePayload
-
-
-primitiveAtomToRonAtom : PrimitiveAtom -> Op.OpPayloadAtom
-primitiveAtomToRonAtom primitiveAtom =
-    case primitiveAtom of
-        NakedStringAtom ns ->
-            Op.NakedStringAtom ns
-
-        StringAtom s ->
-            Op.StringAtom s
-
-        IntegerAtom i ->
-            Op.IntegerAtom i
-
-        FloatAtom f ->
-            Op.FloatAtom f
-
-
-primitiveAtomToString : PrimitiveAtom -> String
-primitiveAtomToString primitiveAtom =
-    case primitiveAtom of
-        NakedStringAtom ns ->
-            ns
-
-        StringAtom s ->
-            s
-
-        IntegerAtom i ->
-            String.fromInt i
-
-        FloatAtom f ->
-            String.fromFloat f
 
 
 
@@ -475,16 +394,16 @@ changeObjectWithExternal { target, objectChanges, externalUpdates } =
             case target of
                 ExistingObjectPointer existingID ->
                     ChangeSet
-                        { objectsToCreate = AnyDict.empty pendingIDToComparable
-                        , existingObjectChanges = AnyDict.singleton existingID objectChanges existingIDToComparable
+                        { objectsToCreate = AnyDict.empty PendingID.toComparable
+                        , existingObjectChanges = AnyDict.singleton existingID objectChanges ObjectHeader.toComparable
                         , delayed = []
                         }
                         |> withExternalChanges
 
                 PlaceholderPointer pendingID ancestorsInstallChanges ->
                     ChangeSet
-                        { objectsToCreate = AnyDict.singleton pendingID objectChanges pendingIDToComparable
-                        , existingObjectChanges = AnyDict.empty existingIDToComparable
+                        { objectsToCreate = AnyDict.singleton pendingID objectChanges PendingID.toComparable
+                        , existingObjectChanges = AnyDict.empty ObjectHeader.toComparable
                         , delayed = ancestorsInstallChanges
                         }
                         |> withExternalChanges
@@ -553,7 +472,7 @@ extractOwnSubChanges pointer changeList =
 {-| Change encoder atoms, which supports references and nested object changes.
 -}
 type ComplexAtom
-    = FromPrimitiveAtom PrimitiveAtom
+    = FromPrimitiveAtom Primitive.Atom
     | PendingObjectReferenceAtom PendingID
     | ExistingObjectReferenceAtom ObjectID
     | QuoteNestedObject SoloObjectEncoded
@@ -586,7 +505,7 @@ redundantObjectChange possiblyRedundantObjectChange canonicalObjectChange =
                 QuoteNestedObject solo ->
                     case solo.toReference of
                         ExistingObjectPointer existingID ->
-                            ExistingObjectReferenceAtom existingID.object
+                            ExistingObjectReferenceAtom existingID.operationID
 
                         PlaceholderPointer pendingID _ ->
                             PendingObjectReferenceAtom pendingID
@@ -668,7 +587,7 @@ createReversionFrame opsToRevert =
         addOpToChangeSet op existingObjectChanges =
             let
                 existingID =
-                    ExistingID (Op.reducer op) (Op.object op)
+                    ObjectHeader (Op.objectID op) (Op.reducer op)
             in
             -- AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
             AnyDict.insert existingID [ RevertOp (Op.id op) ] existingObjectChanges
@@ -698,7 +617,7 @@ For future (placeholder) objects, there is a change built in, allowing us to kee
 
 -}
 type Pointer
-    = ExistingObjectPointer ExistingID
+    = ExistingObjectPointer ObjectHeader
     | PlaceholderPointer PendingID (List DelayedChange)
 
 
@@ -729,7 +648,7 @@ getPointerObjectID pointer =
             Nothing
 
         ExistingObjectPointer existingID ->
-            Just existingID.object
+            Just existingID.operationID
 
 
 getPointerReducer pointer =
@@ -747,67 +666,67 @@ type alias ChildInstaller =
     PendingID -> DelayedChange
 
 
-pendingObjectGlobalLocation : PendingID -> Location
-pendingObjectGlobalLocation { reducer, myLocation, parentLocation } =
-    case parentLocation of
-        Nothing ->
-            Location.nestSingle myLocation reducer
-
-        Just foundParentLoc ->
-            Location.wrap foundParentLoc myLocation reducer
-
-
-newPointer : { parent : Parent, position : Location, reducerID : Op.ReducerID } -> Pointer
+newPointer : { parent : Parent, position : Location, reducerID : ReducerID } -> Pointer
 newPointer { parent, position, reducerID } =
+    let
+        newPendingIDForExistingParent existingID =
+            { reducer = reducerID
+            , myLocation = position
+            , parentLocation = Just <| Location.newSingle (OpID.toString existingID)
+            }
+
+        newPendingIDForPendingParent parentPendingID =
+            { reducer = reducerID
+            , myLocation = position
+            , parentLocation = Just <| PendingID.toLocation parentPendingID
+            }
+    in
     case parent of
-        Parent (ExistingObjectPointer { object }) childInstallerMaybe ->
+        DelayedParent (ExistingObjectPointer { operationID }) childInstaller ->
             let
-                newPendingID : PendingID
                 newPendingID =
-                    { reducer = reducerID
-                    , myLocation = position
-                    , parentLocation = Just <| Location.newSingle (OpID.toString object)
-                    }
+                    newPendingIDForExistingParent operationID
 
                 childInstallChanges : List DelayedChange
                 childInstallChanges =
                     -- install the new child in the existing parent.
-                    Maybe.map (\f -> f newPendingID) childInstallerMaybe
-                        |> Maybe.Extra.toList
+                    [ childInstaller newPendingID ]
             in
             PlaceholderPointer newPendingID childInstallChanges
 
-        Parent (PlaceholderPointer parentPendingID ancestorInstallChanges) childInstallerMaybe ->
+        InstantParent (ExistingObjectPointer { operationID }) ->
+            PlaceholderPointer (newPendingIDForExistingParent operationID) []
+
+        DelayedParent (PlaceholderPointer parentPendingID ancestorInstallChanges) childInstaller ->
             let
-                childInstallChangeMaybe : Maybe DelayedChange
-                childInstallChangeMaybe =
-                    -- install the new child in the pending parent.
-                    Maybe.map (\f -> f newPendingID) childInstallerMaybe
+                newPendingID =
+                    newPendingIDForPendingParent parentPendingID
 
                 finalInstallChanges : List DelayedChange
                 finalInstallChanges =
-                    case childInstallChangeMaybe of
-                        Just childInstallChange ->
-                            -- merge the new child install Change with the ancestor installers Change.
-                            ancestorInstallChanges ++ [ childInstallChange ]
+                    -- install the new child in the pending parent.
+                    -- merge the new child install Change with the ancestor installers Change.
+                    ancestorInstallChanges ++ [ childInstaller newPendingID ]
+            in
+            PlaceholderPointer newPendingID finalInstallChanges
 
-                        Nothing ->
-                            -- perhaps this pointer is an InstantParent, even if ancestors are not
-                            ancestorInstallChanges
+        InstantParent (PlaceholderPointer parentPendingID ancestorInstallChanges) ->
+            PlaceholderPointer (newPendingIDForPendingParent parentPendingID) ancestorInstallChanges
 
-                newPendingID : PendingID
+        GenesisParent origin ->
+            let
                 newPendingID =
                     { reducer = reducerID
                     , myLocation = position
-                    , parentLocation = Just <| pendingObjectGlobalLocation parentPendingID
+                    , parentLocation = Just <| Location.newSingle origin
                     }
             in
-            PlaceholderPointer newPendingID finalInstallChanges
+            PlaceholderPointer newPendingID []
 
 
 genesisParent : String -> Parent
 genesisParent whereWeStarted =
-    Parent (PlaceholderPointer (PendingID (whereWeStarted ++ "-root") Location.none Nothing) []) Nothing
+    GenesisParent (whereWeStarted ++ "-root")
 
 
 startContext : String -> Context child
@@ -872,7 +791,9 @@ contextDifferentiatorString (Context frameIndex parent) =
 
 
 type Parent
-    = Parent Pointer (Maybe ChildInstaller)
+    = DelayedParent Pointer ChildInstaller
+    | InstantParent Pointer
+    | GenesisParent String
 
 
 type Context childType
@@ -884,11 +805,11 @@ Pass in the ChildInstaller, the change that would be needed to add the child to 
 -}
 becomeDelayedParent : Pointer -> ChildInstaller -> Parent
 becomeDelayedParent pointer childInstaller =
-    Parent pointer (Just childInstaller)
+    DelayedParent pointer childInstaller
 
 
 {-| An instant Parent must initialize all child objects immediately, so they don't lose their place inside. Use a delayed Parent instead, when possible.
 -}
 becomeInstantParent : Pointer -> Parent
 becomeInstantParent pointer =
-    Parent pointer Nothing
+    InstantParent pointer

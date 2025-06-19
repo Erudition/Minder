@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, ObjectHeader, Op(..), Reference(..), create, findObjectCreationOp, id, initObject, objectID, opIDFromReference, payload, reducer, reference, referenceToString)
+module Replicated.Op.Op exposing (ClosedChunk, Op(..), Reference(..), create, findObjectCreationOp, id, initObject, objectID, opIDFromReference, payload, reducer, reference, referenceToString)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -9,6 +9,7 @@ import List.Extra
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Parser.Advanced as Parser exposing ((|.), (|=), Token(..), float, inContext, succeed, symbol)
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID)
+import Replicated.Op.ObjectHeader as ObjectHeader exposing (ObjectHeader)
 import Replicated.Op.Payload as Payload exposing (Payload)
 import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import Result.Extra
@@ -75,14 +76,6 @@ type alias DeletionOpInfo =
 type alias UnDeletionOpInfo =
     { operationID : OpID
     , revertedOpRef : Op
-    }
-
-
-{-| ObjectID is OpID. Ref is implied by reducer. Cannot have payload.
--}
-type alias ObjectHeader =
-    { operationID : OpID
-    , reducer : ReducerID
     }
 
 

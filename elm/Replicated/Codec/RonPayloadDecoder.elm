@@ -38,7 +38,7 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 type RonPayloadDecoder a
     = RonPayloadDecoderLegacy (JD.Decoder (Result RepDecodeError a))
-    | RonPayloadDecoderNew (Op.OpPayloadAtoms -> Result RepDecodeError a)
+    | RonPayloadDecoderNew (Op.Op.Payload -> Result RepDecodeError a)
 
 
 

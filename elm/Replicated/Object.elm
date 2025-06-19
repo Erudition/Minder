@@ -9,7 +9,7 @@ import Log
 import Replicated.Change as Change exposing (ChangeSet)
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
-import Replicated.Op.Op as Op exposing (Op, OpPayloadAtoms)
+import Replicated.Op.Op as Op exposing (Op, Op.Payload)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -48,7 +48,7 @@ buildSavedObject opDict =
             let
                 base =
                     { reducer = Op.reducer firstOp
-                    , creation = Op.object firstOp
+                    , creation = Op.objectID firstOp
                     , events = AnyDict.empty OpID.toSortablePrimitives
                     , included = All -- TODO
                     , version = Op.id firstOp
@@ -221,7 +221,7 @@ getEvents object =
 
 
 type alias EventPayload =
-    Op.OpPayloadAtoms
+    Op.Op.Payload
 
 
 {-| An object update that has not been reverted. Reversion ops themselves are not included, so Object Events are always the type of op the reducer is expecting to work with.
@@ -272,4 +272,4 @@ type InclusionInfo
 
 
 type ReducerWarning
-    = OpDecodeFailed OpIDString OpPayloadAtoms
+    = OpDecodeFailed OpIDString Op.Payload

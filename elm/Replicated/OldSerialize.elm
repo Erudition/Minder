@@ -1,4 +1,4 @@
-module Replicated.Serialize exposing
+module Replicated.OldSerialize exposing
     ( encodeToJson, decodeFromJson, encodeToBytes, decodeFromBytes, encodeToString, decodeFromString
     , Codec(..), Error(..)
     , string, bool, float, int, unit, bytes, byte

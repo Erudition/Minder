@@ -1,10 +1,10 @@
 # Now
+- [ ] Get rid of ObjectIDs everywhere besides raw RON, just use ObjectHeader
 - [X] Fix update lag with no change frames: Reg.latest is no longer a function, so view full of Regs is not recalculated every view
-- [ ] Consider node object "subscriptions": on new ops, surgically update model
 - [ ] Cannot delayed-init regs that are wrapped in something, like Just
 - [ ] Give Contexts a type variable
 - [X] Fix case where pointers merge for some reason
-- [X] If new object is wrapped in custom type, it will be ref'd and init without its changes. fix 
+- [X] If new object is wrapped in custom type, it will be ref'd and init without its changes. fix
 - [ ] write test for above
 - [ ] Determine what parts of Node.processDelayedInMapping are now unneeded
 - [ ] Test delayed changes getting pulled into later object init rather than done last
@@ -54,7 +54,7 @@
 # Differences from offical RON 2 (at replicated.cc)
 - (+) Unlike LWW registers in RON, ours natively support merging of concurrently created objects. This could be considered a feature of Multi-Valued Registers rather than simple LWW.
 - (-) UUIDs ("OpIDs") use simple integer counters/clocks/timestamps rather than RON's "calendar-aware" timestamps for now.
-- (-) Support for Pseudo-ops covers only comment-like functionality for now. 
+- (-) Support for Pseudo-ops covers only comment-like functionality for now.
 - (-) The RON API is not yet implemented.
   - (-) That means no Query and Assertion Chunks (end in ? and !), only Event chunks (;)
 - (-) Reducers currently supported are only LWW and RGA (replist).

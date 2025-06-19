@@ -1,17 +1,23 @@
 module Replicated.Op.ReducerID exposing (..)
 
 
+type ReducerID
+    = LWWReducer
+    | RepListReducer
+
+
+type alias ReducerIDString =
+    String
+
+
+lwwTag : ReducerIDString
 lwwTag =
     "lww"
 
 
+repListTag : ReducerIDString
 repListTag =
     "replist"
-
-
-type ReducerID
-    = LWWReducer
-    | RepListReducer
 
 
 fromString : String -> Result String ReducerID
