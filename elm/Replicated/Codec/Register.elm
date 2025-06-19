@@ -38,7 +38,7 @@ import Replicated.Codec.RegisterField.Encoder as RegisterFieldEncoder exposing (
 import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
-import Replicated.Object as Object exposing (Object)
+import Replicated.ObjectGroup as Object exposing (Object)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Reducer.Register as Reg exposing (..)

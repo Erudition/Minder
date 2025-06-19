@@ -10,14 +10,22 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Parser.Advanced as Parser
-import Replicated.Change as Change exposing (Change, ChangeSet(..), ComplexAtom, PendingID, Pointer(..), pendingIDToString)
+import Replicated.Change as Change exposing (Change, ChangeSet(..), ComplexAtom, Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Change.PendingID as PendingID exposing (PendingID)
+import Replicated.Change.Primitive as ChangePrimitive
 import Replicated.Identifier exposing (..)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
-import Replicated.Object as Object exposing (Object)
+import Replicated.ObjectGroup as Object exposing (ObjectGroup)
+import Replicated.Op.Atom as Atom exposing (Atom)
 import Replicated.Op.Db as OpDb exposing (OpDb)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OpIDSortable, OutCounter)
-import Replicated.Op.Op as Op exposing (ObjectHeader, Op, OpenTextOp, ReducerID, Reference(..), UnresolvedOpReference(..))
+import Replicated.Op.ObjectHeader as ObjectHeader exposing (ObjectHeader)
+import Replicated.Op.Op as Op exposing (Op, Reference(..))
+import Replicated.Op.Payload as Payload exposing (Payload)
+import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
+import Replicated.Op.RonOutput as RonOutput
+import Replicated.Op.RonParser as RonParser exposing (FrameChunk, OpenOp, OpenTextRonFrame, RonParser)
 import Set exposing (Set)
 import Set.Any as AnySet exposing (AnySet)
 import SmartTime.Moment exposing (Moment)
@@ -28,7 +36,7 @@ import SmartTime.Moment exposing (Moment)
 type alias Node =
     { identity : NodeID
     , ops : OpDb
-    , root : Maybe ObjectID
+    , root : Maybe ObjectHeader
     , highestSeenClock : Int
     , peers : List Peer
     }
@@ -156,16 +164,18 @@ updateWithClosedOps node newOps =
 
 
 type OpImportWarning
-    = ParseFail (List (Parser.DeadEnd Op.Context Op.Problem))
+    = ParseFail (List RonParser.DeadEnd)
     | UnknownReference OpID
     | EmptyChunk
     | NoSuccessfulOps String
 
 
+opImportWarningToString : OpImportWarning -> String
 opImportWarningToString opImportWarning =
     case opImportWarning of
         ParseFail deadEndList ->
-            Debug.todo "ParseFail (List (Parser.DeadEnd Op.Context Op.Problem))"
+            List.map RonParser.deadEndToString deadEndList
+                |> String.concat
 
         UnknownReference opID ->
             "Unknown reference, OpID: " ++ OpID.toString opID
@@ -180,13 +190,13 @@ opImportWarningToString opImportWarning =
 type alias RonProcessedInfo =
     { node : Node
     , warnings : List OpImportWarning
-    , newObjects : List ObjectID
+    , newObjects : List ObjectHeader
     }
 
 
 updateWithRon : RonProcessedInfo -> String -> RonProcessedInfo
 updateWithRon old inputRon =
-    case Parser.run Op.ronParser inputRon of
+    case Parser.run RonParser.ronParser inputRon of
         Ok parsedRonFrames ->
             case parsedRonFrames of
                 [] ->
@@ -211,7 +221,7 @@ updateWithRon old inputRon =
 
 {-| When we want to update with a bunch of frames at a time. Usually we only run through one at a time for responsive performance.
 -}
-updateWithMultipleFrames : List Op.OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
+updateWithMultipleFrames : List OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
 updateWithMultipleFrames newFrames old =
     let
         assumeRootIfNeeded output =
@@ -242,7 +252,7 @@ updateWithMultipleFrames newFrames old =
 
 {-| Update a node with some Ops in a Frame.
 -}
-update : Op.OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
+update : OpenTextRonFrame -> RonProcessedInfo -> RonProcessedInfo
 update newFrame old =
     case newFrame.chunks of
         [] ->
@@ -255,10 +265,10 @@ update newFrame old =
 
 {-| Add a single object Chunk to the node.
 -}
-updateNodeWithChunk : Op.FrameChunk -> RonProcessedInfo -> RonProcessedInfo
+updateNodeWithChunk : FrameChunk -> RonProcessedInfo -> RonProcessedInfo
 updateNodeWithChunk chunk old =
     let
-        deduceChunkReducerAndObject : Result OpImportWarning Op.ObjectHeader
+        deduceChunkReducerAndObject : Result OpImportWarning ObjectHeader
         deduceChunkReducerAndObject =
             case chunk.ops of
                 [] ->
@@ -275,7 +285,7 @@ updateNodeWithChunk chunk old =
                                 Nothing ->
                                     Err (UnknownReference explicitObjectID)
 
-                        ( _, _, Op.UnresolvedReducerReference reducerID ) ->
+                        ( _, _, RonParser.UnresolvedReducerReference reducerID ) ->
                             -- It's a header / creation op
                             case lookupObject old.node firstOpenOp.opID of
                                 Just foundObject ->
@@ -284,7 +294,7 @@ updateNodeWithChunk chunk old =
                                 Nothing ->
                                     Err (UnknownReference firstOpenOp.opID)
 
-                        ( _, _, Op.UnresolvedOpReference referencedOpID ) ->
+                        ( _, _, RonParser.UnresolvedOpReference referencedOpID ) ->
                             case lookupObject old.node referencedOpID of
                                 Just foundBoth ->
                                     Ok foundBoth
@@ -292,24 +302,24 @@ updateNodeWithChunk chunk old =
                                 Nothing ->
                                     Err (UnknownReference referencedOpID)
 
-        resolveReference : OpenTextOp -> Maybe Reference
+        resolveReference : OpenOp -> Maybe Reference
         resolveReference openTextOp =
             case openTextOp.reference of
-                UnresolvedReducerReference reducer ->
+                RonParser.UnresolvedReducerReference reducer ->
                     Just (ReducerReference reducer)
 
-                UnresolvedOpReference opIDToFind ->
+                RonParser.UnresolvedOpReference opIDToFind ->
                     AnyDict.get opIDToFind old.node.ops
                         |> Maybe.map OpReference
 
-        closeOp : Op.ObjectHeader -> Op.OpenTextOp -> Maybe Op
+        closeOp : ObjectHeader -> OpenOp -> Maybe Op
         closeOp deducedObject openOp =
             case resolveReference openOp of
                 Just foundRef ->
                     case
                         Op.create
-                            (openOp.reducerSpecified |> Maybe.withDefault (Op.reducer deducedObject))
-                            (openOp.objectSpecified |> Maybe.withDefault (Op.id deducedObject))
+                            (openOp.reducerSpecified |> Maybe.withDefault deducedObject.reducer)
+                            (openOp.objectSpecified |> Maybe.withDefault deducedObject.operationID)
                             openOp.opID
                             foundRef
                             openOp.payload
@@ -354,7 +364,7 @@ lookupObject node opIDToFind =
     case AnyDict.get opIDToFind node.ops of
         -- will even find objects by middle ops (version references)
         Just foundOp ->
-            Just (Op.findObjectCreationOp foundOp)
+            Just (Op.objectHeader foundOp)
 
         Nothing ->
             Nothing
@@ -390,7 +400,7 @@ applyChanges :
     ->
         { outputFrame : List Op.ClosedChunk
         , updatedNode : Node
-        , created : List ObjectID
+        , created : List ObjectHeader
         }
 applyChanges timeMaybe testMode node (Change.Frame { changes, description }) =
     let
@@ -407,7 +417,7 @@ applyChanges timeMaybe testMode node (Change.Frame { changes, description }) =
         -- create the object passed in -header only!!
         frameStartMapping : UpdatesSoFar
         frameStartMapping =
-            { assignedIDs = AnyDict.empty Change.pendingIDToComparable
+            { assignedIDs = AnyDict.empty PendingID.toComparable
             , lastSeen = AnyDict.empty OpID.toString
             , delayed = []
             }
@@ -460,11 +470,11 @@ applyChanges timeMaybe testMode node (Change.Frame { changes, description }) =
                 , [ "Delayed ChangeSets (", String.fromInt (List.length delayedChangeSets), "):" ]
                 , [ List.map (Change.changeSetDebug 0) delayedChangeSets |> String.join "\n" ]
                 , [ "Created", Log.lengthWithBad 0 newObjectsCreated, "new objects:" ]
-                , [ List.map OpID.toString newObjectsCreated |> String.join ", " ]
+                , [ List.map ObjectHeader.idString newObjectsCreated |> String.join ", " ]
                 , [ "Output Frame:" ]
-                , [ Op.closedChunksToFrameText step1OutChunks ]
+                , [ RonOutput.closedChunksToFrameText step1OutChunks ]
                 , [ "Delayed Updates:" ]
-                , [ Op.closedChunksToFrameText (List.concat step2OutChunks) ]
+                , [ RonOutput.closedChunksToFrameText (List.concat step2OutChunks) ]
                 ]
     in
     Log.logMessageOnly logApplyResults
@@ -474,7 +484,7 @@ applyChanges timeMaybe testMode node (Change.Frame { changes, description }) =
         }
 
 
-filterObjectHeaders : List Op -> List Op.ObjectHeader
+filterObjectHeaders : List Op -> List ObjectHeader
 filterObjectHeaders ops =
     let
         getCreationIDs op =
@@ -495,89 +505,73 @@ getReversibleOps ops =
     let
         getCreationIDs op =
             case op of
-                Op.NormalOp ->
+                Op.NormalOp _ ->
                     Just op
 
-                Op.DeletionOp ->
+                Op.DeletionOp _ ->
                     Just op
 
-                Op.UnDeletionOp ->
+                Op.UnDeletionOp _ ->
                     Just op
 
-                Op.CreationOp ->
-                    Nothing
-
-                Op.Annotation ->
-                    Nothing
-
-                Op.Acknowledgement ->
+                Op.CreationOp _ ->
                     Nothing
     in
     List.filterMap getCreationIDs ops
 
 
-{-| Find all Ops that use the given Op as a reference.
-TODO just index the OpDb by reference
--}
-findAllReferencesToOp : Node -> OpID -> List Op
-findAllReferencesToOp node opID =
-    AnyDict.filter (\_ op -> Op.opIDFromReference (Op.reference op) == Just opID) node.ops
-        |> AnyDict.values
 
-
-{-| Given a list of OpIDs representing the original change, find the Ops of their latest reversion.
-
-TODO: once OpDb is indexed by object and reference, eliminate the recursive search.
-
--}
-findFinalOpsToRevert : Node -> Change.UndoData -> List Op
-findFinalOpsToRevert node opIDsToRevert =
-    let
-        findFinalReversionOp earlierOpID =
-            let
-                earlierOpMaybe =
-                    -- TODO ideally we don't have to fetch the op itself for this.
-                    AnyDict.get earlierOpID node.ops
-
-                earlierOpPatternMaybe =
-                    Maybe.map Op.pattern earlierOpMaybe
-
-                -- if the op is normal, the next reversion will be a deletion op.
-                -- if the op is a deletion already, the next reversion (undeletion) will look like a normal opID.
-                opPatternToLookFor =
-                    case earlierOpPatternMaybe of
-                        Just Op.DeletionOp ->
-                            Op.UnDeletionOp
-
-                        Just Op.UnDeletionOp ->
-                            Op.DeletionOp
-
-                        _ ->
-                            Op.NormalOp
-
-                allOpsReferringToEarlierOp =
-                    findAllReferencesToOp node earlierOpID
-            in
-            case List.filter (\op -> Op.pattern op == opPatternToLookFor) allOpsReferringToEarlierOp of
-                [] ->
-                    -- Looks like this op was never reverted, so it's the final op
-                    earlierOpMaybe
-
-                [ foundReversionOp ] ->
-                    -- the earlier op has been reverted, repeat the process with the newfound reversion
-                    findFinalReversionOp (Op.id foundReversionOp)
-
-                firstOpFound :: moreFound ->
-                    Log.crashInDev "When trying to find reversions of an op, I found multiple..." (Just firstOpFound)
-    in
-    List.filterMap findFinalReversionOp (AnySet.toList opIDsToRevert)
+-- {-| Find all Ops that use the given Op as a reference.
+-- TODO just index the OpDb by reference
+-- -}
+-- findAllReferencesToOp : Node -> OpID -> List Op
+-- findAllReferencesToOp node opID =
+--     AnyDict.filter (\_ op -> Op.opIDFromReference (Op.reference op) == Just opID) node.ops
+--         |> AnyDict.values
+-- {-| Given a list of OpIDs representing the original change, find the Ops of their latest reversion.
+-- TODO: once OpDb is indexed by object and reference, eliminate the recursive search.
+-- -}
+-- findFinalOpsToRevert : Node -> Change.UndoData -> List Op
+-- findFinalOpsToRevert node opIDsToRevert =
+--     let
+--         findFinalReversionOp earlierOpID =
+--             let
+--                 earlierOpMaybe =
+--                     -- TODO ideally we don't have to fetch the op itself for this.
+--                     AnyDict.get earlierOpID node.ops
+--                 earlierOpPatternMaybe =
+--                     Maybe.map Op.pattern earlierOpMaybe
+--                 -- if the op is normal, the next reversion will be a deletion op.
+--                 -- if the op is a deletion already, the next reversion (undeletion) will look like a normal opID.
+--                 opPatternToLookFor =
+--                     case earlierOpPatternMaybe of
+--                         Just Op.DeletionOp ->
+--                             Op.UnDeletionOp
+--                         Just Op.UnDeletionOp ->
+--                             Op.DeletionOp
+--                         _ ->
+--                             Op.NormalOp
+--                 allOpsReferringToEarlierOp =
+--                     findAllReferencesToOp node earlierOpID
+--             in
+--             case List.filter (\op -> Op.pattern op == opPatternToLookFor) allOpsReferringToEarlierOp of
+--                 [] ->
+--                     -- Looks like this op was never reverted, so it's the final op
+--                     earlierOpMaybe
+--                 [ foundReversionOp ] ->
+--                     -- the earlier op has been reverted, repeat the process with the newfound reversion
+--                     findFinalReversionOp (Op.id foundReversionOp)
+--                 firstOpFound :: moreFound ->
+--                     Log.crashInDev "When trying to find reversions of an op, I found multiple..." (Just firstOpFound)
+--     in
+--     List.filterMap findFinalReversionOp (AnySet.toList opIDsToRevert)
 
 
 {-| Collects info on what ObjectIDs map back to what placeholder IDs from before they were initialized. In case we want to reference the new object same-frame.
 Use with Change.pendingIDToString
 -}
 type alias UpdatesSoFar =
-    { assignedIDs : AnyDict (List String) Change.PendingID ObjectID
+    { assignedIDs : AnyDict (List String) PendingID ObjectID
     , lastSeen : AnyDict OpID.OpIDString ObjectID OpID
     , delayed : List Change.DelayedChange
     }
@@ -738,9 +732,9 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
         -- Step 2. Header Op: initialize the object, if it wasn't created already
         { objectID, reducerID, initOps, postInitCounter, postInitMapping } =
             case pointer of
-                Change.ExistingObjectPointer { reducer, object } ->
+                Change.ExistingObjectPointer { reducer, operationID } ->
                     -- Existed at start of frame, so no-op.
-                    { objectID = object, reducerID = reducer, initOps = [], postInitCounter = postUnstampedOpCounter1b, postInitMapping = postUnstampedOpMapping1b }
+                    { objectID = operationID, reducerID = reducer, initOps = [], postInitCounter = postUnstampedOpCounter1b, postInitMapping = postUnstampedOpMapping1b }
 
                 Change.PlaceholderPointer pendingID _ ->
                     -- May need creating, check mapping first, then create
@@ -778,9 +772,8 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
         finalMapping =
             { postInitMapping | lastSeen = AnyDict.insert objectID newLastOpSeen postInitMapping.lastSeen }
 
-        logOps prefix ops =
-            String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ Op.closedOpToString Op.ClosedOps op ++ "\t") ops))
-
+        -- logOps prefix ops =
+        --     String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ RonOutput.opToString op ++ "\t") ops))
         allOpsInDependencyOrder =
             allPrereqChunks ++ [ initOps ++ objectChangeOps ]
     in
@@ -791,7 +784,7 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
 
 
 type alias UnstampedChunkOp =
-    { reference : Maybe OpID, payload : Op.Op.Payload, deletion : Bool }
+    { reference : Maybe OpID, payload : Payload, deletion : Bool }
 
 
 {-| Get prerequisite ops for an (existing object) change if needed, then process the change into an UnstampedChunkOp, leaving out the other op fields to be added by the caller
@@ -801,20 +794,20 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
     let
         perPiece :
             ComplexAtom
-            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.Op.Payload.Atom, mapping : UpdatesSoFar }
-            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Op.Op.Payload.Atom, mapping : UpdatesSoFar }
+            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Atom, mapping : UpdatesSoFar }
+            -> { counter : OutCounter, prerequisiteChunks : List Op.ClosedChunk, piecesSoFar : List Atom, mapping : UpdatesSoFar }
         perPiece piece accumulated =
             case piece of
                 Change.FromPrimitiveAtom primitiveAtom ->
                     { counter = accumulated.counter
-                    , piecesSoFar = accumulated.piecesSoFar ++ [ Change.primitiveAtomToRonAtom primitiveAtom ]
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ ChangePrimitive.toRonAtom primitiveAtom ]
                     , prerequisiteChunks = accumulated.prerequisiteChunks
                     , mapping = accumulated.mapping
                     }
 
                 Change.ExistingObjectReferenceAtom objectID ->
                     { counter = accumulated.counter
-                    , piecesSoFar = accumulated.piecesSoFar ++ [ Op.IDPointerAtom objectID ]
+                    , piecesSoFar = accumulated.piecesSoFar ++ [ Atom.IDPointerAtom objectID ]
                     , prerequisiteChunks = accumulated.prerequisiteChunks
                     , mapping = accumulated.mapping
                     }
@@ -827,19 +820,19 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                         atomInList =
                             case foundNewObjectID of
                                 Just objectID ->
-                                    [ Op.IDPointerAtom objectID ]
+                                    [ Atom.IDPointerAtom objectID ]
 
                                 Nothing ->
                                     Log.logSeparate
                                         (Console.bgRed <|
                                             "Node.objectChangeToUnstampedOp: Unknown PendingObjectReferenceAtom reference to a pending object: "
-                                                ++ pendingIDToString pendingID
+                                                ++ PendingID.toString pendingID
                                                 ++ " when processing the objectChange "
                                                 ++ Debug.toString objectChange
                                                 ++ "with this in the mapping so far"
                                         )
                                         (AnyDict.toList accumulated.mapping.assignedIDs)
-                                        [ Op.StringAtom <| pendingIDToString pendingID ]
+                                        [ Atom.StringAtom <| PendingID.toString pendingID ]
                     in
                     { counter = accumulated.counter
                     , piecesSoFar = accumulated.piecesSoFar ++ atomInList
@@ -855,12 +848,12 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                         pointerPayloadAsList =
                             case soloObject.toReference of
                                 Change.ExistingObjectPointer existingID ->
-                                    [ Op.IDPointerAtom existingID.object ]
+                                    [ Atom.IDPointerAtom existingID.operationID ]
 
                                 Change.PlaceholderPointer pendingID nestedInstallers ->
                                     case AnyDict.get pendingID outMapping.assignedIDs of
                                         Just outputObject ->
-                                            [ Op.IDPointerAtom outputObject ]
+                                            [ Atom.IDPointerAtom outputObject ]
 
                                         Nothing ->
                                             Log.crashInDev ("QuoteNestedObject not sure what the ObjectID was of this nested object. " ++ Log.dump soloObject.changeSet) []
@@ -883,7 +876,7 @@ objectChangeToUnstampedOp node ( inCounter, inMapping ) objectChange =
                                 nestedChangeAtoms
 
                         finalNestedPayloadAsString =
-                            Op.NakedStringAtom "(" :: nestedOutputAtoms.piecesSoFar ++ [ Op.NakedStringAtom ")" ]
+                            Atom.NakedStringAtom "(" :: nestedOutputAtoms.piecesSoFar ++ [ Atom.NakedStringAtom ")" ]
                     in
                     { counter = nestedOutputAtoms.counter
                     , prerequisiteChunks = accumulated.prerequisiteChunks ++ nestedOutputAtoms.prerequisiteChunks
@@ -932,7 +925,7 @@ createPendingObject :
     -> PendingID
     ->
         { objectID : ObjectID
-        , reducerID : Op.ReducerID
+        , reducerID : ReducerID
         , initOps : List Op
         , postInitCounter : OutCounter
         , postInitMapping : UpdatesSoFar
@@ -974,7 +967,7 @@ getObject :
     , reducer : ReducerID
     , position : Location
     }
-    -> Object
+    -> ObjectGroup
 getObject { node, cutoff, foundIDs, parent, reducer, position } =
     let
         uninitializedObject =
@@ -987,7 +980,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
         foundSome ->
             let
                 matchingOp opID op =
-                    case ( beforeCutoff opID && correctObject op, Op.reducer op == reducer ) of
+                    case ( beforeCutoff opID && correctObject op, Op.reducerID op == reducer ) of
                         ( False, _ ) ->
                             False
 
@@ -996,7 +989,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
 
                         ( True, False ) ->
                             Log.crashInDev
-                                ("Node.getObject: I was told [" ++ String.join ", " (List.map OpID.toString foundIDs) ++ "] were aliases to look for when building " ++ Log.dump reducer ++ " at location " ++ Location.toString position ++ ". Problem is, " ++ OpID.toString opID ++ " is actually a " ++ Log.dump (Op.reducer op))
+                                ("Node.getObject: I was told [" ++ String.join ", " (List.map OpID.toString foundIDs) ++ "] were aliases to look for when building " ++ Log.dump reducer ++ " at location " ++ Location.toString position ++ ". Problem is, " ++ OpID.toString opID ++ " is actually a " ++ Log.dump (Op.reducerID op))
                                 False
 
                 beforeCutoff opID =

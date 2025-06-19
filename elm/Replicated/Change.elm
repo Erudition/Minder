@@ -573,7 +573,7 @@ createReversionFrame opsToRevert =
         addOpToChangeSet op existingObjectChanges =
             let
                 existingID =
-                    ObjectHeader (Op.objectID op) (Op.reducer op)
+                    ObjectHeader (Op.objectID op) (Op.reducerID op)
             in
             -- AnyDict ( Op.ReducerID, OpID.ObjectIDString ) ExistingID (List ObjectChange)
             AnyDict.insert existingID [ RevertOp (Op.id op) ] existingObjectChanges

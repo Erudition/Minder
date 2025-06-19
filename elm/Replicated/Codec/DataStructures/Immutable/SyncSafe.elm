@@ -36,7 +36,7 @@ import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecode
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
-import Replicated.Object as Object exposing (Object)
+import Replicated.ObjectGroup as Object exposing (Object)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Reducer.Register as Reg exposing (..)

@@ -18,7 +18,7 @@ opToString : RonFormat -> Op -> String
 opToString format op =
     let
         reducerIDString =
-            "*" ++ ReducerID.toString (reducer op)
+            "*" ++ ReducerID.toString (reducerID op)
 
         objectIDString =
             "#" ++ OpID.toString (objectID op)

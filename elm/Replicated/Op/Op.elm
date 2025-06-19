@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, Op(..), Reference(..), create, findObjectCreationOp, id, initObject, objectID, opIDFromReference, payload, reducer, reference, referenceToString)
+module Replicated.Op.Op exposing (ClosedChunk, Op(..), Reference(..), create, id, initObject, objectHeader, objectID, opIDFromReference, payload, reducerID, reference, referenceToString)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -94,8 +94,8 @@ referenceToString givenRef =
         OpReference op ->
             OpID.toString (id op)
 
-        ReducerReference reducerID ->
-            ReducerID.toString reducerID
+        ReducerReference givenReducerID ->
+            ReducerID.toString givenReducerID
 
 
 opIDFromReference : Reference -> Maybe OpID
@@ -138,7 +138,7 @@ create givenReducerID givenObjectID opID givenReference givenPayload =
                     , revertedOpRef = earlierOp
                     }
 
-        ( False, Nothing, ReducerReference reducerID ) ->
+        ( False, Nothing, ReducerReference _ ) ->
             -- "+", "$"
             Ok <|
                 CreationOp
@@ -174,17 +174,17 @@ reference op =
             ReducerReference info.reducer
 
 
-reducer : Op -> ReducerID
-reducer op =
+reducerID : Op -> ReducerID
+reducerID op =
     case op of
         NormalOp info ->
             info.object.reducer
 
         DeletionOp info ->
-            reducer info.revertedOpRef
+            reducerID info.revertedOpRef
 
         UnDeletionOp info ->
-            reducer info.revertedOpRef
+            reducerID info.revertedOpRef
 
         CreationOp info ->
             info.reducer
@@ -216,22 +216,22 @@ id op =
             info.operationID
 
 
-findObjectCreationOp : Op -> Op
-findObjectCreationOp op =
+objectHeader : Op -> ObjectHeader
+objectHeader op =
     case op of
         NormalOp info ->
-            CreationOp info.object
+            info.object
 
         DeletionOp info ->
-            findObjectCreationOp info.revertedOpRef
+            objectHeader info.revertedOpRef
 
         UnDeletionOp info ->
-            findObjectCreationOp info.revertedOpRef
+            objectHeader info.revertedOpRef
 
-        CreationOp _ ->
-            op
+        CreationOp header ->
+            header
 
 
 objectID : Op -> OpID
 objectID op =
-    id (findObjectCreationOp op)
+    (objectHeader op).operationID

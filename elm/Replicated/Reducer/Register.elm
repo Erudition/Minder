@@ -14,7 +14,7 @@ import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
-import Replicated.Object as Object
+import Replicated.ObjectGroup as Object
 import Replicated.Op.ID as OpID exposing (OpID, OpIDSortable)
 import Replicated.Op.Op as Op exposing (Op)
 import SmartTime.Moment as Moment exposing (Moment)

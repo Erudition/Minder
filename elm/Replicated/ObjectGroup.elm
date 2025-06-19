@@ -1,4 +1,4 @@
-module Replicated.Object exposing (..)
+module Replicated.ObjectGroup exposing (..)
 
 import Console
 import Dict exposing (Dict)
@@ -8,20 +8,23 @@ import List.Nonempty as Nonempty exposing (Nonempty)
 import Log
 import Replicated.Change as Change exposing (ChangeSet)
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Op.Atom as RonAtom
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
-import Replicated.Op.Op as Op exposing (Op, Op.Payload)
+import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.Payload as Payload exposing (Payload)
+import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
 {-| The most generic "object", to be inherited by other replicated data types for specific functionality.
 -}
-type Object
-    = Saved SavedObject
+type ObjectGroup
+    = Saved SavedObjectGroup
     | Unsaved UnsavedObject
 
 
-type alias SavedObject =
-    { reducer : Op.ReducerID
+type alias SavedObjectGroup =
+    { reducer : ReducerID
     , creation : ObjectID
     , events : EventDict
     , included : InclusionInfo
@@ -38,7 +41,7 @@ type alias EventDict =
     AnyDict OpID.OpIDSortable OpID Event
 
 
-buildSavedObject : OpDict -> ( Maybe SavedObject, List ObjectBuildWarning )
+buildSavedObject : OpDict -> ( Maybe SavedObjectGroup, List ObjectBuildWarning )
 buildSavedObject opDict =
     case AnyDict.values opDict of
         [] ->
@@ -47,7 +50,7 @@ buildSavedObject opDict =
         firstOp :: moreOps ->
             let
                 base =
-                    { reducer = Op.reducer firstOp
+                    { reducer = Op.reducerID firstOp
                     , creation = Op.objectID firstOp
                     , events = AnyDict.empty OpID.toSortablePrimitives
                     , included = All -- TODO
@@ -64,16 +67,16 @@ buildSavedObject opDict =
 {-| Apply an incoming Op to an object if we have it.
 Ops must have a reference.
 -}
-applyOp : OpDict -> Op -> ( SavedObject, List ObjectBuildWarning ) -> ( SavedObject, List ObjectBuildWarning )
+applyOp : OpDict -> Op -> ( SavedObjectGroup, List ObjectBuildWarning ) -> ( SavedObjectGroup, List ObjectBuildWarning )
 applyOp opDict newOp ( oldObject, oldWarnings ) =
     let
         opPayloadToEventPayload opPayload =
             case opPayload of
                 [ singleAtom ] ->
-                    Op.atomToJsonValue singleAtom
+                    RonAtom.toJsonValue singleAtom
 
                 multipleAtoms ->
-                    JE.list Op.atomToJsonValue multipleAtoms
+                    JE.list RonAtom.toJsonValue multipleAtoms
     in
     case Op.reference newOp of
         Op.OpReference ref ->
@@ -164,13 +167,13 @@ type ObjectBuildWarning
 
 
 type alias UnsavedObject =
-    { reducer : Op.ReducerID
+    { reducer : ReducerID
     , parent : Change.Parent
     , position : Location
     }
 
 
-getCreationID : Object -> Maybe ObjectID
+getCreationID : ObjectGroup -> Maybe ObjectID
 getCreationID object =
     case object of
         Saved initializedObject ->
@@ -180,7 +183,7 @@ getCreationID object =
             Nothing
 
 
-getPointer : Object -> Change.Pointer
+getPointer : ObjectGroup -> Change.Pointer
 getPointer object =
     case object of
         Saved savedObject ->
@@ -190,7 +193,7 @@ getPointer object =
             Change.newPointer { parent = unsavedObject.parent, position = unsavedObject.position, reducerID = unsavedObject.reducer }
 
 
-getIncluded : Object -> InclusionInfo
+getIncluded : ObjectGroup -> InclusionInfo
 getIncluded object =
     case object of
         Saved initializedObject ->
@@ -200,7 +203,7 @@ getIncluded object =
             All
 
 
-getReducer : Object -> Op.ReducerID
+getReducer : ObjectGroup -> ReducerID
 getReducer object =
     case object of
         Saved initializedObject ->
@@ -210,7 +213,7 @@ getReducer object =
             uninitializedObject.reducer
 
 
-getEvents : Object -> EventDict
+getEvents : ObjectGroup -> EventDict
 getEvents object =
     case object of
         Saved initializedObject ->
@@ -221,7 +224,7 @@ getEvents object =
 
 
 type alias EventPayload =
-    Op.Op.Payload
+    Payload
 
 
 {-| An object update that has not been reverted. Reversion ops themselves are not included, so Object Events are always the type of op the reducer is expecting to work with.
@@ -272,4 +275,4 @@ type InclusionInfo
 
 
 type ReducerWarning
-    = OpDecodeFailed OpIDString Op.Payload
+    = OpDecodeFailed OpIDString Payload

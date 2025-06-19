@@ -1,7 +1,7 @@
 module Replicated.Op.RonParser exposing (..)
 
 import List.Nonempty as Nonempty exposing (Nonempty(..))
-import Parser.Advanced as Parser exposing ((|.), (|=), Token(..), float, inContext, succeed, symbol)
+import Parser.Advanced as Parser exposing ((|.), (|=), DeadEnd, Token(..), float, inContext, succeed, symbol)
 import Replicated.Op.Atom as Atom exposing (Atom(..))
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID)
 import Replicated.Op.Op exposing (..)
@@ -16,6 +16,10 @@ import Set exposing (Set)
 
 type alias RonParser a =
     Parser.Parser Context Problem a
+
+
+type alias DeadEnd =
+    Parser.DeadEnd Context Problem
 
 
 type Context
@@ -48,12 +52,12 @@ contextToString context =
             "a payload atom"
 
 
+contextItemToString { row, col, context } =
+    contextToString context ++ " (r" ++ String.fromInt row ++ ",c" ++ String.fromInt col ++ ") "
+
+
 contextStackToString : List { row : Int, col : Int, context : Context } -> String
 contextStackToString contextStack =
-    let
-        contextItemToString { row, col, context } =
-            contextToString context ++ " (r" ++ String.fromInt row ++ ",c" ++ String.fromInt col ++ ") "
-    in
     List.map contextItemToString contextStack
         |> String.join ", inside "
 
@@ -155,6 +159,19 @@ problemToString problem =
 
         InfiniteLoop ->
             "Infinite Loop"
+
+
+deadEndToString : DeadEnd -> String
+deadEndToString deadEnd =
+    problemToString deadEnd.problem
+        ++ "\n"
+        ++ " @ Ln "
+        ++ String.fromInt deadEnd.row
+        ++ ", Col "
+        ++ String.fromInt deadEnd.col
+        ++ " \n"
+        ++ " @ "
+        ++ contextStackToString deadEnd.contextStack
 
 
 
@@ -318,7 +335,7 @@ frameParser =
         chunks =
             Parser.loop [] opsInChunk
 
-        opsInChunk : List OpenTextOp -> RonParser (Parser.Step (List OpenTextOp) FrameChunk)
+        opsInChunk : List OpenOp -> RonParser (Parser.Step (List OpenOp) FrameChunk)
         opsInChunk opsReversed =
             case Maybe.andThen .endOfChunk (List.head opsReversed) of
                 Nothing ->
@@ -368,7 +385,7 @@ frameParser =
 
 
 type alias FrameChunk =
-    { ops : List OpenTextOp, terminator : FrameChunkType }
+    { ops : List OpenOp, terminator : FrameChunkType }
 
 
 type FrameChunkType
@@ -392,7 +409,7 @@ type UnresolvedOpReference
 The ChainSpanOpenOp is part of a Chain Span, from which it infers its OpID (spans have incremental OpIDs).
 
 -}
-type alias OpenTextOp =
+type alias OpenOp =
     { reducerSpecified : Maybe ReducerID
     , objectSpecified : Maybe ObjectID
     , opID : OpID
@@ -402,7 +419,7 @@ type alias OpenTextOp =
     }
 
 
-opLineParser : Maybe OpID -> RonParser OpenTextOp
+opLineParser : Maybe OpID -> RonParser OpenOp
 opLineParser prevOpIDMaybe =
     let
         opRefparser =
@@ -499,7 +516,7 @@ opLineParser prevOpIDMaybe =
                     |. symbol queryChunkTerminator
                 ]
     in
-    succeed OpenTextOp
+    succeed OpenOp
         |= optionalReducerIDParser
         |. whitespace
         |= optionalObjectIDParser

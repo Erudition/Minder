@@ -22,7 +22,7 @@ import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, Com
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Node.Node as Node exposing (Node)
-import Replicated.Object as Object exposing (Object)
+import Replicated.ObjectGroup as Object exposing (ObjectGroup)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Reducer.Register as Reg exposing (..)

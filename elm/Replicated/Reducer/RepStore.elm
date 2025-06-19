@@ -2,7 +2,7 @@ module Replicated.Reducer.RepStore exposing (RepStore, RepStoreEntry(..), buildF
 
 import List.Nonempty exposing (Nonempty(..))
 import Replicated.Change as Change exposing (Change(..), ChangeSet, Changer, Parent(..))
-import Replicated.Object as Object exposing (Object)
+import Replicated.ObjectGroup as Object exposing (Object)
 import Replicated.Op.Op as Op
 
 

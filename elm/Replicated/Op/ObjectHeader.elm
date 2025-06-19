@@ -20,3 +20,8 @@ toComparable { reducer, operationID } =
 toString : ObjectHeader -> String
 toString { reducer, operationID } =
     ReducerID.toString reducer ++ OpID.toString operationID
+
+
+idString : ObjectHeader -> OpID.OpIDString
+idString { operationID } =
+    OpID.toString operationID
