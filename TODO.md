@@ -22,7 +22,7 @@
 
 - [] consider removing custom error type from JSON/Bytes decoders entirely
 - [] separate reducers from reptypes, many reptypes are just collections
-- [] Make Node contain objects in already reduced form, with already decoded values
+- [] Make Node contain objects in already reduced form, with already decoded values - NO! Node would have to be aware of the user's codecs and typed based on it.
 
 - Why do certain .set changes get ignored in tests?
 - Why is parent init change not required?

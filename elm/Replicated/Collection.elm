@@ -1,4 +1,4 @@
-module Replicated.ObjectGroup exposing (..)
+module Replicated.Collection exposing (..)
 
 import Console
 import Dict exposing (Dict)
@@ -18,15 +18,17 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 {-| The most generic "object", to be inherited by other replicated data types for specific functionality.
 -}
-type ObjectGroup
-    = Saved SavedObjectGroup
+type Collection event
+    = Saved (SavedObjectGroup event)
     | Unsaved UnsavedObject
 
 
-type alias SavedObjectGroup =
+type alias SavedObjectGroup event =
     { reducer : ReducerID
     , creation : ObjectID
-    , events : EventDict
+    , events : EventDict event
+    , reversions : List Op
+    , deleted : EventDict event
     , included : InclusionInfo
     , aliases : List ObjectID
     , version : OpID.ObjectVersion
@@ -37,11 +39,11 @@ type alias OpDict =
     AnyDict OpID.OpIDSortable OpID Op
 
 
-type alias EventDict =
-    AnyDict OpID.OpIDSortable OpID Event
+type alias EventDict event =
+    AnyDict OpID.OpIDSortable OpID (Event event)
 
 
-buildSavedObject : OpDict -> ( Maybe SavedObjectGroup, List ObjectBuildWarning )
+buildSavedObject : OpDict -> ( Maybe (SavedObjectGroup event), List ObjectBuildWarning )
 buildSavedObject opDict =
     case AnyDict.values opDict of
         [] ->
@@ -67,7 +69,7 @@ buildSavedObject opDict =
 {-| Apply an incoming Op to an object if we have it.
 Ops must have a reference.
 -}
-applyOp : OpDict -> Op -> ( SavedObjectGroup, List ObjectBuildWarning ) -> ( SavedObjectGroup, List ObjectBuildWarning )
+applyOp : OpDict -> Op -> ( SavedObjectGroup event, List ObjectBuildWarning ) -> ( SavedObjectGroup event, List ObjectBuildWarning )
 applyOp opDict newOp ( oldObject, oldWarnings ) =
     let
         opPayloadToEventPayload opPayload =
@@ -112,7 +114,7 @@ applyOp opDict newOp ( oldObject, oldWarnings ) =
 
 {-| Internal function to find the event to revert.
 -}
-revertEventHelper : OpID -> EventDict -> OpDict -> ( EventDict, List ObjectBuildWarning )
+revertEventHelper : OpID -> EventDict event -> OpDict -> ( EventDict event, List ObjectBuildWarning )
 revertEventHelper opIDToRevert eventDict opDict =
     case ( AnyDict.member opIDToRevert eventDict, OpID.isDeletion opIDToRevert ) of
         ( True, _ ) ->
@@ -173,7 +175,7 @@ type alias UnsavedObject =
     }
 
 
-getCreationID : ObjectGroup -> Maybe ObjectID
+getCreationID : Collection event -> Maybe ObjectID
 getCreationID object =
     case object of
         Saved initializedObject ->
@@ -183,7 +185,7 @@ getCreationID object =
             Nothing
 
 
-getPointer : ObjectGroup -> Change.Pointer
+getPointer : Collection event -> Change.Pointer
 getPointer object =
     case object of
         Saved savedObject ->
@@ -193,7 +195,7 @@ getPointer object =
             Change.newPointer { parent = unsavedObject.parent, position = unsavedObject.position, reducerID = unsavedObject.reducer }
 
 
-getIncluded : ObjectGroup -> InclusionInfo
+getIncluded : Collection event -> InclusionInfo
 getIncluded object =
     case object of
         Saved initializedObject ->
@@ -203,7 +205,7 @@ getIncluded object =
             All
 
 
-getReducer : ObjectGroup -> ReducerID
+getReducer : Collection event -> ReducerID
 getReducer object =
     case object of
         Saved initializedObject ->
@@ -213,7 +215,7 @@ getReducer object =
             uninitializedObject.reducer
 
 
-getEvents : ObjectGroup -> EventDict
+getEvents : Collection event -> EventDict event
 getEvents object =
     case object of
         Saved initializedObject ->
@@ -230,22 +232,22 @@ type alias EventPayload =
 {-| An object update that has not been reverted. Reversion ops themselves are not included, so Object Events are always the type of op the reducer is expecting to work with.
 -}
 type
-    Event
+    Event event
     -- TODO do we want a separate type of event for "summaries"? or an isSummary field?
-    = Event { referencedOp : OpID, payload : EventPayload }
+    = Event { referencedOp : OpID, payload : event }
 
 
-eventReference : Event -> OpID
+eventReference : Event event -> OpID
 eventReference (Event event) =
     event.referencedOp
 
 
-eventPayload : Event -> EventPayload
+eventPayload : Event event -> event
 eventPayload (Event event) =
     event.payload
 
 
-eventPayloadAsJson : Event -> JE.Value
+eventPayloadAsJson : Event event -> JE.Value
 eventPayloadAsJson (Event event) =
     case List.map Op.atomToJsonValue event.payload of
         [] ->
@@ -258,7 +260,7 @@ eventPayloadAsJson (Event event) =
             JE.list identity multiple
 
 
-extractOpIDFromEventPayload : Event -> Maybe OpID
+extractOpIDFromEventPayload : Event event -> Maybe OpID
 extractOpIDFromEventPayload (Event event) =
     case event.payload of
         [ Op.IDPointerAtom opID ] ->

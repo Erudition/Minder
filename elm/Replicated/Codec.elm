@@ -95,8 +95,8 @@ import Replicated.Codec.Primitives as Primitives
 import Replicated.Codec.Register
 import Replicated.Codec.RegisterField.Shared
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
+import Replicated.Collection as Object exposing (Object)
 import Replicated.Node.Node as Node exposing (Node)
-import Replicated.ObjectGroup as Object exposing (Object)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Reducer.Register as Reg exposing (..)

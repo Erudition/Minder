@@ -14,10 +14,10 @@ import Replicated.Change as Change exposing (Change, ChangeSet(..), ComplexAtom,
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Change.PendingID as PendingID exposing (PendingID)
 import Replicated.Change.Primitive as ChangePrimitive
+import Replicated.Collection as Object exposing (ObjectGroup)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.AncestorDb as AncestorDb exposing (AncestorDb)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
-import Replicated.ObjectGroup as Object exposing (ObjectGroup)
 import Replicated.Op.Atom as Atom exposing (Atom)
 import Replicated.Op.Db as OpDb exposing (OpDb)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, ObjectIDString, OpID, OpIDSortable, OutCounter)

@@ -10,9 +10,9 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Replicated.Change as Change exposing (Change, ChangeSet, Changer, Creator, Parent(..))
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Collection as Object exposing (Object)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
-import Replicated.ObjectGroup as Object exposing (Object)
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID, OpIDString)
 import Replicated.Op.Op as Op
 import SmartTime.Moment as Moment exposing (Moment)
