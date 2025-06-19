@@ -15,6 +15,7 @@ import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Change.PendingID as PendingID exposing (PendingID)
 import Replicated.Change.Primitive as ChangePrimitive
 import Replicated.Identifier exposing (..)
+import Replicated.Node.AncestorDb as AncestorDb exposing (AncestorDb)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.ObjectGroup as Object exposing (ObjectGroup)
 import Replicated.Op.Atom as Atom exposing (Atom)
@@ -36,6 +37,7 @@ import SmartTime.Moment exposing (Moment)
 type alias Node =
     { identity : NodeID
     , ops : OpDb
+    , ancestors : AncestorDb
     , root : Maybe ObjectHeader
     , highestSeenClock : Int
     , peers : List Peer
@@ -69,7 +71,8 @@ initFromSaved { sameSession, storedNodeID } inputRon =
         startNode oldNodeID =
             { identity = newIdentity oldNodeID
             , peers = []
-            , ops = AnyDict.empty OpID.toSortablePrimitives
+            , ops = OpDb.empty
+            , ancestors = AncestorDb.empty
             , root = Nothing
             , highestSeenClock = 0
             }
@@ -105,7 +108,8 @@ testNode : Node
 testNode =
     { identity = firstSessionEver
     , peers = []
-    , ops = AnyDict.empty OpID.toSortablePrimitives
+    , ops = OpDb.empty
+    , ancestors = AncestorDb.empty
     , root = Nothing
     , highestSeenClock = 0
     }
@@ -123,7 +127,8 @@ startNewNode nowMaybe testMode givenStartChanges =
         startNode =
             { identity = firstSessionEver
             , peers = []
-            , ops = AnyDict.empty OpID.toSortablePrimitives
+            , ops = OpDb.empty
+            , ancestors = AncestorDb.empty
             , root = Nothing
             , highestSeenClock = 0
             }

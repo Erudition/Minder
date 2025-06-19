@@ -1,4 +1,4 @@
-module Replicated.Codec.Node.Decoder exposing (Inputs, NodeDecoder, NodeDecoderInputsNoVariable, Output, concurrentObjectIDsDecoder, emptyObSubs, lazy, map, mapTry, primitive, reuseOldIfUnchanged)
+module Replicated.Codec.Node.Decoder exposing (Inputs, NodeDecoder, NodeDecoderInputsNoVariable, Output, concurrentObjectIDsDecoder, lazy, map, mapTry, primitive, reuseOldIfUnchanged)
 
 import Array exposing (Array)
 import Base64
@@ -23,8 +23,9 @@ import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder)
+import Replicated.Node.AncestorDb as AncestorDb exposing (AncestorDb)
 import Replicated.Node.Node as Node exposing (Node)
-import Replicated.ObjectGroup as Object exposing (Object)
+import Replicated.ObjectGroup as ObjectGroup exposing (ObjectGroup)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OpIDSortable, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Reducer.Register as Reg exposing (..)
@@ -53,7 +54,7 @@ type alias Inputs t =
 
 type alias Output t =
     { decoder : RonPayloadDecoder t
-    , obSubs : ObSubs
+    , ancestors : AncestorDb
     }
 
 
@@ -69,17 +70,8 @@ primitive : RonPayloadDecoder a -> NodeDecoder a
 primitive ronDecoder =
     \_ ->
         { decoder = ronDecoder
-        , obSubs = emptyObSubs
+        , ancestors = AncestorDb.empty
         }
-
-
-type alias ObSubs =
-    AnyDict OpIDSortable ObjectID (List ObjectID)
-
-
-emptyObSubs : ObSubs
-emptyObSubs =
-    AnyDict.empty OpID.toSortablePrimitives
 
 
 
@@ -93,9 +85,9 @@ reuseOldIfUnchanged oldMaybe getPointer changedObjectIDList fallbackDecoder =
     case ( oldMaybe, changedObjectIDList ) of
         ( Just old, [ _ ] ) ->
             case getPointer old of
-                ExistingObjectPointer { object } ->
+                ExistingObjectPointer { operationID } ->
                     -- an old copy of the reptype exists and we have its objectID, we can check if it's unchanged.
-                    if List.member object changedObjectIDList then
+                    if List.member operationID changedObjectIDList then
                         JD.succeed (Ok old)
 
                     else
@@ -156,7 +148,7 @@ map fromAtoB fromBtoA nodeDecoderA =
                         }
             in
             { decoder = RonPayloadDecoder.map fromAtoB runADecoderWithBInputs.decoder
-            , obSubs = runADecoderWithBInputs.obSubs
+            , ancestors = runADecoderWithBInputs.ancestors
             }
     in
     newDecoder
@@ -180,7 +172,7 @@ mapTry fromAtoBResult fromBtoA nodeDecoderA =
                         }
             in
             { decoder = RonPayloadDecoder.mapTry fromAtoBResult runADecoderWithBInputs.decoder
-            , obSubs = runADecoderWithBInputs.obSubs
+            , ancestors = runADecoderWithBInputs.ancestors
             }
     in
     newDecoder
@@ -195,5 +187,5 @@ lazy unitToNodeDecoder =
     \input ->
         -- TODO is this lazy
         { decoder = RonPayloadDecoder.lazy (\() -> (runNow input).decoder)
-        , obSubs = (runNow input).obSubs
+        , ancestors = (runNow input).ancestors
         }

@@ -1,10 +1,10 @@
 module Replicated.Op.Db exposing (..)
 
-import Dict.Any exposing (AnyDict)
+import Dict.Any as AnyDict exposing (AnyDict)
 import List.Nonempty exposing (Nonempty(..))
 import Replicated.Change exposing (ChangeSet(..), Pointer(..))
 import Replicated.Identifier exposing (..)
-import Replicated.Op.ID exposing (OpID, OpIDSortable)
+import Replicated.Op.ID as OpID exposing (OpID, OpIDSortable)
 import Replicated.Op.Op exposing (Op)
 
 
@@ -18,5 +18,11 @@ import Replicated.Op.Op exposing (Op)
 -- UPDATE:
 -- On second thought, we're already storing our ops in a reference-based datastructure (no other way to go about it in Elm?) and having a "copy" of a non-primitive in Elm is actually just a pointer to the original since it's all immutable - so we're not saving much by avoiding it
 
+
 type alias OpDb =
     AnyDict OpIDSortable OpID Op
+
+
+empty : OpDb
+empty =
+    AnyDict.empty OpID.toSortablePrimitives
