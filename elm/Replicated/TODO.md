@@ -1,31 +1,21 @@
 # Now
-- [ ] Get rid of ObjectIDs everywhere besides raw RON, just use ObjectHeader
+- [X] Get rid of ObjectIDs everywhere besides raw RON, just use ObjectHeader
 - [X] Fix update lag with no change frames: Reg.latest is no longer a function, so view full of Regs is not recalculated every view
+- [ ] Reducers do all their own tracking of Ops (Collections?)
+- [ ] Node updates the replica with only the objects that changed
+  - [ ] Skip updating a reptype if same requisite objects (by creation ID) with same version (latest op ID) and local-op counter (to notice external ops filling in mid-history)
+
+
+
+# Soon
 - [ ] Cannot delayed-init regs that are wrapped in something, like Just
-- [ ] Give Contexts a type variable
-- [X] Fix case where pointers merge for some reason
-- [X] If new object is wrapped in custom type, it will be ref'd and init without its changes. fix
+- [ ] Give Contexts a type variable?
 - [ ] write test for above
 - [ ] Determine what parts of Node.processDelayedInMapping are now unneeded
 - [ ] Test delayed changes getting pulled into later object init rather than done last
 - [ ] Determine why delayed changes need to be reversed
-- [X] Stop producing redundant delayed changes. Join adjacent same-object changes
-- [X] Refactor late installers to be ordered
-- [X] Detect Node root on first run
 - [ ] Figure out how to encode empty flatlists, or allow [] to parse
-- [X] Write test for late installers
 - [ ] Write test for divergent nodes
-- [X] Refactor codebase around Changes that contain any-object changes
-- [X] Prescribe all node encoders and decoders, no maybe fallbacks
-- [X] Wrap all encoded values in type saying whether the encoding can be skipped
-- [X] Registers not initialized if their first usage is external (within a creator function) (taskInstances)
-- [X] Get only non-default register values to encode
-- [X] Test post-init substitutions (above)
-- [X] Get late installers to work
-- [X] Skip empty naked record field encoding
-
-
-# Soon
 - use Codec.new as defaults for reg fields, so that seeded is the only time default is missing. Try to pass in Encoder with Context so we can benefit from proper EncoderInputs
 - always startNewNode with a root object, the master replica
 - change register to use label_3 naked string format (like variants) rather than separate Int
@@ -39,7 +29,6 @@
 # Later
 - experiment with using a required ".repData" field on records rather than wrapping in Register type
 - switch elm/parser to the-sett/parser-recoverable so that bad ops can be skipped without crashing
-- Ops should be custom type like EventOp {record} | ReversionOp opID | CreationOp reducerID | AssertionOp ...
 - spit out warnings for nested errors
 - tolerate double-quote strings as well
 - To format RON Ops that have been stripped of newlines, regex replace "[,|;|.]" with "$0\n" (vscodium format)
@@ -73,3 +62,18 @@
 - [X] Deal with prechanges that affect some other object (externalChanges)
 - [X] Get naked records read-only enforced
 - [X] if object changes are nested in a parent object change, they cannot be grouped together properly (thus each creating their own object) because it would be difficult and inefficient to recurse the whole nest change list every time we saveChanges (every frame). So we regroup at every level we can, such as in the replist adder. But we could move away from needing to use a function wrapper from the parent frame, and instead just have a change include a list of parent notifiers (as a flat custom type that indicated how to wrap it) and it would be easy to group them by same values in same places in that list. DONE - all changes are now Sets, ChangeSets.
+- [X] Refactor codebase around Changes that contain any-object changes
+- [X] Prescribe all node encoders and decoders, no maybe fallbacks
+- [X] Wrap all encoded values in type saying whether the encoding can be skipped
+- [X] Registers not initialized if their first usage is external (within a creator function) (taskInstances)
+- [X] Get only non-default register values to encode
+- [X] Test post-init substitutions (above)
+- [X] Get late installers to work
+- [X] Skip empty naked record field encoding
+- [X] - Ops should be custom type like EventOp {record} | ReversionOp opID | CreationOp reducerID | AssertionOp ...
+- [X] Fix case where pointers merge for some reason
+- [X] If new object is wrapped in custom type, it will be ref'd and init without its changes. fix
+- [X] Stop producing redundant delayed changes. Join adjacent same-object changes
+- [X] Refactor late installers to be ordered
+- [X] Detect Node root on first run
+- [X] Write test for late installers

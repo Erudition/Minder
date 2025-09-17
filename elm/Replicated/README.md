@@ -62,7 +62,7 @@ Benefits of Contexts
 - means that the output of Codec.new cannot be used just anywhere, which would allow changes to be made (to a potentially ill-specified object) in arbitrary places, instead we force that all changes must be in the newWithChanges list. Do we need this? not unless there's a benefit
 
 -IDEA: add type variable to Context. Can't force it to be used only once, but can make sure it's used on the type the parent expects (child type). Most importantly, in a custom type, it must first pass through the custom type codec. TODO test passing through custom type codec. TODO what ways can a context still be reused.
--IDEA: Node encode custom types as flat enumerations with records - each piece of the variant is a reg field. merging is done already, 
+-IDEA: Node encode custom types as flat enumerations with records - each piece of the variant is a reg field. merging is done already,
 
 
 
@@ -72,7 +72,7 @@ Benefits of Contexts
 
 
 # Changes to objects while they're still placeholders
-Ideally we would allow all changes to all objects regardless of save state, but that requires the objects to already be ready to go, as far as making generic changes to them anywhere - it requires them to have a fully unique pointer. 
+Ideally we would allow all changes to all objects regardless of save state, but that requires the objects to already be ready to go, as far as making generic changes to them anywhere - it requires them to have a fully unique pointer.
 Since it seems that having a fully unique pointer is hard to guarantee, perhaps impossible in some places (nested in custom types) without threading Contexts everywhere, we could also just try to restrict Change making on all placeholder objects in general.
 Then we allow a limited subset of changes to the placeholder objects, that make sense and don't require Changes, like starting a RepList with a plain list of seed values.
 
@@ -85,7 +85,7 @@ Decoding the whole model upon startup is inevitable, but at time of writing we a
 
 But how to change it surgically? Possible ideas:
 1. Require every Codec to have both a getter and a setter (wrapped in parent setters) that operates on the whole model and changes only the specific object - then bundle this in the Change and update the model with these setters on every change (never decode again)
-    - Really complicates Codecs to have to specify `\oldObject newValue -> {oldObject | changedField = newValue}` in every field of every Codec... 
+    - Really complicates Codecs to have to specify `\oldObject newValue -> {oldObject | changedField = newValue}` in every field of every Codec...
     - worse, they will need yet another type variable for their parent, so the decoder can accept the parent's accessor function...
     - Also the Node, or what ever holds the Object dict, now needs a type variable for the userModel since the objects hold functions that act on it.
     - Still doesn't handle Ops coming in from outside systems, fall back to decoding whole model again? That would suck for collaborative editing, at a minimum
@@ -105,7 +105,7 @@ But how to change it surgically? Possible ideas:
     - makes back-in-time functionality trivial
 
 ## Conclusion
-Despite requiring setters everywhere, option 2 seems to be the only one that works with any nested object, doesn't require changing the usage interface, and gives maximum performance benefits. 
+Despite requiring setters everywhere, option 2 seems to be the only one that works with any nested object, doesn't require changing the usage interface, and gives maximum performance benefits.
 Implementation plan:
     - give all Codecs an Accessor from bChiquet/elm-accessors
         - record codecs can just have this in place of the already-required getter, but defining Codecs will get a lot bulkier
@@ -232,5 +232,23 @@ type alias AssignableSkel =
             |> listField ( 11, "defaultRelevanceEnds" ) .defaultRelevanceEnds relativeTimingCodec
             |> writableField ( 12, "importance" ) .importance Codec.float 1
             |> dictField ( 13, "extra" ) .extra ( Codec.string, Codec.string )
-            |> Codec.finishRecord  
+            |> Codec.finishRecord
 ```
+
+# "Eventually" consistent?
+Don't go thinking that this term means "laggy" or even "wrong until some day maybe". Nearly 100% of the time, ops are transmitted "instantly" just like with previous paradigms, there is no appreciable delay before the system is consistent -- "eventually consistent" is not somehow slower or worse than older systems that are not eventually consistent. In fact, those systems typically translate delays into failures (transactional/atomic guarantees) so that you get either "immediately consistent" or a conflict to be resolved (or ignored, which could be seen as staying consistent). With eventual consistency the happy path is just as fast and consistent but "conflicts" turn into "not-yets", which is strictly superior. In practice, "eventually" means "a few milliseconds from now" when nodes are connected - and when they're not, it means "as soon as we reconnect" which is the magic trick that CRDT metadata gives us - older monolithic systems simply fail when disconnected, or can have conflicts when coming back together.
+
+There is no way to make remote nodes instantly consistent without breaking the laws of physics -- even the universe can't; information can't travel faster than the speed of light. If we were ever to collaborate on some data with a society light years away, we'd need CRDTs so that we can both see the (outdated, but as updated as physically possible) results of our joint effort while also unblocked in confidently making changes to our own one-sided latest edition...
+
+
+# OpIDs are just timestamps, so what happens if I create a bunch of ops "at the same time"?
+OpIDs are indeed universally unique, but they also contain the ID of the process that created them, meaning the timestamp need only be unique among the "yarn" - the log of ops that came from the same process. If two nodes happen to create an op at the same millisecond, they will both correctly show the same creation times - but we of course need to always put them in the same order when they are synced. The arbitrary tiebreaker is the process ID, so if A created an op at 12345 and B created another op also at 12345, then op 12345A will deterministically be sorted before op 12345B. Of course, one of those Ops actually happened first in reality -- whichever machine's system clock was ahead. Even if they're created on the same machine though, a single process/thread can only create one Op at a time, so there are never ID conflicts.
+
+The difference between clocks on two machines is likely well within the margin of error that a human would consider accurate (other concepts apply if it's determined that one machine's clock has been way off). Likewise, if I wrote an Elm app depicting an analog clock and subscribed to "every second, on the second" updates to have the second hand moved to the new position as soon as possible, there would be some delay for the loop to run and technically the clock would always depict the time some milliseconds in the past. One could try to account for this error by updating early -- say the loop takes around 30ms so we run the update 30ms before the next second. Turns out the time depicted would now be 970 milliseconds behind, because the update function started in the previous second, which is the second that would be rendered. We could fudge the Moment forward to account for this, or render the hand position based on the "rounded" current time... but if the loop ever takes less than our estimated 30ms, it would update too early and the second hand would stutter. Ultimately it is fine to just start running "on time" and the delay is not noticable.
+
+If an Elm MVU loop produces more than one Op, the first will have the start time, and the rest will be incremented from there. This is common, like when saving an entire record from scratch, or when adding items to a list in bulk. If you produce 10 ops in one "Frame" and the loop takes 30ms, the last Op will have a timestamp 20ms in the past. They do technically have different timestamps despite being intended to be "at the same time", but well within a human's, or even a computer GUI's, margin of fuzziness for "at the same time". But what if you save 1000 Ops at once? Of course we won't turn the clock back 1000ms to generate these timestamps - the op counter is monotonic, it never goes backwards, an OpID is never created "in the past". The counter is incremented into the future, so in this rare case of a 1000-op write there may be 700 milliseconds where the UI could show the time since a historical change to be negative (recommend you clamp these to zero!). Everything goes back to normal after 700ms, probably unnoticed anyway. Unlike rewriting history, there are no inherent problems with a little bit of future-dating.
+
+If a user somehow managed to write another 1000 ops before that 700ms was up - the new update will still use the highest op counter as the current time, so it will be again pushed into the future by a second or so. Who cares? This is much nicer than having to use a separate counter int, which can overflow or needs to be variable-width. It's graceful degradation - spamming the log with Ops simply results in a temporary reduction in timestamp accuracy. While saving more than 1000 Ops in a second raises some questions about your data modeling decisions, it will still work fine, nothing will break.
+
+OpIDs aren't meant for strict timing applications, instead you can store your own microsecond-precise time in the Op Payload. Javascript clocks aren't even millisecond-accurate, and privacy browsers actually add some error to them by default.
+
