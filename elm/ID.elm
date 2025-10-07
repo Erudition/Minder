@@ -77,12 +77,14 @@ import Json.Decode.Exploration as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Log
 import Replicated.Change as Change exposing (Pointer)
+import Replicated.Change.PendingID exposing (PendingID)
 import Replicated.Op.ID as OpID exposing (OpID)
+import Replicated.Op.ObjectHeader exposing (ObjectHeader)
 
 
 type ID userType
     = IDFromExisting OpID.ObjectID
-    | IDFromPlaceholder Change.PendingID
+    | IDFromPlaceholder PendingID
 
 
 {-| Tag a pointer, making it a type-constrained ID!
@@ -91,7 +93,7 @@ fromPointer : Pointer -> ID userType
 fromPointer pointer =
     case pointer of
         Change.ExistingObjectPointer existingID ->
-            IDFromExisting existingID.object
+            IDFromExisting existingID.operationID
 
         Change.PlaceholderPointer pendingID _ ->
             IDFromPlaceholder pendingID
@@ -109,7 +111,7 @@ fromObjectID objectID =
 toPointer reducer givenID =
     case givenID of
         IDFromExisting objectID ->
-            Change.ExistingObjectPointer (Change.Op.ObjectHeader reducer objectID)
+            Change.ExistingObjectPointer (ObjectHeader reducer objectID)
 
         IDFromPlaceholder pendingID ->
             Change.PlaceholderPointer pendingID []

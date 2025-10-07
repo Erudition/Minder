@@ -12,7 +12,7 @@ import List.Extra
 import List.Nonempty exposing (..)
 import Maybe.Extra
 import Replicated.Change exposing (Change, Context)
-import Replicated.Codec as Codec exposing (Codec, coreR, coreRW, seededRW)
+import Replicated.Codec as Codec exposing ( coreR, coreRW, seededRW)
 import Replicated.Reducer.Register exposing (RW, RWMaybe)
 import Replicated.Reducer.RepList as RepList exposing (RepList)
 import SmartTime.Duration as Duration exposing (..)
@@ -33,14 +33,12 @@ type alias HistorySession =
 
 
 codec :
-    Codec
-        String
+    Codec.WrappedSeededCodec
         -- takes a HistorySessionSkel but without RWs
         { started : Moment
         , endedMaybe : Maybe Moment
         , tracked : TimeTrackable
         }
-        Codec.SoloObject
         HistorySession
 codec =
     Codec.record HistorySession

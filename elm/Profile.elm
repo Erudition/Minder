@@ -42,7 +42,7 @@ type alias Profile =
     }
 
 
-codec : SkelCodec String Profile
+codec : SkelCodec Profile
 codec =
     Codec.record Profile
         |> Codec.fieldList ( 1, "errors" ) .errors Codec.string
@@ -61,7 +61,7 @@ type alias TodoistIntegrationData =
     }
 
 
-todoistIntegrationDataCodec : SkelCodec String TodoistIntegrationData
+todoistIntegrationDataCodec : SkelCodec TodoistIntegrationData
 todoistIntegrationDataCodec =
     Codec.record TodoistIntegrationData
         |> Codec.fieldReg ( 1, "cache" ) .cache (Codec.lazy (\_ -> Todoist.cacheCodec))

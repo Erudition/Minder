@@ -4,7 +4,7 @@ import ID exposing (ID)
 import IntDict exposing (IntDict)
 import Log
 import Replicated.Change exposing (Pointer(..))
-import Replicated.Codec as Codec exposing (Codec, PrimitiveCodec)
+import Replicated.Codec as Codec exposing ( PrimitiveCodec)
 import Replicated.Op.ID as OpID
 import SmartTime.Duration as Duration exposing (Duration)
 import SmartTime.Human.Calendar exposing (CalendarDate)
@@ -13,24 +13,26 @@ import SmartTime.Human.Duration as HumanDuration exposing (HumanDuration)
 import SmartTime.Human.Moment as HumanMoment exposing (FuzzyMoment, Zone)
 import SmartTime.Moment as Moment exposing (Moment)
 import SmartTime.Period as Period exposing (Period(..))
+import Replicated.Codec exposing (SkelCodec)
+import Replicated.Codec exposing (NullCodec)
 
 
-calendarDate : PrimitiveCodec e CalendarDate
+calendarDate : PrimitiveCodec CalendarDate
 calendarDate =
     Codec.int |> Codec.map SmartTime.Human.Calendar.fromRataDie SmartTime.Human.Calendar.toRataDie
 
 
-timeOfDay : PrimitiveCodec String TimeOfDay
+timeOfDay : PrimitiveCodec TimeOfDay
 timeOfDay =
     Codec.string |> Codec.mapValid SmartTime.Human.Clock.fromStandardString SmartTime.Human.Clock.toStandardString
 
 
-duration : PrimitiveCodec String TimeOfDay
+duration : PrimitiveCodec TimeOfDay
 duration =
     Codec.int |> Codec.map Duration.fromInt Duration.inMs
 
 
-humanDuration : PrimitiveCodec String HumanDuration
+humanDuration : PrimitiveCodec HumanDuration
 humanDuration =
     let
         convertAndNormalize durationAsInt =
@@ -39,17 +41,17 @@ humanDuration =
     Codec.int |> Codec.map convertAndNormalize (\hd -> Duration.inMs (HumanDuration.dur hd))
 
 
-fuzzyMoment : PrimitiveCodec String FuzzyMoment
+fuzzyMoment : PrimitiveCodec FuzzyMoment
 fuzzyMoment =
     Codec.string |> Codec.mapValid HumanMoment.fuzzyFromString HumanMoment.fuzzyToString
 
 
-moment : PrimitiveCodec String Moment
+moment : PrimitiveCodec Moment
 moment =
     Codec.int |> Codec.map Moment.fromSmartInt Moment.toSmartInt
 
 
-intDict : Codec e s o v -> Codec.NullCodec e (IntDict v)
+intDict : NullCodec v -> Codec.NullCodec (IntDict v)
 intDict valueCodec =
     let
         keyValuePairCodec =

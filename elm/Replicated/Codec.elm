@@ -5,7 +5,7 @@ module Replicated.Codec exposing
     , CustomTypeCodec, customType, variant0, variant1, variant2, variant3, variant4, variant5, variant6, variant7, variant8, finishCustomType
     , map, mapValid, mapError
     , lazy
-    , FieldIdentifier, FieldName, FieldSlot, FieldValue, NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, SmartJsonFieldEncoder, VariantTag, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, char, coreR, coreRW, decodeFromNode, fieldDb, fieldDict, fieldList, fieldRW, fieldRWM, fieldRec, fieldReg, fieldStore, finishRegister, finishSeededRecord, finishSeededRegister, id, list, makeOpaque, maybeR, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges, nonempty, obsolete, quickEnum, repDb, repDict, repList, repStore, seededR, seededRW, seedlessPair, todo
+    , FieldIdentifier, FieldName, FieldSlot, FieldValue, NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, VariantTag, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, char, coreR, coreRW, decodeFromNode, fieldDb, fieldDict, fieldList, fieldRW, fieldRWM, fieldRec, fieldReg, fieldStore, finishRegister, finishSeededRecord, finishSeededRegister, id, list, makeOpaque, maybeR, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges, nonempty, obsolete, quickEnum, repDb, repDict, repList, repStore, seededR, seededRW, seedlessPair, todo, startNodeFromRoot, encodeToJsonString
     )
 
 {-|
@@ -95,7 +95,7 @@ import Replicated.Codec.Primitives as Primitives
 import Replicated.Codec.Register
 import Replicated.Codec.RegisterField.Shared
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
-import Replicated.Collection as Object exposing (Object)
+import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
@@ -162,7 +162,7 @@ type alias WrappedSeededCodec seed thing =
 {-| Create something new, from its Codec!
 Be sure to pass in a `Context`, which you can get from its parent.
 -}
-new : Codec (s -> List Change) o repType -> Context repType -> repType
+new : Base.Codec (s -> List Change) o repType -> Context repType -> repType
 new codec context =
     Base.new codec context
 
@@ -170,7 +170,7 @@ new codec context =
 {-| Create a new object from its Codec, given a unique integer to differentiate it from other times you use this function on the same Codec in the same context.
 If the Codecs are different, you can just use new. If they aren't, using new multiple times will create references to a single object rather than multiple distinct objects. So be sure to use a different number for each usage of newN.
 -}
-newUnique : Int -> Codec (s -> List Change) o repType -> Context repType -> repType
+newUnique : Int -> Base.Codec (s -> List Change) o repType -> Context repType -> repType
 newUnique nth codec context =
     Base.newUnique nth codec context
 
@@ -186,14 +186,14 @@ newWithChanges codec context changer =
 {-| Create something new, from a Codec that requires an initial seed.
 Like `new`, but also takes the seed value.
 -}
-newWithSeed : Codec s o repType -> Context repType -> s -> repType
+newWithSeed : Base.Codec s o repType -> Context repType -> s -> repType
 newWithSeed codec context seed =
     Base.newWithSeed codec context seed
 
 
 {-| Create something new, from a Codec that requires an initial seed, then immediately make changes to it.
 -}
-newWithSeedAndChanges : Codec ( s, Changer repType ) o repType -> Context repType -> s -> Changer repType -> repType
+newWithSeedAndChanges : Base.Codec ( s, Changer repType ) o repType -> Context repType -> s -> Changer repType -> repType
 newWithSeedAndChanges codec context seed changer =
     Base.newWithSeedAndChanges codec context seed changer
 
@@ -202,10 +202,12 @@ newWithSeedAndChanges codec context seed changer =
 -- DECODE
 
 
-{-| Pass in the codec for the root object.
+{-| Decode your Replica from the Node - pass in the Codec for the root type.
+
+If it's not your first decode and you already have your root object, you can pass in the current one to use as a fallback if decoding fails (replica is frozen rather than reset to empty).
 -}
 decodeFromNode : WrappedOrSkelCodec s root -> Node -> Maybe root -> ( root, Maybe RepDecodeError )
-decodeFromNode rootCodec node oldRootMaybe =
+decodeFromNode rootCodec node existingRootMaybe =
     let
         rootIDAsJsonString =
             node.root
@@ -215,15 +217,15 @@ decodeFromNode rootCodec node oldRootMaybe =
                 |> Maybe.withDefault "\"[]\""
 
         fallback =
-            case oldRootMaybe of
-                Just oldRoot ->
-                    oldRoot
+            case existingRootMaybe of
+                Just existingRoot ->
+                    existingRoot
 
                 Nothing ->
                     new rootCodec (Change.startContext "fDFN")
 
         { decoder, obSubs } =
-            getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "dFN", cutoff = Nothing, position = Location.none, oldMaybe = oldRootMaybe, changedObjectIDs = [] }
+            getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "dFN", cutoff = Nothing, position = Location.none, oldMaybe = existingRootMaybe, changedObjectIDs = [] }
 
         decodedRoot =
             case decoder of

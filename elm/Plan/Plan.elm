@@ -1,6 +1,6 @@
 module Plan.Plan exposing (..)
 
-import Environment exposing (Environment)
+-- import Environment exposing (Environment)
 import List.Extra as List
 import SmartTime.Duration exposing (Duration)
 import SmartTime.Human.Duration exposing (HumanDuration(..), dur)

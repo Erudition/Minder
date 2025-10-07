@@ -13,7 +13,7 @@ import Json.Encode.Extra exposing (..)
 import List.Nonempty exposing (..)
 import Maybe.Extra as Maybe
 import Replicated.Change exposing (Change)
-import Replicated.Codec as Codec exposing (Codec, NullCodec, SelfSeededCodec, SkelCodec, SoloObject, WrappedCodec, coreR, fieldDict, fieldList, fieldRW, fieldRWM)
+import Replicated.Codec as Codec exposing (NullCodec, SelfSeededCodec, SkelCodec,  WrappedCodec, coreR, fieldDict, fieldList, fieldRW, fieldRWM)
 import Replicated.Reducer.Register exposing (RW)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -24,6 +24,7 @@ import SmartTime.Human.Duration exposing (..)
 import SmartTime.Moment exposing (..)
 import Svg.Styled exposing (..)
 import Time.Extra exposing (..)
+import Replicated.Codec exposing (WrappedSeededCodec)
 
 
 {-| Opaque type for an activity, with everything inside necessary to get any detail
@@ -38,7 +39,7 @@ type ActivityID
     | CustomActivityID Template (ID CustomActivitySkel)
 
 
-idCodec : NullCodec String ActivityID
+idCodec : NullCodec ActivityID
 idCodec =
     Codec.customType
         (\builtInActivity customActivity value ->
@@ -84,7 +85,7 @@ type alias BuiltInActivitySkel =
     }
 
 
-builtInActivitySkelCodec : SkelCodec String BuiltInActivitySkel
+builtInActivitySkelCodec : SkelCodec BuiltInActivitySkel
 builtInActivitySkelCodec =
     -- TODO currently does not use the seed passed in
     Codec.record BuiltInActivitySkel
@@ -114,7 +115,7 @@ type alias CustomActivitySkel =
     }
 
 
-customActivitySkelCodec : Codec String Template SoloObject CustomActivitySkel
+customActivitySkelCodec : WrappedSeededCodec Template CustomActivitySkel
 customActivitySkelCodec =
     Codec.record CustomActivitySkel
         |> coreR ( 0, "template" ) .template Template.codec identity
@@ -141,7 +142,7 @@ type Excusable
     | IndefinitelyExcused
 
 
-excusableCodec : NullCodec String Excusable
+excusableCodec : NullCodec Excusable
 excusableCodec =
     Codec.customType
         (\neverExcused temporarilyExcused indefinitelyExcused value ->
@@ -172,7 +173,7 @@ type alias DurationPerDuration =
     ( HumanDuration, HumanDuration )
 
 
-durationPerPeriodCodec : NullCodec String DurationPerDuration
+durationPerPeriodCodec : NullCodec DurationPerDuration
 durationPerPeriodCodec =
     Codec.pair Codec.humanDuration Codec.humanDuration
 
@@ -187,7 +188,7 @@ type Icon
     | Emoji String
 
 
-iconCodec : NullCodec e Icon
+iconCodec : NullCodec Icon
 iconCodec =
     Codec.customType
         (\file ion other emoji value ->
@@ -1269,7 +1270,7 @@ type alias Store =
     ( RepStore Template BuiltInActivitySkel, RepDb CustomActivitySkel )
 
 
-storeCodec : SkelCodec String Store
+storeCodec : SkelCodec  Store
 storeCodec =
     Codec.seedlessPair
         (Codec.repStore Template.codec builtInActivitySkelCodec)

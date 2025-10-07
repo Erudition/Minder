@@ -12,7 +12,7 @@ import Log
 import Replicated.Change as Change exposing (Change, Changer)
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.RegisterField.Shared exposing (..)
-import Replicated.Collection as Object
+import Replicated.Collection as Collection
 import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Op.ID as OpID exposing (OpID, OpIDSortable)

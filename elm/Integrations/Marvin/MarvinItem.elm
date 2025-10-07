@@ -15,7 +15,6 @@ import Maybe.Extra
 import Profile exposing (Profile)
 import Regex
 import Replicated.Change as Change exposing (Change, Changer)
-import Replicated.Codec as Codec exposing (Codec)
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb(..))
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict)
@@ -40,6 +39,7 @@ import Task.ProjectSkel
 import Task.SessionSkel exposing (UserPlannedSession)
 import TimeBlock.TimeBlock as TimeBlock exposing (TimeBlock)
 import ZoneHistory exposing (ZoneHistory)
+import Replicated.Codec as Codec
 
 
 type alias ItemID =

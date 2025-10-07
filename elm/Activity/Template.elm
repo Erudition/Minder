@@ -71,7 +71,7 @@ type Template
     | Repair
 
 
-codec : PrimitiveCodec e Template
+codec : PrimitiveCodec Template
 codec =
     Codec.quickEnum DillyDally allExceptDillyDally
 

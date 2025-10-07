@@ -37,7 +37,7 @@ import Replicated.Codec.RegisterField.Decoder as RegisterFieldDecoder exposing (
 import Replicated.Codec.RegisterField.Encoder as RegisterFieldEncoder exposing (RegisterFieldEncoder)
 import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
-import Replicated.Collection as Object exposing (Object)
+import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
@@ -194,7 +194,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                 nakedRegisterDecoder objectIDs =
                     let
                         object =
-                            Node.getObject { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
+                            Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
 
                         regPointer =
                             Object.getPointer object
@@ -236,7 +236,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
         emptyRegister { parent, position } =
             let
                 object =
-                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
+                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
             in
             allFieldsCodec.nodeInitializer () (Object.getPointer object)
 
@@ -285,7 +285,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
                 nakedRegisterDecoder objectIDs =
                     let
                         object =
-                            Node.getObject { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
+                            Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
 
                         regPointer =
                             Object.getPointer object
@@ -339,7 +339,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
         emptyRegister { parent, position, seed } =
             let
                 object =
-                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
+                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
             in
             allFieldsCodec.nodeInitializer seed (Object.getPointer object)
 
@@ -388,7 +388,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                 registerDecoder objectIDs =
                     let
                         object =
-                            Node.getObject { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
+                            Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
 
                         history =
                             buildRegisterFieldDictionary object
@@ -429,7 +429,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         emptyRegister { parent, position, seed } =
             let
                 object =
-                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
+                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
 
                 history =
                     buildRegisterFieldDictionary object
@@ -489,7 +489,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                 registerDecoder objectIDs =
                     let
                         object =
-                            Node.getObject { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
+                            Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
 
                         regPointer =
                             Object.getPointer object
@@ -532,7 +532,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         emptyRegister { parent, position, seed } =
             let
                 object =
-                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
+                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
 
                 regPointer =
                     Object.getPointer object
@@ -595,7 +595,7 @@ registerNodeEncoder : PartialRegister i full full -> NodeEncoderInputs (Reg full
 registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, parent, position } =
     let
         fallbackObject foundIDs =
-            Node.getObject { node = node, cutoff = Nothing, foundIDs = foundIDs, parent = parent, reducer = registerReducerID, position = position }
+            Node.initializeCollection { node = node, cutoff = Nothing, foundIDs = foundIDs, parent = parent, reducer = registerReducerID, position = position }
 
         ( regMaybe, recordMaybe ) =
             case thingToEncode of
@@ -672,7 +672,7 @@ recordNodeEncoder : PartialRegister i full full -> NodeEncoderInputs full -> Enc
 recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, parent, position } =
     let
         fallbackObject foundIDs =
-            Node.getObject { node = node, cutoff = Nothing, foundIDs = foundIDs, parent = parent, reducer = registerReducerID, position = position }
+            Node.initializeCollection { node = node, cutoff = Nothing, foundIDs = foundIDs, parent = parent, reducer = registerReducerID, position = position }
 
         ( recordMaybe, object ) =
             case thingToEncode of

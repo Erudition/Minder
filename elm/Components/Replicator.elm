@@ -1,4 +1,4 @@
-module Components.Replicator exposing (..)
+module Components.Replicator exposing (Replicator, ReplicatorConfig, init, IncomingFramesPort, subscriptions, saveEffect, update)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -7,9 +7,10 @@ import Maybe.Extra
 import Platform exposing (Task)
 import Replicated.Change as Change
 import Replicated.Codec as Codec exposing (SkelCodec)
+import Replicated.Codec.Error
 import Replicated.Node.Node as Node exposing (Node, OpImportWarning)
 import Replicated.Op.ID as OpID
-import Replicated.Op.Op as Op
+import Replicated.Op.RonOutput as RonOutput
 import SmartTime.Moment as Moment exposing (Moment)
 import Task
 
@@ -19,33 +20,35 @@ import Task
 type Replicator replica frameDesc
     = ReplicatorModel
         { node : Node
-        , replicaCodec : SkelCodec ReplicaError replica
+        , replicaCodec : WrappedOrSkelCodecWithoutSeed replica
         , replica : replica
         , outPort : String -> Cmd (Msg frameDesc)
         }
 
+{-| Internal reminder what this is: We want to allow replicas created from skels and wrapped types, but not force everyone to have another type variable in their Replicator (for the seed).
+This means no startup changes via seed, but the user could do anyway in their own first loop, and startup changes are dis-recommended because there should be a time "before the replica exists" for the app to make sure the user doesn't actually have one (rather than creating a new one, potentially confusing when blank app appears, or even overwriting the old replica when it comes back)
+-}
+type alias WrappedOrSkelCodecWithoutSeed replica = Codec.WrappedOrSkelCodec (Change.Changer ()) replica
 
-type alias ReplicaError =
-    String
 
 
 {-| Data required to initialize the replicator.
 -}
-type alias ReplicatorConfig replica yourFrameDesc =
+type alias ReplicatorConfig replica seed yourFrameDesc =
     { launchTime : Maybe Moment
-    , replicaCodec : WrappedOrSkelCodec ReplicaError replica
+    , replicaCodec : WrappedOrSkelCodecWithoutSeed replica
     , outPort : String -> Cmd (Msg yourFrameDesc)
     }
 
 
-init : ReplicatorConfig replica desc -> ( Replicator replica desc, replica )
+init : ReplicatorConfig replica seed desc -> ( Replicator replica desc, replica )
 init { launchTime, replicaCodec, outPort } =
     let
         ( startNode, initChanges ) =
             Codec.startNodeFromRoot launchTime replicaCodec
 
         ( startReplica, replicaDecodeWarnings ) =
-            Codec.decodeFromNode replicaCodec startNode
+            Codec.decodeFromNode replicaCodec startNode Nothing
     in
     -- TODO return warnings?
     ( ReplicatorModel
@@ -74,13 +77,13 @@ update msg (ReplicatorModel oldReplicator) =
         LoadRon originalFrameCount [] ->
             let
                 ( newReplica, problemMaybe ) =
-                    Codec.decodeFromNode oldReplicator.replicaCodec oldReplicator.node
+                    Codec.decodeFromNode oldReplicator.replicaCodec oldReplicator.node (Just oldReplicator.replica)
 
                 problemAsWarning =
                     case problemMaybe of
                         Just codecErr ->
                             -- TODO convert to warning
-                            Log.crashInDev (Codec.errorToString codecErr) []
+                            Log.crashInDev (Replicated.Codec.Error.toString codecErr) []
 
                         Nothing ->
                             []
@@ -124,24 +127,25 @@ update msg (ReplicatorModel oldReplicator) =
                             Node.applyChanges (Just newTime) False inNode givenFrame
                     in
                     ( updatedNode, outputsSoFar ++ outputFrame )
-            in
-            case Codec.decodeFromNode oldReplicator.replicaCodec nodeWithUpdates of
-                Ok updatedUserReplica ->
-                    { newReplicator = ReplicatorModel { oldReplicator | node = nodeWithUpdates, replica = updatedUserReplica }
-                    , newReplica = updatedUserReplica
-                    , warnings = []
-                    , cmd = Cmd.batch [ oldReplicator.outPort (Op.closedChunksToFrameText finalOutputFrame) ]
-                    }
 
-                Err problem ->
-                    { newReplicator =
-                        Log.logSeparate (Console.bgRed "Failed to decodeFromNode! Reverting update! Ops:\n" ++ Console.colorsInverted (Op.closedChunksToFrameText finalOutputFrame) ++ "\nProblem: ")
+                (updatedUserReplica, problemMaybe) =
+                    Codec.decodeFromNode oldReplicator.replicaCodec nodeWithUpdates (Just oldReplicator.replica)
+
+                warnings =
+                    case problemMaybe of
+                    -- TODO organize and report decode problems vs import problems
+                        Nothing -> []
+                        Just problem ->
+                            Log.logSeparate (Console.bgRed "Failed to decodeFromNode! Reverting update! Ops:\n" ++ Console.colorsInverted (RonOutput.closedChunksToFrameText finalOutputFrame) ++ "\nProblem: ")
                             problem
-                            (ReplicatorModel oldReplicator)
-                    , newReplica = oldReplicator.replica
-                    , warnings = [] -- TODO warn if fail to apply
-                    , cmd = Cmd.none
-                    }
+                            []
+
+            in
+                { newReplicator = ReplicatorModel { oldReplicator | node = nodeWithUpdates, replica = updatedUserReplica }
+                , newReplica = updatedUserReplica
+                , warnings = warnings
+                , cmd = Cmd.batch [ oldReplicator.outPort (RonOutput.closedChunksToFrameText finalOutputFrame) ]
+                }
 
 
 {-| Type for your "incoming frames" port. Use this on your JS port which is called when you receive new changeframes from elsewhere. The RON data (as a string) will be processed into the replicator.

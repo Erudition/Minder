@@ -34,7 +34,7 @@ import Replicated.Codec.Json.Encoder exposing (JsonEncoder)
 import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
-import Replicated.Collection as Object exposing (Object)
+import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
@@ -100,7 +100,7 @@ repList memberCodec =
                 repListBuilder foundObjectIDs =
                     let
                         object =
-                            Node.getObject { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepList.reducerID, position = position }
+                            Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepList.reducerID, position = position }
 
                         repListPointer =
                             Object.getPointer object
@@ -145,7 +145,7 @@ repList memberCodec =
         initializer { parent, position, seed } =
             let
                 object =
-                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], position = position, reducer = RepList.reducerID, parent = parent }
+                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], position = position, reducer = RepList.reducerID, parent = parent }
 
                 repListAsParent =
                     Change.becomeInstantParent (Object.getPointer object)
@@ -207,7 +207,7 @@ repDb memberCodec =
                 repDbBuilder foundObjectIDs =
                     let
                         object =
-                            Node.getObject { node = node, cutoff = Nothing, foundIDs = foundObjectIDs, parent = parent, reducer = RepDb.reducerID, position = position }
+                            Node.initializeCollection { node = node, cutoff = Nothing, foundIDs = foundObjectIDs, parent = parent, reducer = RepDb.reducerID, position = position }
 
                         repDbPointer =
                             Object.getPointer object
@@ -241,7 +241,7 @@ repDb memberCodec =
         initializer { parent, position, seed } =
             let
                 object =
-                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], position = position, reducer = RepDb.reducerID, parent = parent }
+                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], position = position, reducer = RepDb.reducerID, parent = parent }
 
                 repDbPointer =
                     Object.getPointer object
@@ -355,7 +355,7 @@ repDict keyCodec valueCodec =
         repDictRonDecoder ({ node, parent, position, cutoff } as details) =
             let
                 object foundObjectIDs =
-                    Node.getObject { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepDict.reducerID, position = position }
+                    Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepDict.reducerID, position = position }
 
                 repDictBuilder foundObjects =
                     let
@@ -391,7 +391,7 @@ repDict keyCodec valueCodec =
         initializer { parent, position, seed } =
             let
                 object =
-                    Node.getObject { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = RepDb.reducerID, position = position }
+                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = RepDb.reducerID, position = position }
 
                 repDbPointer =
                     Object.getPointer object
@@ -483,7 +483,7 @@ repStore keyCodec valueCodec =
         repStoreBuilder { node, parent, position, cutoff } changer foundObjects =
             let
                 object foundObjectIDs =
-                    Node.getObject { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepDict.reducerID, position = position }
+                    Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepDict.reducerID, position = position }
 
                 repStoreObject =
                     object foundObjects

@@ -8,7 +8,7 @@ Allows efficient batch processing and incremental sync.
 
 import Dict exposing (Dict)
 import Helpers exposing (..)
-import Replicated.Codec as Codec exposing (Codec)
+import Replicated.Codec as Codec exposing (SkelCodec)
 import ExtraCodecs as Codec
 import Http
 import Incubator.IntDict.Extra as IntDict
@@ -27,7 +27,6 @@ import Set exposing (Set)
 import SmartTime.Human.Moment as HumanMoment
 import Url
 import Url.Builder
-import Replicated.Codec exposing (Codec)
 import Replicated.Codec exposing (SkelCodec)
 
 
@@ -97,7 +96,7 @@ encodeCache record =
         , ( "pendingCommands", Encode.list Encode.string record.pendingCommands )
         ]
 
-cacheCodec : SkelCodec e Cache
+cacheCodec : SkelCodec Cache
 cacheCodec =
     Codec.record Cache
     |> Codec.field ( 1, "nextSync" ) .nextSync (Codec.string |> Codec.map IncrementalSyncToken (\(IncrementalSyncToken t) -> t)) (IncrementalSyncToken "*")

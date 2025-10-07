@@ -40,8 +40,8 @@ type Responsibility
     = Responsibility
 
 
-type alias Cares =
-    RepStore
+-- type alias Cares =
+--     RepStore
 
 
 type alias Need =

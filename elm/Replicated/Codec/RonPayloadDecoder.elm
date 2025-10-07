@@ -22,7 +22,7 @@ import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, Com
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
-import Replicated.Collection as Object exposing (ObjectGroup)
+import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
