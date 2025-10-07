@@ -14,7 +14,7 @@ import Replicated.Change as Change exposing (Change, ChangeSet(..), ComplexAtom,
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Change.PendingID as PendingID exposing (PendingID)
 import Replicated.Change.Primitive as ChangePrimitive
-import Replicated.Collection as Object exposing (ObjectGroup)
+import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Identifier exposing (..)
 import Replicated.Node.AncestorDb as AncestorDb exposing (AncestorDb)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
@@ -962,9 +962,9 @@ createPendingObject node inCounter inMapping pendingID =
             }
 
 
-{-| Build an object out of the matching ops in the replica - or a placeholder.
+{-| Build a Collection out of the matching Objects in the replica. If none exist yet, create a placeholder Collection.
 -}
-getObject :
+initializeCollection :
     { node : Node
     , cutoff : Maybe Moment
     , foundIDs : List OpID.ObjectID
@@ -972,11 +972,11 @@ getObject :
     , reducer : ReducerID
     , position : Location
     }
-    -> ObjectGroup
-getObject { node, cutoff, foundIDs, parent, reducer, position } =
+    -> Collection event
+initializeCollection { node, cutoff, foundIDs, parent, reducer, position } =
     let
         uninitializedObject =
-            Object.Unsaved { reducer = reducer, parent = parent, position = position }
+            Collection.Unsaved { reducer = reducer, parent = parent, position = position }
     in
     case foundIDs of
         [] ->
@@ -994,7 +994,7 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
 
                         ( True, False ) ->
                             Log.crashInDev
-                                ("Node.getObject: I was told [" ++ String.join ", " (List.map OpID.toString foundIDs) ++ "] were aliases to look for when building " ++ Log.dump reducer ++ " at location " ++ Location.toString position ++ ". Problem is, " ++ OpID.toString opID ++ " is actually a " ++ Log.dump (Op.reducerID op))
+                                ("Node.initializeCollection: I was told [" ++ String.join ", " (List.map OpID.toString foundIDs) ++ "] were aliases to look for when building " ++ Log.dump reducer ++ " at location " ++ Location.toString position ++ ". Problem is, " ++ OpID.toString opID ++ " is actually a " ++ Log.dump (Op.reducerID op))
                                 False
 
                 beforeCutoff opID =
@@ -1011,17 +1011,17 @@ getObject { node, cutoff, foundIDs, parent, reducer, position } =
                 findMatchingOps =
                     AnyDict.filter matchingOp node.ops
             in
-            case Object.buildSavedObject findMatchingOps of
-                ( Just finalObject, [] ) ->
-                    Object.Saved finalObject
+            case Collection.buildSaved findMatchingOps of
+                ( Just finalCollection, [] ) ->
+                    Collection.Saved finalCollection
 
-                ( Just finalObject, warnings ) ->
-                    Log.crashInDev "object builder produced warnings!" <| Object.Saved finalObject
+                ( Just finalCollection, warnings ) ->
+                    Log.crashInDev "collection builder produced warnings!" <| Collection.Saved finalCollection
 
                 ( Nothing, warnings ) ->
                     Log.crashInDevProse
-                        [ [ "Node.getObject:" ]
-                        , [ "object builder was tasked with building an object that should exist but found nothing. The existing object(s) supposedly had ID(s):" ]
+                        [ [ "Node.initializeCollection:" ]
+                        , [ "collection builder was tasked with building an collection that should exist but found nothing. The existing object(s) supposedly had ID(s):" ]
                         , [ Log.dump foundSome ]
                         , [ "Matched", Log.int (AnyDict.size findMatchingOps), "out of", Log.int (AnyDict.size node.ops), "total ops (correct object and pre-cutoff)." ]
                         , [ "The builder produced these warnings:" ]

@@ -1,5 +1,20 @@
 module Replicated.Collection exposing (..)
 
+{-| Reptypes that are built from a set of changes, like registers and lists, are a `Collection` at the app level, rather than a RON Object directly.
+
+ A collection typically maps to a single Object in RON -- you can almost always think of a Collection as just an Object.
+
+ But it can also be a union of RON objects, which are permanently merged. This is needed in case the collection is created concurrently, in separate replicas, before the replicas know about the existence of the other object IDs.
+
+ For example, if `organization.members` has never been set (the lazy equivalent to an empty set of person-tags), but "Alice" is added on replica A, and "Bob" is added on replica B concurrently, both replicas will create a new RON Object for the "members" set and add their members to it. There are now technically two RON objects that are intended to represent the same Collection. Until they sunc, each Replica keeps adding new members to its own Object.
+
+ If the `organization` Register were to follow the usual "last write wins" semantics for this field, then when the Replicas finally sync, the object with a later timestamp would be rendered as the sole `organization.members` collection on both Replicas! This means the other set(s) of members are effectively overwritten.
+
+ When a Register field has a Collection as its type, there is no need to write a new value - that happens in the nested set itself, the set being assigned to that field is permanent. So for these fields we switch to "union" semantics - the value of the field, the Collection, is a set that is the union of all the sets that have been ever assigned to it. Now the final synced result is a Collection with the set ["Alice", "Bob"], which is what we want!
+
+ From then on, all Replicas will use the oldest ObjectID for future changes to the collection. The Objects will remain distinct at the RON level, which is okay, and even helps to recover if they're ever merged by mistake. For causal consistency, though, new RON Ops will will reference the previous Op in the Collection as it's predecessor, even if it's from a different ObjectID. (This means merges can be detectable at the RON level.)
+-}
+
 import Console
 import Dict exposing (Dict)
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -16,14 +31,15 @@ import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
-{-| The most generic "object", to be inherited by other replicated data types for specific functionality.
+{-| Reptypes that are built from a set of changes, like registers and lists, inherit this basic type.
+
 -}
 type Collection event
-    = Saved (SavedObjectGroup event)
-    | Unsaved UnsavedObject
+    = Saved (SavedCollection event)
+    | Unsaved UnsavedCollection
 
 
-type alias SavedObjectGroup event =
+type alias SavedCollection event =
     { reducer : ReducerID
     , creation : ObjectID
     , events : EventDict event
@@ -43,8 +59,8 @@ type alias EventDict event =
     AnyDict OpID.OpIDSortable OpID (Event event)
 
 
-buildSavedObject : OpDict -> ( Maybe (SavedObjectGroup event), List ObjectBuildWarning )
-buildSavedObject opDict =
+buildSaved : OpDict -> ( Maybe (SavedCollection event), List ObjectBuildWarning )
+buildSaved opDict =
     case AnyDict.values opDict of
         [] ->
             ( Nothing, [ NoHeader ] )
@@ -69,7 +85,7 @@ buildSavedObject opDict =
 {-| Apply an incoming Op to an object if we have it.
 Ops must have a reference.
 -}
-applyOp : OpDict -> Op -> ( SavedObjectGroup event, List ObjectBuildWarning ) -> ( SavedObjectGroup event, List ObjectBuildWarning )
+applyOp : OpDict -> Op -> ( SavedCollection event, List ObjectBuildWarning ) -> ( SavedCollection event, List ObjectBuildWarning )
 applyOp opDict newOp ( oldObject, oldWarnings ) =
     let
         opPayloadToEventPayload opPayload =
@@ -168,7 +184,7 @@ type ObjectBuildWarning
     | UnknownReference OpID
 
 
-type alias UnsavedObject =
+type alias UnsavedCollection =
     { reducer : ReducerID
     , parent : Change.Parent
     , position : Location
@@ -188,11 +204,11 @@ getCreationID object =
 getPointer : Collection event -> Change.Pointer
 getPointer object =
     case object of
-        Saved savedObject ->
-            Change.ExistingObjectPointer (Change.ExistingID savedObject.reducer savedObject.creation)
+        Saved savedCollection ->
+            Change.ExistingObjectPointer (Change.ExistingID savedCollection.reducer savedCollection.creation)
 
-        Unsaved unsavedObject ->
-            Change.newPointer { parent = unsavedObject.parent, position = unsavedObject.position, reducerID = unsavedObject.reducer }
+        Unsaved unsavedCollection ->
+            Change.newPointer { parent = unsavedCollection.parent, position = unsavedCollection.position, reducerID = unsavedCollection.reducer }
 
 
 getIncluded : Collection event -> InclusionInfo
