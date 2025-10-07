@@ -107,6 +107,7 @@ import Replicated.Reducer.RepStore as RepStore exposing (RepStore)
 import Set exposing (Set)
 import SmartTime.Moment as Moment exposing (Moment)
 import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
+import Replicated.Op.ObjectHeader as ObjectHeader
 
 
 
@@ -213,7 +214,7 @@ decodeFromNode rootCodec node existingRootMaybe =
             node.root
                 -- legacy decoder is Json so needs a valid Json string
                 -- turn root ID into a Json list string
-                |> Maybe.map (\i -> "[\"" ++ OpID.toString i ++ "\"]")
+                |> Maybe.map (\i -> "[\"" ++ ObjectHeader.idString i ++ "\"]")
                 |> Maybe.withDefault "\"[]\""
 
         fallback =
@@ -296,7 +297,7 @@ decodeFromURLSafeByteString codec base64 =
 
 {-| Run a `Codec` to turn a json value encoded with `encodeToJson` into an Elm value.
 -}
-decodeFromJson : Codec s o a -> JE.Value -> Result RepDecodeError a
+decodeFromJson : NullCodec a -> JE.Value -> Result RepDecodeError a
 decodeFromJson codec json =
     -- let
     --     decoder =

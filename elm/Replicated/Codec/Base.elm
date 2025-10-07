@@ -54,29 +54,37 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 {-| Internal base of all Codecs - not exposed
 
   - init: data needed for initialization, usually just the seed
-  - constraints: record-based type for making sure codecs are used together correctly
+  - compat: record-based type for making sure codecs are used together correctly
   - thing: the type of the thing to ultimately be serialized
 
 -}
-type Codec init constraints thing
+type Codec init compat thing
     = Codec
         { bytesEncoder : BytesEncoder thing
         , bytesDecoder : BytesDecoder thing
         , jsonEncoder : JsonEncoder thing
         , jsonDecoder : JsonDecoder thing
-        , nodeEncoder : NodeEncoder thing constraints
+        , nodeEncoder : NodeEncoder thing compat
         , nodeDecoder : NodeDecoder thing
         , nodePlaceholder : Initializer init thing
         }
 
+-- TODO consider rearranging to `Codec seed compat thing` so that NullCodec can be expressed in terms of SelfSeededCodec, for example. Maybe even add seed to constraint record?
 
-{-| For types that cannot be initialized from nothing, nor from a list of changes - you need the whole value upfront. We use the value itself as the "seed".
+{-| For types that cannot be "initialized". You need the whole value from the beginning.
+No seeding, no initial Change List.
+
+To enforce this, I use the value itself as the "seed" -- so if someone tried to "initialize" the Codec they'd need to have the value in the final type already anyway, so it does nothing.
+
+The `compat` type variable for Node Encoder constraints is not specified
 -}
-type alias SelfSeededCodec constraints thing =
-    Codec thing constraints thing
+type alias SelfSeededCodec compat thing =
+    Codec thing compat thing
 
 
-{-| A self-seeded codec with no special guarantees. Used as a building block for additional type constraints.
+{-| A self-seeded Codec that can't be used inside other Codecs that require a solo object or a primitive.
+
+This is for custom types, which can have more than one embedded object.
 -}
 type alias NullCodec thing =
     Codec thing {} thing
@@ -97,7 +105,7 @@ type alias SkelCodec thing =
 {-| Codec for wrapped objects, like replist or register, or unwrapped naked records.
 -}
 type alias WrappedOrSkelCodec s thing =
-    Codec (s -> List Change) NodeEncoder.SoloObject thing
+    Codec (Changer s) NodeEncoder.SoloObject thing
 
 
 {-| Codec for wrapped objects, like replist or register, but not naked records.

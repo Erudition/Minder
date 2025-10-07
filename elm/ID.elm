@@ -111,7 +111,7 @@ fromObjectID objectID =
 toPointer reducer givenID =
     case givenID of
         IDFromExisting objectID ->
-            Change.ExistingObjectPointer (ObjectHeader reducer objectID)
+            Change.ExistingObjectPointer (ObjectHeader objectID reducer )
 
         IDFromPlaceholder pendingID ->
             Change.PlaceholderPointer pendingID []
