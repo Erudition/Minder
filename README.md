@@ -54,4 +54,4 @@ We urge you to read about the
 [the Software Freedom Conservancy](https://sfconservancy.org) to understand
 some of the reasons why GitHub is not a good place to host FLOSS projects.
 
-![Logo of the GiveUpGitHub campaign](https://sfconservancy.org/img/GiveUpGitHub.png)
+![Logo of the GiveUpGitHub campaign](https://sfconservancy.org/img/GiveUpGitHub.png)a
