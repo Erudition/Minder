@@ -4,6 +4,8 @@ import List.Nonempty exposing (Nonempty(..))
 import Replicated.Change as Change exposing (Change(..), ChangeSet, Changer, Parent(..))
 import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Op.Op as Op
+import Replicated.Op.Payload exposing (Payload)
+import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 
 
 
@@ -18,7 +20,7 @@ import Replicated.Op.Op as Op
 type RepStore k v
     = Store
         { entryFetcher : k -> v
-        , included : Object.InclusionInfo
+        , included : Collection.InclusionInfo
         , startWith : Changer (RepStore k v)
         , pointer : Change.Pointer
         }
@@ -33,20 +35,20 @@ getPointer (Store store) =
     store.pointer
 
 
-reducerID : Op.ReducerID
+reducerID : ReducerID
 reducerID =
-    "store"
+    ReducerID.StoreReducer
 
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : { object : Object, fetcher : k -> v, start : Changer (RepStore k v) } -> RepStore k v
+buildFromReplicaDb : { object : Collection.SavedCollection Payload, fetcher : k -> v, start : Changer (RepStore k v) } -> RepStore k v
 buildFromReplicaDb { object, fetcher, start } =
     Store
         { entryFetcher = fetcher
-        , included = Object.getIncluded object
+        , included = object.included
         , startWith = start
-        , pointer = Object.getPointer object
+        , pointer = Collection.getPointer (Collection.Saved object)
         }
 
 

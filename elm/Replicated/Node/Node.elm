@@ -759,23 +759,45 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
                 |> Maybe.withDefault objectID
 
         -- Step 3. Stamp all ops with an incremental ID
-        ( ( counterAfterObjectChanges3, newLastOpSeen ), objectChangeOps ) =
-            List.mapAccuml stampChunkOps ( postInitCounter, objectLastOpIDSeen ) allUnstampedChunkOps
+        ( ( counterAfterObjectChanges3, finalPreviousOp ), objectChangeOps ) =
+            let
+                -- find the actual Op for the header/creation
+                initialRefOp =
+                    case initOps of
+                        [ headerOp ] ->
+                            headerOp
 
-        stampChunkOps : ( InCounter, OpID ) -> UnstampedChunkOp -> ( ( OutCounter, OpID ), Op )
-        stampChunkOps ( stampInCounter, opIDToReference ) givenUCO =
+                        _ ->
+                            -- must be an existing object, look it up
+                            case getLastSeenOp node objectID of
+                                Just found ->
+                                    found
+
+                                Nothing ->
+                                    -- fallback to dummy if somehow completely missing
+                                    Op.dummy
+            in
+            List.mapAccuml stampChunkOps ( postInitCounter, initialRefOp ) allUnstampedChunkOps
+
+        stampChunkOps : ( InCounter, Op ) -> UnstampedChunkOp -> ( ( OutCounter, Op ), Op )
+        stampChunkOps ( stampInCounter, opToReference ) givenUCO =
             let
                 ( newID, stampOutCounter ) =
                     OpID.generate stampInCounter node.identity givenUCO.deletion
 
-                stampedOp =
-                    Op.create reducerID objectID newID (Op.OpReference <| Maybe.withDefault opIDToReference givenUCO.reference) givenUCO.payload
+                stampedOpResult =
+                    Op.create reducerID objectID newID (Op.OpReference opToReference) givenUCO.payload
             in
-            ( ( stampOutCounter, newID ), stampedOp )
+            case stampedOpResult of
+                Ok good ->
+                    ( ( stampOutCounter, good ), good )
+
+                Err bad ->
+                    Log.crashInDev bad ( ( stampOutCounter, Op.dummy ), Op.dummy )
 
         -- ObjectsCreated Mapping: be sure to update the lastOpSeen for this object
         finalMapping =
-            { postInitMapping | lastSeen = AnyDict.insert objectID newLastOpSeen postInitMapping.lastSeen }
+            { postInitMapping | lastSeen = AnyDict.insert objectID (Op.id finalPreviousOp) postInitMapping.lastSeen }
 
         -- logOps prefix ops =
         --     String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ RonOutput.opToString op ++ "\t") ops))
@@ -972,7 +994,7 @@ initializeCollection :
     , reducer : ReducerID
     , position : Location
     }
-    -> Collection event
+    -> Collection Payload
 initializeCollection { node, cutoff, foundIDs, parent, reducer, position } =
     let
         uninitializedObject =

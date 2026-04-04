@@ -2,17 +2,18 @@ module Replicated.Collection exposing (..)
 
 {-| Reptypes that are built from a set of changes, like registers and lists, are a `Collection` at the app level, rather than a RON Object directly.
 
- A collection typically maps to a single Object in RON -- you can almost always think of a Collection as just an Object.
+A collection typically maps to a single Object in RON -- you can almost always think of a Collection as just an Object.
 
- But it can also be a union of RON objects, which are permanently merged. This is needed in case the collection is created concurrently, in separate replicas, before the replicas know about the existence of the other object IDs.
+But it can also be a union of RON objects, which are permanently merged. This is needed in case the collection is created concurrently, in separate replicas, before the replicas know about the existence of the other object IDs.
 
- For example, if `organization.members` has never been set (the lazy equivalent to an empty set of person-tags), but "Alice" is added on replica A, and "Bob" is added on replica B concurrently, both replicas will create a new RON Object for the "members" set and add their members to it. There are now technically two RON objects that are intended to represent the same Collection. Until they sunc, each Replica keeps adding new members to its own Object.
+For example, if `organization.members` has never been set (the lazy equivalent to an empty set of person-tags), but "Alice" is added on replica A, and "Bob" is added on replica B concurrently, both replicas will create a new RON Object for the "members" set and add their members to it. There are now technically two RON objects that are intended to represent the same Collection. Until they sunc, each Replica keeps adding new members to its own Object.
 
- If the `organization` Register were to follow the usual "last write wins" semantics for this field, then when the Replicas finally sync, the object with a later timestamp would be rendered as the sole `organization.members` collection on both Replicas! This means the other set(s) of members are effectively overwritten.
+If the `organization` Register were to follow the usual "last write wins" semantics for this field, then when the Replicas finally sync, the object with a later timestamp would be rendered as the sole `organization.members` collection on both Replicas! This means the other set(s) of members are effectively overwritten.
 
- When a Register field has a Collection as its type, there is no need to write a new value - that happens in the nested set itself, the set being assigned to that field is permanent. So for these fields we switch to "union" semantics - the value of the field, the Collection, is a set that is the union of all the sets that have been ever assigned to it. Now the final synced result is a Collection with the set ["Alice", "Bob"], which is what we want!
+When a Register field has a Collection as its type, there is no need to write a new value - that happens in the nested set itself, the set being assigned to that field is permanent. So for these fields we switch to "union" semantics - the value of the field, the Collection, is a set that is the union of all the sets that have been ever assigned to it. Now the final synced result is a Collection with the set ["Alice", "Bob"], which is what we want!
 
- From then on, all Replicas will use the oldest ObjectID for future changes to the collection. The Objects will remain distinct at the RON level, which is okay, and even helps to recover if they're ever merged by mistake. For causal consistency, though, new RON Ops will will reference the previous Op in the Collection as it's predecessor, even if it's from a different ObjectID. (This means merges can be detectable at the RON level.)
+From then on, all Replicas will use the oldest ObjectID for future changes to the collection. The Objects will remain distinct at the RON level, which is okay, and even helps to recover if they're ever merged by mistake. For causal consistency, though, new RON Ops will will reference the previous Op in the Collection as it's predecessor, even if it's from a different ObjectID. (This means merges can be detectable at the RON level.)
+
 -}
 
 import Console
@@ -25,6 +26,7 @@ import Replicated.Change as Change exposing (ChangeSet)
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Op.Atom as RonAtom
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID, OpIDSortable, OpIDString)
+import Replicated.Op.ObjectHeader as ObjectHeader exposing (ObjectHeader)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.Payload as Payload exposing (Payload)
 import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
@@ -32,7 +34,6 @@ import SmartTime.Moment as Moment exposing (Moment)
 
 
 {-| Reptypes that are built from a set of changes, like registers and lists, inherit this basic type.
-
 -}
 type Collection event
     = Saved (SavedCollection event)
@@ -59,7 +60,7 @@ type alias EventDict event =
     AnyDict OpID.OpIDSortable OpID (Event event)
 
 
-buildSaved : OpDict -> ( Maybe (SavedCollection event), List ObjectBuildWarning )
+buildSaved : OpDict -> ( Maybe (SavedCollection Payload), List ObjectBuildWarning )
 buildSaved opDict =
     case AnyDict.values opDict of
         [] ->
@@ -87,7 +88,7 @@ buildSaved opDict =
 {-| Apply an incoming Op to an object if we have it.
 Ops must have a reference.
 -}
-applyOp : OpDict -> Op -> ( SavedCollection event, List ObjectBuildWarning ) -> ( SavedCollection event, List ObjectBuildWarning )
+applyOp : OpDict -> Op -> ( SavedCollection Payload, List ObjectBuildWarning ) -> ( SavedCollection Payload, List ObjectBuildWarning )
 applyOp opDict newOp ( oldObject, oldWarnings ) =
     let
         opPayloadToEventPayload opPayload =
@@ -105,12 +106,16 @@ applyOp opDict newOp ( oldObject, oldWarnings ) =
                 ( newEventDict, newWarnings ) =
                     if OpID.isDeletion (Op.id newOp) then
                         -- this op reverts a real event
-                        revertEventHelper ref oldObject.events opDict
-                        -- |> Debug.log ("Op " ++ OpID.toString (Op.id newOp) ++ " reverts op " ++ OpID.toString ref ++ " in object " ++ OpID.toString oldObject.creation ++ ". new event dict")
+                        case Op.opIDFromReference (Op.OpReference ref) of
+                            Just opID ->
+                                revertEventHelper opID oldObject.events opDict
+
+                            Nothing ->
+                                ( oldObject.events, [ UnknownReference (Op.id newOp) ] )
 
                     else
                         ( AnyDict.insert (Op.id newOp)
-                            (Event { referencedOp = ref, payload = Op.payload newOp })
+                            (Event { referencedOp = Op.id ref, payload = Op.payload newOp })
                             oldObject.events
                         , []
                         )
@@ -118,6 +123,8 @@ applyOp opDict newOp ( oldObject, oldWarnings ) =
             ( { reducer = oldObject.reducer
               , creation = oldObject.creation
               , events = newEventDict
+              , deleted = oldObject.deleted
+              , reversions = oldObject.reversions
               , included = oldObject.included
               , version = Op.id newOp -- assuming running in chrono order
               , aliases = oldObject.aliases
@@ -132,7 +139,7 @@ applyOp opDict newOp ( oldObject, oldWarnings ) =
 
 {-| Internal function to find the event to revert.
 -}
-revertEventHelper : OpID -> EventDict event -> OpDict -> ( EventDict event, List ObjectBuildWarning )
+revertEventHelper : OpID -> EventDict Payload -> OpDict -> ( EventDict Payload, List ObjectBuildWarning )
 revertEventHelper opIDToRevert eventDict opDict =
     case ( AnyDict.member opIDToRevert eventDict, OpID.isDeletion opIDToRevert ) of
         ( True, _ ) ->
@@ -152,30 +159,30 @@ revertEventHelper opIDToRevert eventDict opDict =
                             -- impossible, creation ops can't be reversion ops.
                             Log.crashInDev "Tried to revert a creation op!" ( eventDict, [ UnknownReference opIDToRevert ] )
 
-                        Op.OpReference thirdOpID ->
+                        Op.OpReference thirdOp ->
                             -- does the second reversion op point to a third reversion op?
-                            if OpID.isDeletion thirdOpID then
+                            if OpID.isDeletion (Op.id thirdOp) then
                                 -- yup. start over with that one.
-                                revertEventHelper thirdOpID eventDict opDict
+                                revertEventHelper (Op.id thirdOp) eventDict opDict
 
                             else
                                 -- nope, normal op! assume it was a former event of ours. go get it
-                                case AnyDict.get thirdOpID opDict of
+                                case AnyDict.get (Op.id thirdOp) opDict of
                                     Just opToReinstate ->
                                         case Op.reference opToReinstate of
                                             Op.ReducerReference _ ->
                                                 -- impossible, creation ops can't be events, nor can they be reverted.
-                                                Log.crashInDev "Tried to unrevert a creation op!" ( eventDict, [ UnknownReference opIDToRevert ] )
+                                                Log.crashInDev "Tried to unrevert a creation op!" ( eventDict, [ UnknownReference (Op.id thirdOp) ] )
 
                                             Op.OpReference referenceOfThirdOp ->
                                                 ( AnyDict.insert (Op.id opToReinstate)
-                                                    (Event { referencedOp = referenceOfThirdOp, payload = Op.payload opToReinstate })
+                                                    (Event { referencedOp = Op.opIDFromReference (Op.OpReference referenceOfThirdOp) |> Maybe.withDefault (Op.id opToReinstate), payload = Op.payload opToReinstate })
                                                     eventDict
                                                 , []
                                                 )
 
                                     Nothing ->
-                                        ( eventDict, [ UnknownReference thirdOpID ] )
+                                        ( eventDict, [ UnknownReference (Op.id thirdOp) ] )
 
         ( False, False ) ->
             ( eventDict, [ UnknownReference (Log.log "couldn't find op to revert" opIDToRevert) ] )
@@ -207,7 +214,7 @@ getPointer : Collection event -> Change.Pointer
 getPointer object =
     case object of
         Saved savedCollection ->
-            Change.ExistingObjectPointer (Change.ExistingID savedCollection.reducer savedCollection.creation)
+            Change.ExistingObjectPointer (ObjectHeader savedCollection.creation savedCollection.reducer)
 
         Unsaved unsavedCollection ->
             Change.newPointer { parent = unsavedCollection.parent, position = unsavedCollection.position, reducerID = unsavedCollection.reducer }
@@ -265,9 +272,9 @@ eventPayload (Event event) =
     event.payload
 
 
-eventPayloadAsJson : Event event -> JE.Value
+eventPayloadAsJson : Event Payload -> JE.Value
 eventPayloadAsJson (Event event) =
-    case List.map Op.atomToJsonValue event.payload of
+    case List.map RonAtom.toJsonValue event.payload of
         [] ->
             JE.null
 
@@ -278,10 +285,10 @@ eventPayloadAsJson (Event event) =
             JE.list identity multiple
 
 
-extractOpIDFromEventPayload : Event event -> Maybe OpID
+extractOpIDFromEventPayload : Event Payload -> Maybe OpID
 extractOpIDFromEventPayload (Event event) =
     case event.payload of
-        [ Op.IDPointerAtom opID ] ->
+        [ RonAtom.IDPointerAtom opID ] ->
             Just opID
 
         other ->

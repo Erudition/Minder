@@ -17,6 +17,8 @@ import Replicated.Node.Node exposing (Node)
 import Replicated.Node.NodeID exposing (NodeID)
 import Replicated.Op.ID as OpID exposing (OpID, OpIDSortable)
 import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.Payload as Payload
+import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -25,7 +27,7 @@ import SmartTime.Moment as Moment exposing (Moment)
 type Reg userType
     = Register
         { pointer : Change.Pointer
-        , included : Object.InclusionInfo
+        , included : Collection.InclusionInfo
         , latest : userType
 
         -- since toRecord with Moment parameter meant late re-evaluation of entire decoder
@@ -36,7 +38,7 @@ type Reg userType
 
 
 type alias FieldPayload =
-    Nonempty Op.Op.Payload.Atom
+    Payload.Payload
 
 
 type alias FieldHistoryBackwards =
@@ -92,9 +94,9 @@ type alias RWH fieldVal =
     }
 
 
-registerReducerID : Op.ReducerID
+registerReducerID : ReducerID
 registerReducerID =
-    "lww"
+    ReducerID.RegisterReducer
 
 
 latest : Reg record -> record
