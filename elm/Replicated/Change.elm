@@ -57,6 +57,14 @@ unionCombine empty dictA dictB =
         empty
 
 
+
+{-| A changer that does nothing. Used as a default for initializers.
+-}
+nonChanger : Changer a
+nonChanger =
+    \_ -> []
+
+
 {-| Helper to merge two Changes. Put the later change first, earlier change last (pipelining) for proper duplicate handling.
 -}
 mergeChanges : ChangeSet -> ChangeSet -> ChangeSet
