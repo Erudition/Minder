@@ -185,7 +185,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                 }
 
         nodeTag =
-            Change.FromPrimitiveAtom <| Change.NakedStringAtom <| tagName ++ "_" ++ String.fromInt tagNum
+            Change.FromPrimitiveAtom <| Primitive.NakedStringAtom <| tagName ++ "_" ++ String.fromInt tagNum
 
         unwrapBD : Int -> BD.Decoder (Result RepDecodeError v) -> BD.Decoder (Result RepDecodeError v)
         unwrapBD tagNumToDecode orElse =
