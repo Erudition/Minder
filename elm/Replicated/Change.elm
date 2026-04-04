@@ -1,4 +1,4 @@
-module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, Frame(..), ObjectChange(..), Parent, Pointer(..), SoloObjectEncoded, UndoData, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, createReversionFrame, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, redundantObjectChange, reuseContext, saveSystemChanges, saveUserChanges, startContext)
+module Replicated.Change exposing (Change(..), ChangeSet(..), Changer, ComplexAtom(..), ComplexPayload, Context(..), Creator, DelayedChange, Frame(..), ObjectChange(..), Parent, Pointer(..), PrimitiveAtom, PrimitivePayload, SoloObjectEncoded, UndoData, becomeDelayedParent, becomeInstantParent, changeObject, changeObjectWithExternal, changeSetDebug, collapseChangesToChangeSet, complexFromSolo, contextDifferentiatorString, createReversionFrame, delayedChangeObject, delayedChangesToSets, emptyChangeSet, emptyFrame, equalPointers, extractOwnSubChanges, genesisParent, getContextLocation, getContextParent, getObjectChanges, getPointerObjectID, getPointerReducer, isEmptyChangeSet, isPlaceholder, mapChanger, mapCreator, mergeChanges, mergeMaybeChange, newPointer, noChange, nonEmptyFrames, redundantObjectChange, reuseContext, saveSystemChanges, saveUserChanges, startContext)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -14,6 +14,14 @@ import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import Result.Extra
 import Set.Any exposing (AnySet)
+
+
+type alias PrimitiveAtom =
+    Primitive.Atom
+
+
+type alias PrimitivePayload =
+    Primitive.Payload
 
 
 type ChangeSet
