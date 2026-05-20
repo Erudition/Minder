@@ -1,0 +1,16 @@
+allowBuilds:
+  '@nativescript/core': true
+  '@parcel/watcher': true
+  core-js: true
+  core-js-pure: true
+  elm: true
+  elm-format: true
+  elm-native-js: true
+  elm-test-rs: true
+  es5-ext: true
+  esbuild: true
+  lamdera: true
+  nativescript: true
+  rescript: true
+  sharp: true
+  spawn-sync: true

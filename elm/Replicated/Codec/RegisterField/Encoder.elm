@@ -202,10 +202,26 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                     -- never been set before, encode default if requested by mode, or just skip
                     explicitDefaultIfNeeded valToEncode
 
-                Just foundPreviousValue ->
+                Just foundPreviousPayload ->
                     -- it's been set before. even if set to default (e.g. Nothing) we will honor this
-                    -- EncodeThisField <| Change.NewPayload <| encodeVal foundPreviousValue
-                    Debug.todo "what to do here?"
+                    case extractQuotedObjects foundPreviousPayload of
+                        [] ->
+                            -- no nested objects, re-encode the value directly
+                            EncodeThisField <| Change.NewPayload <| encodedDefaultAsPayload valToEncode
+
+                        firstFoundObjectID :: moreFoundObjectIDs ->
+                            -- nested objects found, pass objectID info to sub-encoders
+                            let
+                                runNestedEncoder =
+                                    Base.getNodeEncoder fieldCodec
+                                        { mode = mode
+                                        , node = node
+                                        , thingToEncode = NodeEncoder.EncodeObjectOrThis (Nonempty firstFoundObjectID moreFoundObjectIDs) valToEncode
+                                        , parent = regAsParent
+                                        , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
+                                        }
+                            in
+                            EncodeThisField <| Change.NewPayload runNestedEncoder.complex
 
         Nothing ->
             -- we have no default to fall back to, this is for SEEDED nested objects only

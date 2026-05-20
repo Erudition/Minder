@@ -510,14 +510,20 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                             buildRegisterFieldDictionary object
 
                         regToRecordByDecoding givenCutoff =
-                            allFieldsCodec.nodeDecoder { node = node, regPointer = regPointer, cutoff = givenCutoff, history = history }
-                                -- TODO currently ignoring errors
-                                |> Tuple.first
+                            case allFieldsCodec.nodeDecoder { node = node, regPointer = regPointer, cutoff = givenCutoff, history = history } of
+                                ( success, [] ) ->
+                                    success
+
+                                ( recovered, errors ) ->
+                                    Log.log ("regToRecordByDecoding (register) returned errors! " ++ Log.dump errors) recovered
 
                         wrongCutoffRegToRecordByDecoding =
-                            allFieldsCodec.nodeDecoder { node = node, regPointer = regPointer, cutoff = Nothing, history = history }
-                                -- TODO currently ignoring errors
-                                |> Tuple.first
+                            case allFieldsCodec.nodeDecoder { node = node, regPointer = regPointer, cutoff = Nothing, history = history } of
+                                ( success, [] ) ->
+                                    success
+
+                                ( recovered, errors ) ->
+                                    Log.log ("wrongCutoffRegToRecordByDecoding (register) returned errors! " ++ Log.dump errors) recovered
 
                         regToRecord regCanBeBuilt givenCutoff =
                             case regToRecordByDecoding givenCutoff of
