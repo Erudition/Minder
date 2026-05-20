@@ -39,6 +39,7 @@ type alias TimeBlockSeed =
     }
 
 
+codec : Codec.SeededRecordCodec TimeBlockSeed TimeBlock
 codec =
     Codec.record TimeBlock
         |> Codec.coreRW ( 1, "focus" ) .focus focusCodec .focus

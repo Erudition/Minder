@@ -5,7 +5,7 @@ module Replicated.Codec exposing
     , CustomTypeCodec, customType, variant0, variant1, variant2, variant3, variant4, variant5, variant6, variant7, variant8, finishCustomType
     , map, mapValid, mapError
     , lazy
-    , FieldIdentifier, FieldName, FieldSlot, FieldValue, NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, VariantTag, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, char, coreR, coreRW, decodeFromNode, fieldDb, fieldDict, fieldList, fieldRW, fieldRWM, fieldRec, fieldReg, fieldStore, finishRegister, finishSeededRecord, finishSeededRegister, id, list, makeOpaque, maybeR, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges, nonempty, obsolete, quickEnum, repDb, repDict, repList, repStore, seededR, seededRW, seedlessPair, todo, startNodeFromRoot, encodeToJsonString
+    , FieldIdentifier, FieldName, FieldSlot, FieldValue, NullCodec, PrimitiveCodec, SeededRecordCodec, SelfSeededCodec, SkelCodec, VariantTag, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, char, coreR, coreRW, decodeFromNode, fieldDb, fieldDict, fieldList, fieldRW, fieldRWM, fieldRec, fieldReg, fieldStore, finishRegister, finishSeededRecord, finishSeededRegister, id, list, makeOpaque, maybeR, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges, nonempty, obsolete, quickEnum, repDb, repDict, repList, repStore, seededR, seededRW, seedlessPair, todo, startNodeFromRoot, encodeToJsonString
     )
 
 {-|
@@ -156,6 +156,13 @@ type alias WrappedCodec thing =
 -}
 type alias WrappedSeededCodec seed thing =
     Base.WrappedSeededCodec seed thing
+
+
+{-| Codec for naked (unwrapped) records that need an initial seed.
+The record cannot be initialized with changes, only with the seed value.
+-}
+type alias SeededRecordCodec seed thing =
+    Base.SeededRecordCodec seed thing
 
 
 

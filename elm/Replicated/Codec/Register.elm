@@ -24,7 +24,7 @@ import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..), nonChanger)
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Change.PendingID as PendingID exposing (PendingID)
-import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getInitializer)
+import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SeededRecordCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getInitializer)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.DataStructures.Immutable.SyncSafe
 import Replicated.Codec.DataStructures.Immutable.SyncUnsafe
@@ -267,7 +267,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
         }
 
 
-finishSeededRecord : PartialRegister s full full -> Codec s NodeEncoder.SoloObject full
+finishSeededRecord : PartialRegister s full full -> SeededRecordCodec s full
 finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
     let
         encodeAsJsonObject nakedRecord =

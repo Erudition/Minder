@@ -115,6 +115,7 @@ type alias CustomActivitySkel =
     }
 
 
+customActivitySkelCodec : Codec.SeededRecordCodec Template CustomActivitySkel
 customActivitySkelCodec =
     Codec.record CustomActivitySkel
         |> coreR ( 0, "template" ) .template Template.codec identity

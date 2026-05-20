@@ -32,6 +32,7 @@ type alias HistorySession =
     }
 
 
+codec : Codec.SeededRecordCodec { started : Moment, endedMaybe : Maybe Moment, tracked : TimeTrackable } HistorySession
 codec =
     Codec.record HistorySession
         |> coreRW ( 1, "started" ) .started Codec.moment .started
