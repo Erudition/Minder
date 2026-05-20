@@ -1,4 +1,4 @@
-module Replicated.Codec.CustomType exposing (CustomTypeCodec, VariantTag, customType, finishCustomType, variant0, variant1, variant2, variant3, variant4, variant5, variant6, variant7, variant8)
+module Replicated.Codec.CustomType exposing (CustomTypeCodec, VariantEncoder, VariantTag, customType, finishCustomType, variant0, variant1, variant2, variant3, variant4, variant5, variant6, variant7, variant8)
 
 {-| Codecs for Custom Types.
 -}

@@ -1,4 +1,4 @@
-module Replicated.Codec.Register exposing (coreR, coreRW, field, fieldList, fieldRW, fieldRec, fieldReg, fieldStore, finishRecord, finishRegister, finishSeededRecord, finishSeededRegister, maybeR, record, seededR, seededRW, seedlessPair, updateRegisterPostChildInit)
+module Replicated.Codec.Register exposing (PartialRegister, coreR, coreRW, field, fieldDb, fieldDict, fieldList, fieldRW, fieldRWM, fieldRec, fieldReg, fieldStore, finishRecord, finishRegister, finishSeededRecord, finishSeededRegister, maybeR, record, seededR, seededRW, seedlessPair, updateRegisterPostChildInit)
 
 {-| Module for building a Register codec.
 -}
