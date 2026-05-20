@@ -1,4 +1,4 @@
-module Replicated.Codec.RegisterField.Encoder exposing (Inputs, Output, RegisterFieldEncoder, SmartJsonFieldEncoder, encodeFieldPayloadAsObjectPayload, getFieldLatestOnly, newRegisterFieldEncoderEntry, updateRegisterPostChildInit)
+module Replicated.Codec.RegisterField.Encoder exposing (Inputs, Output(..), RegisterFieldEncoder, SmartJsonFieldEncoder, encodeFieldPayloadAsObjectPayload, getFieldLatestOnly, newRegisterFieldEncoderEntry, updateRegisterPostChildInit)
 
 import Array exposing (Array)
 import Base64

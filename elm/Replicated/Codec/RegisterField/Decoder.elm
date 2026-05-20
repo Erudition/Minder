@@ -1,4 +1,4 @@
-module Replicated.Codec.RegisterField.Decoder exposing (RegisterFieldDecoder, registerReadOnlyFieldDecoder, registerWritableFieldDecoder, extractFieldEventFromObjectPayload)
+module Replicated.Codec.RegisterField.Decoder exposing (RegisterFieldDecoder, RegisterFieldDecoderInputs, registerReadOnlyFieldDecoder, registerWritableFieldDecoder, extractFieldEventFromObjectPayload)
 
 import Array exposing (Array)
 import Base64

@@ -1,4 +1,4 @@
-module Replicated.Reducer.RepStore exposing (RepStore, RepStoreEntry(..), buildFromReplicaDb, get, getInit, getPointer, listModified, reducerID)
+module Replicated.Reducer.RepStore exposing (RepStore, RepStoreEntry(..), buildFromReplicaDb, buildNew, get, getInit, getPointer, listModified, reducerID)
 
 import List.Nonempty exposing (Nonempty(..))
 import Replicated.Change as Change exposing (Change(..), ChangeSet, Changer, Parent(..))
@@ -49,6 +49,16 @@ buildFromReplicaDb { object, fetcher, start } =
         , included = object.included
         , startWith = start
         , pointer = Collection.getPointer (Collection.Saved object)
+        }
+
+
+buildNew : { pointer : Change.Pointer, fetcher : k -> v, start : Changer (RepStore k v) } -> RepStore k v
+buildNew { pointer, fetcher, start } =
+    Store
+        { entryFetcher = fetcher
+        , included = Collection.All
+        , startWith = start
+        , pointer = pointer
         }
 
 

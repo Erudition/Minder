@@ -21,26 +21,31 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
+import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..), nonChanger)
 import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Codec.Base as Base
+import Replicated.Change.PendingID as PendingID exposing (PendingID)
+import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getInitializer)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.DataStructures.Immutable.SyncSafe
 import Replicated.Codec.DataStructures.Immutable.SyncUnsafe
-import Replicated.Codec.DataStructures.Mutable
+import Replicated.Codec.DataStructures.Mutable exposing (repDb, repDict, repList, repStore)
+import Replicated.Codec.DataStructures.Immutable.SyncSafe exposing (maybe)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
-import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
-import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
+import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder, concurrentObjectIDsDecoder)
+import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder, soloOut)
 import Replicated.Codec.Primitives as Primitives
-import Replicated.Codec.RegisterField.Decoder as RegisterFieldDecoder exposing (RegisterFieldDecoder)
-import Replicated.Codec.RegisterField.Encoder as RegisterFieldEncoder exposing (RegisterFieldEncoder)
+import Replicated.Codec.RegisterField.Decoder as RegisterFieldDecoder exposing (RegisterFieldDecoder, RegisterFieldDecoderInputs, registerReadOnlyFieldDecoder, registerWritableFieldDecoder, extractFieldEventFromObjectPayload)
+import Replicated.Codec.RegisterField.Encoder as RegisterFieldEncoder exposing (RegisterFieldEncoder, SmartJsonFieldEncoder)
+import Replicated.Codec.RegisterField.Initializer exposing (RegisterFieldInitializer)
 import Replicated.Codec.RegisterField.Shared exposing (..)
+import Replicated.Codec.Initializer exposing (Initializer, Skel)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.Payload as Payload exposing (Payload)
 import Replicated.Reducer.Register as Reg exposing (..)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
@@ -129,7 +134,7 @@ fieldStore fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
     readableHelper fieldID fieldGetter (repStore keyCodec valueCodec) (PlaceholderDefault nonChanger) recordBuilt
 
 
-fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec memberSeed SoloObject memberType -> PartialRegister i full (RepDb memberType -> remaining) -> PartialRegister i full remaining
+fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec memberSeed NodeEncoder.SoloObject memberType -> PartialRegister i full (RepDb memberType -> remaining) -> PartialRegister i full remaining
 fieldDb fieldID fieldGetter fieldCodec recordBuilt =
     readableHelper fieldID fieldGetter (repDb fieldCodec) (PlaceholderDefault nonChanger) recordBuilt
 
@@ -197,7 +202,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                             Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
 
                         regPointer =
-                            Object.getPointer object
+                            Collection.getPointer object
 
                         history =
                             buildRegisterFieldDictionary object
@@ -228,7 +233,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
             in
             JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder
 
-        nodeEncoder : NodeEncoder full SoloObject
+        nodeEncoder : NodeEncoder full NodeEncoder.SoloObject
         nodeEncoder inputs =
             recordNodeEncoder partial inputs
 
@@ -238,7 +243,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                 object =
                     Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
             in
-            allFieldsCodec.nodeInitializer () (Object.getPointer object)
+            allFieldsCodec.nodeInitializer () (Collection.getPointer object)
 
         bytesDecoder : BD.Decoder (Result RepDecodeError full)
         bytesDecoder =
@@ -259,7 +264,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
         }
 
 
-finishSeededRecord : PartialRegister s full full -> Codec s SoloObject full
+finishSeededRecord : PartialRegister s full full -> Codec s NodeEncoder.SoloObject full
 finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
     let
         encodeAsJsonObject nakedRecord =
@@ -288,7 +293,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
                             Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
 
                         regPointer =
-                            Object.getPointer object
+                            Collection.getPointer object
 
                         history =
                             buildRegisterFieldDictionary object
@@ -331,7 +336,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
             in
             JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder
 
-        nodeEncoder : NodeEncoder full SoloObject
+        nodeEncoder : NodeEncoder full NodeEncoder.SoloObject
         nodeEncoder inputs =
             recordNodeEncoder partial inputs
 
@@ -341,7 +346,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
                 object =
                     Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
             in
-            allFieldsCodec.nodeInitializer seed (Object.getPointer object)
+            allFieldsCodec.nodeInitializer seed (Collection.getPointer object)
 
         bytesDecoder : BD.Decoder (Result RepDecodeError full)
         bytesDecoder =
@@ -394,7 +399,7 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                             buildRegisterFieldDictionary object
 
                         regPointer =
-                            Object.getPointer object
+                            Collection.getPointer object
 
                         regToRecordByDecoding givenCutoff =
                             case
@@ -417,11 +422,11 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                                 Nothing ->
                                     regToRecordByInit () regPointer
                     in
-                    JD.succeed <| Ok <| Register { pointer = regPointer, included = Object.All, latest = regToRecord Nothing, older = Just >> regToRecord, history = history, init = nonChanger }
+                    JD.succeed <| Ok <| Register { pointer = regPointer, included = Collection.All, latest = regToRecord Nothing, older = Just >> regToRecord, history = history, init = nonChanger }
             in
             JD.andThen registerDecoder concurrentObjectIDsDecoder
 
-        nodeEncoder : NodeEncoder (Reg full) SoloObject
+        nodeEncoder : NodeEncoder (Reg full) NodeEncoder.SoloObject
         nodeEncoder inputs =
             registerNodeEncoder partialRegister inputs
 
@@ -435,9 +440,9 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                     buildRegisterFieldDictionary object
 
                 regToRecord =
-                    allFieldsCodec.nodeInitializer () (Object.getPointer object)
+                    allFieldsCodec.nodeInitializer () (Collection.getPointer object)
             in
-            Register { pointer = Object.getPointer object, included = Object.All, latest = regToRecord, older = \_ -> regToRecord, history = history, init = seed }
+            Register { pointer = Collection.getPointer object, included = Collection.All, latest = regToRecord, older = \_ -> regToRecord, history = history, init = seed }
 
         tempEmpty =
             emptyRegister { parent = Change.genesisParent "flatTodo", seed = nonChanger, position = Location.none }
@@ -492,7 +497,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                             Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = objectIDs, parent = parent, reducer = registerReducerID, position = position }
 
                         regPointer =
-                            Object.getPointer object
+                            Collection.getPointer object
 
                         history =
                             buildRegisterFieldDictionary object
@@ -518,14 +523,14 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                     in
                     case wrongCutoffRegToRecordByDecoding of
                         Just regCanBeBuilt ->
-                            JD.succeed <| Ok <| Register { pointer = regPointer, included = Object.All, latest = regToRecord regCanBeBuilt Nothing, older = Just >> regToRecord regCanBeBuilt, history = history, init = nonChanger }
+                            JD.succeed <| Ok <| Register { pointer = regPointer, included = Collection.All, latest = regToRecord regCanBeBuilt Nothing, older = Just >> regToRecord regCanBeBuilt, history = history, init = nonChanger }
 
                         Nothing ->
                             JD.succeed <| Err <| WrongCutoff cutoff regPointer
             in
             JD.andThen registerDecoder concurrentObjectIDsDecoder
 
-        nodeEncoder : NodeEncoder (Reg full) SoloObject
+        nodeEncoder : NodeEncoder (Reg full) NodeEncoder.SoloObject
         nodeEncoder inputs =
             registerNodeEncoder partialRegister inputs
 
@@ -535,7 +540,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                     Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = registerReducerID, position = position }
 
                 regPointer =
-                    Object.getPointer object
+                    Collection.getPointer object
 
                 history =
                     buildRegisterFieldDictionary object
@@ -545,7 +550,7 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
             in
             Register
                 { pointer = regPointer
-                , included = Object.All
+                , included = Collection.All
                 , latest = regToRecord
                 , older = \_ -> regToRecord
                 , history = history
@@ -591,7 +596,7 @@ Why not create missing Objects in the encoder? Because if it already exists, we'
 JK: Updated thinking is this doesn't work anyway - a custom type could contain a register, that doesn't get initialized until set to a different variant. (e.g. `No | Yes a`.) So we have to be ready for on-demand initialization anyway.
 
 -}
-registerNodeEncoder : PartialRegister i full full -> NodeEncoderInputs (Reg full) -> EncoderOutput SoloObject
+registerNodeEncoder : PartialRegister i full full -> NodeEncoder.Inputs (Reg full) -> NodeEncoder.Output NodeEncoder.SoloObject
 registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, parent, position } =
     let
         fallbackObject foundIDs =
@@ -599,10 +604,10 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
 
         ( regMaybe, recordMaybe ) =
             case thingToEncode of
-                EncodeThis reg ->
+                NodeEncoder.EncodeThis reg ->
                     ( Just reg, Just <| Reg.latest reg )
 
-                EncodeObjectOrThis objectIDs reg ->
+                NodeEncoder.EncodeObjectOrThis objectIDs reg ->
                     ( Just reg, Just <| Reg.latest reg )
 
         ( registerPointer, history, initChanges ) =
@@ -611,7 +616,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
                     ( regDetails.pointer, regDetails.history, regDetails.init reg )
 
                 Nothing ->
-                    ( Object.getPointer (fallbackObject []), Dict.empty, [] )
+                    ( Collection.getPointer (fallbackObject []), Dict.empty, [] )
 
         subChanges : List Change.ObjectChange
         subChanges =
@@ -630,10 +635,10 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
                 asObjectChanges : RegisterFieldEncoder.Output -> Maybe Change.ObjectChange
                 asObjectChanges subEncoderOutput =
                     case subEncoderOutput of
-                        EncodeThisField objChange ->
+                        RegisterFieldEncoder.EncodeThisField objChange ->
                             Just objChange
 
-                        SkipThisField ->
+                        RegisterFieldEncoder.SkipThisField ->
                             Nothing
             in
             allFieldsCodec.nodeEncoders
@@ -668,7 +673,7 @@ registerNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode
 
 {-| Encodes a naked record
 -}
-recordNodeEncoder : PartialRegister i full full -> NodeEncoderInputs full -> EncoderOutput SoloObject
+recordNodeEncoder : PartialRegister i full full -> NodeEncoder.Inputs full -> NodeEncoder.Output NodeEncoder.SoloObject
 recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, parent, position } =
     let
         fallbackObject foundIDs =
@@ -676,14 +681,14 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
 
         ( recordMaybe, object ) =
             case thingToEncode of
-                EncodeThis nakedRecord ->
+                NodeEncoder.EncodeThis nakedRecord ->
                     ( Just nakedRecord, fallbackObject [] )
 
-                EncodeObjectOrThis objectIDs nakedRecord ->
+                NodeEncoder.EncodeObjectOrThis objectIDs nakedRecord ->
                     ( Just nakedRecord, fallbackObject (Nonempty.toList objectIDs) )
 
         registerPointer =
-            Object.getPointer object
+            Collection.getPointer object
 
         subChanges : List Change.ObjectChange
         subChanges =
@@ -702,10 +707,10 @@ recordNodeEncoder (PartialRegister allFieldsCodec) { node, thingToEncode, mode, 
                 asObjectChanges : RegisterFieldEncoder.Output -> Maybe Change.ObjectChange
                 asObjectChanges subEncoderOutput =
                     case subEncoderOutput of
-                        EncodeThisField objChange ->
+                        RegisterFieldEncoder.EncodeThisField objChange ->
                             Just objChange
 
-                        SkipThisField ->
+                        RegisterFieldEncoder.SkipThisField ->
                             Nothing
             in
             allFieldsCodec.nodeEncoders
@@ -741,11 +746,11 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
 
         addToPartialBytesEncoderList existingRecord =
             -- Tack on the new encoder to the big list of all the encoders
-            (getBytesEncoder fieldCodec <| fieldGetter existingRecord) :: recordCodecSoFar.bytesEncoder existingRecord
+            (Base.getBytesEncoder fieldCodec <| fieldGetter existingRecord) :: recordCodecSoFar.bytesEncoder existingRecord
 
         addToPartialJsonEncoderList =
             -- Tack on the new encoder to the big list of all the encoders
-            ( jsonObjectFieldKey, getJsonEncoder fieldCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
+            ( jsonObjectFieldKey, Base.getJsonEncoder fieldCodec << fieldGetter ) :: recordCodecSoFar.jsonEncoders
 
         nodeDecoder : RegisterFieldDecoder remaining
         nodeDecoder inputs =
@@ -814,7 +819,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                     , existingValMaybe = Maybe.map fieldGetter inputs.existingValMaybe
                     }
             in
-            newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) fallback fieldCodec inputsWithSpecificFieldValue
+            RegisterFieldEncoder.newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) fallback fieldCodec inputsWithSpecificFieldValue
     in
     PartialRegister
         { bytesEncoder = addToPartialBytesEncoderList
@@ -822,7 +827,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
             BD.map2
                 combineIfBothSucceed
                 recordCodecSoFar.bytesDecoder
-                (getBytesDecoder fieldCodec)
+                (Base.getBytesDecoder fieldCodec)
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder =
             JD.map2
@@ -830,7 +835,7 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
                 -- the previous decoder layers, functions stacked on top of each other
                 recordCodecSoFar.jsonArrayDecoder
                 -- and now we're wrapping it in yet another layer, this field's decoder
-                (JD.index recordCodecSoFar.fieldIndex (getJsonDecoder fieldCodec))
+                (JD.index recordCodecSoFar.fieldIndex (Base.getJsonDecoder fieldCodec))
         , fieldIndex = newFieldIndex
         , nodeEncoders = nodeEncoderEntry :: recordCodecSoFar.nodeEncoders
         , nodeDecoder = nodeDecoder
@@ -852,11 +857,11 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback isDelaya
 
         addToPartialBytesEncoderList existingRecord =
             -- Tack on the new encoder to the big list of all the encoders
-            (getBytesEncoder fieldCodec <| .get (fieldGetter existingRecord)) :: recordCodecSoFar.bytesEncoder existingRecord
+            (Base.getBytesEncoder fieldCodec <| .get (fieldGetter existingRecord)) :: recordCodecSoFar.bytesEncoder existingRecord
 
         addToPartialJsonEncoderList =
             -- Tack on the new encoder to the big list of all the encoders
-            ( jsonObjectFieldKey, getJsonEncoder fieldCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
+            ( jsonObjectFieldKey, Base.getJsonEncoder fieldCodec << (.get << fieldGetter) ) :: recordCodecSoFar.jsonEncoders
 
         asParent regPointer =
             -- make instant? this is for using .set on RWs, which should never need to init their parents.
@@ -926,10 +931,10 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback isDelaya
                     buildRW regPointer ( fieldSlot, fieldName ) fieldEncoder head
 
                 fieldEncoder newValue =
-                    getNodeEncoder fieldCodec
+                    Base.getNodeEncoder fieldCodec
                         { node = Node.testNode
-                        , mode = defaultEncodeMode
-                        , thingToEncode = EncodeThis newValue
+                        , mode = NodeEncoder.defaultMode
+                        , thingToEncode = NodeEncoder.EncodeThis newValue
                         , parent = asParent regPointer
                         , position = Location.new (fieldLocationLabel fieldName fieldSlot) newFieldIndex
                         }
@@ -947,7 +952,7 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback isDelaya
                     , existingValMaybe = Maybe.map (fieldGetter >> .get) inputs.existingValMaybe
                     }
             in
-            newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) fallback fieldCodec inputsWithSpecificFieldValue
+            RegisterFieldEncoder.newRegisterFieldEncoderEntry newFieldIndex ( fieldSlot, fieldName ) fallback fieldCodec inputsWithSpecificFieldValue
     in
     PartialRegister
         { bytesEncoder = addToPartialBytesEncoderList
@@ -1027,17 +1032,17 @@ mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
 {-| Internal helper to wrap child changes in parent changes when the parent is still a placeholder.
 Canonical implementation is in RegisterField.Encoder.
 -}
-updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change.PendingID -> Change.DelayedChange
+updateRegisterPostChildInit : Pointer -> FieldIdentifier -> PendingID -> Change.DelayedChange
 updateRegisterPostChildInit =
     RegisterFieldEncoder.updateRegisterPostChildInit
 
 
-buildRegisterFieldDictionary : Object -> FieldHistoryDict
+buildRegisterFieldDictionary : Collection Payload -> FieldHistoryDict
 buildRegisterFieldDictionary object =
     let
-        addFieldEntry : OpID -> Object.Event -> Dict FieldSlot FieldHistoryBackwards -> Dict FieldSlot FieldHistoryBackwards
+        addFieldEntry : OpID -> Collection.Event Payload -> Dict FieldSlot FieldHistoryBackwards -> Dict FieldSlot FieldHistoryBackwards
         addFieldEntry eventID event buildingDict =
-            case extractFieldEventFromObjectPayload (Object.eventPayload event) of
+            case extractFieldEventFromObjectPayload (Collection.eventPayload event) of
                 Ok ( ( fieldSlot, fieldName ), fieldPayload ) ->
                     let
                         logMsg =
@@ -1046,7 +1051,7 @@ buildRegisterFieldDictionary object =
                     Dict.update fieldSlot (addUpdate ( eventID, fieldPayload )) buildingDict
 
                 Err problem ->
-                    Log.logSeparate ("WARNING addFieldEntry on op " ++ OpID.toString eventID ++ ": " ++ problem) (Object.eventPayload event) buildingDict
+                    Log.logSeparate ("WARNING addFieldEntry on op " ++ OpID.toString eventID ++ ": " ++ problem) (Collection.eventPayload event) buildingDict
 
         addUpdate : ( OpID, FieldPayload ) -> Maybe FieldHistoryBackwards -> Maybe FieldHistoryBackwards
         addUpdate newUpdate existingUpdatesMaybe =
@@ -1060,14 +1065,14 @@ buildRegisterFieldDictionary object =
     -- object.events is a dict, so always ID order, so always oldest to newest.
     -- we want newest to oldest list, but folding reverses the list, so stick with foldL
     -- (warn: foldL/foldR applies the arguments in opposite order to the folding function)
-    AnyDict.foldl addFieldEntry Dict.empty (Object.getEvents object)
+    AnyDict.foldl addFieldEntry Dict.empty (Collection.getEvents object)
 
 
-buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> EncoderOutput o) -> fieldVal -> RW fieldVal
+buildRW : Change.Pointer -> FieldIdentifier -> (fieldVal -> NodeEncoder.Output o) -> fieldVal -> RW fieldVal
 buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     let
         nestedChange newValue =
-            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
+            RegisterFieldEncoder.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
                 (nestedRonEncoder newValue).complex
 
         setter setValue =
@@ -1082,11 +1087,11 @@ buildRW targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue =
     }
 
 
-buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> EncoderOutput o) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
+buildRWH : Change.Pointer -> FieldIdentifier -> (fieldVal -> NodeEncoder.Output o) -> fieldVal -> List ( OpID, fieldVal ) -> RWH fieldVal
 buildRWH targetObject ( fieldSlot, fieldName ) nestedRonEncoder latestValue rest =
     let
         nestedChange newValue =
-            encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
+            RegisterFieldEncoder.encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName )
                 (nestedRonEncoder newValue).complex
 
         setter setValue =
@@ -1111,7 +1116,7 @@ interceptPlaceholderLocation givenObjectPointer freshPointerFromEncoder =
                 givenObjectPointer
 
             else
-                Debug.log ("old pointer was " ++ Change.pendingIDToString oldPendingID ++ " and new pointer is " ++ Change.pendingIDToString freshPendingID) freshPointerFromEncoder
+                Debug.log ("old pointer was " ++ PendingID.toString oldPendingID ++ " and new pointer is " ++ PendingID.toString freshPendingID) freshPointerFromEncoder
 
         ( _, _ ) ->
             -- existing objects don't need to be intercepted,
