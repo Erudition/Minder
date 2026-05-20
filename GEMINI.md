@@ -27,3 +27,11 @@ Replicator is a CRDT library (RON-based) that treats synchronization and persist
 ## Deployment & Build
 - **No systemd**: The host uses Guix (GNU Shepherd), not systemd.
 - **Patches**: Managed by `elm-patches/Makefile`. Direct modification of the `~/.elm` package store is required.
+- **Url Patch**: After clearing `elm-stuff`, the Url artifacts also need clearing (`rm ~/.elm/0.19.1/packages/elm/url/1.0.0/artifacts.dat`). The `patch` CLI tool is not installed on this system, so if the patch hasn't been applied, it must be done manually.
+
+## Codec Type Alias Conventions (Post-Collection Migration)
+- **NullCodec, SkelCodec, WrappedCodec**: Now take only 1 type argument (the `thing` type). Old code may have 2 args (seed + thing) — the seed arg must be removed.
+- **Codec type not re-exportable**: Elm doesn't allow re-exporting imported concrete types. The `Codec` type from `Base` cannot appear in `Replicated.Codec`'s exposing list. Consumer modules should use type alias names (NullCodec, SkelCodec, etc.) or drop annotations entirely.
+- **WrappedSeededCodec annotations**: Often wrong after refactoring because `finishSeededRecord` returns `Codec seed SoloObject thing` where seed is the raw seed, but `WrappedSeededCodec` wraps it as `(seed, Changer thing)`. Drop these annotations when they cause mismatches.
+- **BytesDecoder/JsonDecoder wrapping**: All raw `BD.Decoder`/`JD.Decoder` values must be wrapped with `BytesDecoder.fromRaw`/`toRaw` when crossing the opaque type boundary.
+- **NodeDecoder.Output**: Returns `{ decoder, ancestors }` — older code may destructure as `{ decoder, obSubs }`.
