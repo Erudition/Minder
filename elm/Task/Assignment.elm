@@ -63,7 +63,7 @@ type AssignmentID
 {-| Other objects may want to store a pointer to an assignment, so they need the full info to be serialized.
 TODO efficient way to look up assignment without the redundant information being stored?
 -}
-idCodec : NullCodec String AssignmentID
+idCodec : NullCodec AssignmentID
 idCodec =
     let
         tagSeriesAssignmentID givenAssignableID seriesID seriesIndex =

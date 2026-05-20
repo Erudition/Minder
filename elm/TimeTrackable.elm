@@ -30,7 +30,7 @@ type TimeTrackable
     | TrackedAssignedActionID AssignedActionID ActivityID
 
 
-codec : NullCodec String TimeTrackable
+codec : NullCodec TimeTrackable
 codec =
     Codec.customType
         (\trackedActivityID trackedAssignableID trackedSubAssignableID trackedAssignedActionID value ->

@@ -32,7 +32,7 @@ type alias AssignedActionSkel =
     }
 
 
-assignedActionCodec : WrappedCodec String (Reg AssignedActionSkel)
+assignedActionCodec : WrappedCodec (Reg AssignedActionSkel)
 assignedActionCodec =
     Codec.record AssignedActionSkel
         |> Codec.fieldRW ( 3, "completion" ) .completion Codec.int 0

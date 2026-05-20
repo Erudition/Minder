@@ -1,4 +1,4 @@
-module Components.Replicator exposing (Replicator, ReplicatorConfig, init, IncomingFramesPort, subscriptions, saveEffect, update)
+module Components.Replicator exposing (Msg, Replicator, ReplicatorConfig, init, IncomingFramesPort, subscriptions, saveEffect, update)
 
 import Console
 import Dict.Any as AnyDict exposing (AnyDict)
@@ -28,20 +28,20 @@ type Replicator replica frameDesc
 {-| Internal reminder what this is: We want to allow replicas created from skels and wrapped types, but not force everyone to have another type variable in their Replicator (for the seed).
 This means no startup changes via seed, but the user could do anyway in their own first loop, and startup changes are dis-recommended because there should be a time "before the replica exists" for the app to make sure the user doesn't actually have one (rather than creating a new one, potentially confusing when blank app appears, or even overwriting the old replica when it comes back)
 -}
-type alias WrappedOrSkelCodecWithoutSeed replica = Codec.WrappedOrSkelCodec (Change.Changer ()) replica
+type alias WrappedOrSkelCodecWithoutSeed replica = Codec.SkelCodec replica
 
 
 
 {-| Data required to initialize the replicator.
 -}
-type alias ReplicatorConfig replica seed yourFrameDesc =
+type alias ReplicatorConfig replica yourFrameDesc =
     { launchTime : Maybe Moment
     , replicaCodec : WrappedOrSkelCodecWithoutSeed replica
     , outPort : String -> Cmd (Msg yourFrameDesc)
     }
 
 
-init : ReplicatorConfig replica seed desc -> ( Replicator replica desc, replica )
+init : ReplicatorConfig replica desc -> ( Replicator replica desc, replica )
 init { launchTime, replicaCodec, outPort } =
     let
         ( startNode, initChanges ) =

@@ -7,7 +7,7 @@ import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode exposing (..)
 import Json.Encode.Extra exposing (..)
 import Replicated.Change as Change exposing (Changer, Context)
-import Replicated.Codec as Codec exposing (Codec, NullCodec)
+import Replicated.Codec as Codec exposing (NullCodec)
 import Replicated.Reducer.Register exposing (RW, Reg)
 import Replicated.Reducer.RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict exposing (RepDict)
@@ -41,7 +41,6 @@ type alias AssignmentSkel =
     }
 
 
-codec : Codec String (Changer (Reg AssignmentSkel)) Codec.SoloObject (Reg AssignmentSkel)
 codec =
     Codec.record AssignmentSkel
         |> Codec.fieldRW ( 3, "completion" ) .completion Codec.int 0

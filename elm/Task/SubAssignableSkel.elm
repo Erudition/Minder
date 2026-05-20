@@ -8,7 +8,7 @@ import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode exposing (..)
 import Json.Encode.Extra exposing (..)
 import Replicated.Change exposing (Changer, Context)
-import Replicated.Codec as Codec exposing (Codec, NullCodec, SkelCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
+import Replicated.Codec as Codec exposing (NullCodec, SkelCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
 import Replicated.Reducer.Register exposing (RW, RWMaybe, Reg)
 import Replicated.Reducer.RepDict exposing (RepDict)
 import Replicated.Reducer.RepList exposing (RepList)
@@ -39,7 +39,7 @@ type NestedSubAssignableOrSingleAction
     | ActionIsDeeper (Reg SubAssignableSkel)
 
 
-nestedOrActionCodec : NullCodec String NestedSubAssignableOrSingleAction
+nestedOrActionCodec : NullCodec NestedSubAssignableOrSingleAction
 nestedOrActionCodec =
     Codec.customType
         (\singleton nested value ->
@@ -66,7 +66,7 @@ type alias SubAssignableSkel =
     }
 
 
-codec : WrappedCodec String (Reg SubAssignableSkel)
+codec : WrappedCodec (Reg SubAssignableSkel)
 codec =
     Codec.record SubAssignableSkel
         |> Codec.fieldRWM ( 1, "title" ) .title Codec.string

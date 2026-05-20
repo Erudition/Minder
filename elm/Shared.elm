@@ -29,7 +29,7 @@ import Log
 import NativeScript.Notification as Notif
 import Profile exposing (Profile)
 import Replicated.Change as Change exposing (Change, Parent)
-import Replicated.Codec as Codec exposing (Codec, SkelCodec, WrappedOrSkelCodec)
+import Replicated.Codec as Codec exposing (SkelCodec, WrappedOrSkelCodec)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)

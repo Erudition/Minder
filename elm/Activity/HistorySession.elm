@@ -32,14 +32,6 @@ type alias HistorySession =
     }
 
 
-codec :
-    Codec.WrappedSeededCodec
-        -- takes a HistorySessionSkel but without RWs
-        { started : Moment
-        , endedMaybe : Maybe Moment
-        , tracked : TimeTrackable
-        }
-        HistorySession
 codec =
     Codec.record HistorySession
         |> coreRW ( 1, "started" ) .started Codec.moment .started
