@@ -63,6 +63,7 @@ create title changer c =
     Codec.newWithSeedAndChanges codec c title changer
 
 
+codec : Codec.WrappedSeededCodec String (Reg AssignableSkel)
 codec =
     Codec.record AssignableSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity

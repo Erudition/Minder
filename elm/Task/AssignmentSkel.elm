@@ -41,6 +41,7 @@ type alias AssignmentSkel =
     }
 
 
+codec : Codec.WrappedCodec (Reg AssignmentSkel)
 codec =
     Codec.record AssignmentSkel
         |> Codec.fieldRW ( 3, "completion" ) .completion Codec.int 0

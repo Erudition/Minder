@@ -57,6 +57,7 @@ newActionSkel c title changer =
     Codec.newWithSeedAndChanges codec c title changer
 
 
+codec : Codec.WrappedSeededCodec String (Reg ActionSkel)
 codec =
     Codec.record ActionSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity
