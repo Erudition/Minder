@@ -1,4 +1,4 @@
-module Replicated.Codec.RegisterField.Encoder exposing (Inputs, Output, RegisterFieldEncoder, SmartJsonFieldEncoder, newRegisterFieldEncoderEntry, updateRegisterPostChildInit)
+module Replicated.Codec.RegisterField.Encoder exposing (Inputs, Output, RegisterFieldEncoder, SmartJsonFieldEncoder, encodeFieldPayloadAsObjectPayload, getFieldLatestOnly, newRegisterFieldEncoderEntry, updateRegisterPostChildInit)
 
 import Array exposing (Array)
 import Base64
@@ -157,9 +157,14 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
 
         isExistingSameAsDefault =
             case ( fieldDefaultMaybe fieldFallback, Maybe.andThen fieldDecodedMaybe getPayloadIfSet ) of
-                ( Just fieldDefault, Just existingValue ) ->
+                ( Just fieldDefault, Just existingResult ) ->
                     -- is the calculated default the same as the existing/placeholder value?
-                    fieldDefault == existingValue
+                    case existingResult of
+                        Ok existingValue ->
+                            fieldDefault == existingValue
+
+                        Err _ ->
+                            False
 
                 ( Just _, Nothing ) ->
                     -- no existing val in memory, so equal to default unless it's seeded
@@ -217,27 +222,32 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                             -- EncodeThisField <| Change.NewPayload <| Nonempty.map Change.FromPrimitiveAtom latestPayload
                             Log.logSeparate "WARNING newRegisterFieldEncoderEntry: failed to decode latest payload from reg, can't encode it." latestPayload SkipThisField
 
-                        Just fieldValue ->
-                            -- object acquired! make sure we don't miss the opportunity to pass objectID info to naked subcodecs
-                            case extractQuotedObjects latestPayload of
-                                [] ->
-                                    -- -- give up! spit back out what we already had in the register.
-                                    -- EncodeThisField <| Change.NewPayload <| Nonempty.map Change.FromPrimitiveAtom latestPayload
-                                    Log.logSeparate "WARNING newRegisterFieldEncoderEntry: failed to extract ObjectIDs from latest payload from reg, can't encode it." latestPayload SkipThisField
+                        Just fieldResult ->
+                            case fieldResult of
+                                Err _ ->
+                                    Log.logSeparate "WARNING newRegisterFieldEncoderEntry: decoded payload had error" latestPayload SkipThisField
 
-                                firstFoundObjectID :: moreFoundObjectIDs ->
-                                    let
-                                        runNestedEncoder =
-                                            Base.getNodeEncoder fieldCodec
-                                                { mode = mode
-                                                , node = node
-                                                , thingToEncode = NodeEncoder.EncodeObjectOrThis (Nonempty firstFoundObjectID moreFoundObjectIDs) fieldValue
-                                                , parent = regAsParent
-                                                , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
-                                                }
-                                    in
-                                    -- encode not only this field (set to this object), but also grab any encoder output from that object
-                                    EncodeThisField <| Change.NewPayload runNestedEncoder.complex
+                                Ok fieldValue ->
+                                    -- object acquired! make sure we don't miss the opportunity to pass objectID info to naked subcodecs
+                                    case extractQuotedObjects latestPayload of
+                                        [] ->
+                                            -- -- give up! spit back out what we already had in the register.
+                                            -- EncodeThisField <| Change.NewPayload <| Nonempty.map Change.FromPrimitiveAtom latestPayload
+                                            Log.logSeparate "WARNING newRegisterFieldEncoderEntry: failed to extract ObjectIDs from latest payload from reg, can't encode it." latestPayload SkipThisField
+
+                                        firstFoundObjectID :: moreFoundObjectIDs ->
+                                            let
+                                                runNestedEncoder =
+                                                    Base.getNodeEncoder fieldCodec
+                                                        { mode = mode
+                                                        , node = node
+                                                        , thingToEncode = NodeEncoder.EncodeObjectOrThis (Nonempty firstFoundObjectID moreFoundObjectIDs) fieldValue
+                                                        , parent = regAsParent
+                                                        , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
+                                                        }
+                                            in
+                                            -- encode not only this field (set to this object), but also grab any encoder output from that object
+                                            EncodeThisField <| Change.NewPayload runNestedEncoder.complex
 
 
 
@@ -290,11 +300,11 @@ getFieldLatestOnly fields ( fieldSlot, name ) =
         Nothing ->
             Nothing
 
-        Just ((Nonempty ( firstOpID, Nonempty (Atom.IDPointerAtom objectID) anyMoreAtoms ) anyMoreOps) as history) ->
+        Just ((Nonempty ( firstOpID, (Atom.IDPointerAtom objectID) :: anyMoreAtoms ) anyMoreOps) as history) ->
             -- nested object will be in this specific form, an objectID as its first (usually only) atom
             -- can't just detect objectIDs present because it could be a custom type wrapping one
             -- stick together all objectIDs found ever
-            Just <| Nonempty.concatMap Tuple.second history
+            Just <| List.concatMap Tuple.second (Nonempty.toList history)
 
         Just historyNonempty ->
             -- first one didn't begin with an ObjectID atom, go back to normal

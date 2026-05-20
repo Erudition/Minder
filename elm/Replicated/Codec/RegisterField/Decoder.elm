@@ -26,7 +26,7 @@ import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
-import Replicated.Codec.RegisterField.Encoder as RegisterFieldEncoder exposing (updateRegisterPostChildInit)
+import Replicated.Codec.RegisterField.Encoder as RegisterFieldEncoder exposing (encodeFieldPayloadAsObjectPayload, getFieldLatestOnly, updateRegisterPostChildInit)
 import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Collection as Collection exposing (Collection)
@@ -69,11 +69,22 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
             Location.new (fieldLocationLabel fieldName fieldSlot) index
 
         runFieldDecoder atomsToDecode =
-            JD.decodeValue
-                (Base.getNodeDecoder fieldCodec
-                    { node = inputs.node, position = position, parent = regAsParent, cutoff = inputs.cutoff }
-                )
-                (Payload.toJsonValue atomsToDecode)
+            let
+                nodeDecoderOutput =
+                    Base.getNodeDecoder fieldCodec
+                        { node = inputs.node
+                        , position = position
+                        , parent = regAsParent
+                        , cutoff = inputs.cutoff
+                        , oldMaybe = Nothing
+                        , changedObjectIDs = []
+                        }
+
+                jsonDecoder =
+                    RonPayloadDecoder.toJsonDecoder nodeDecoderOutput.decoder
+            in
+            JD.decodeValue jsonDecoder
+                (Payload.toJsonValue (Payload.toComplex atomsToDecode))
 
         generatedDefaultMaybe =
             case fallback of
@@ -99,16 +110,15 @@ registerReadOnlyFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
 
         Just foundField ->
             -- field was set before
-            let
-                (Payload.Payload atoms) =
-                    foundField
-            in
-            case runFieldDecoder atoms of
-                Ok goodValue ->
+            case runFieldDecoder foundField of
+                Ok (Ok goodValue) ->
                     ( Just goodValue, [] )
 
-                Err problem ->
-                    ( default, [ problem ] )
+                Ok (Err repError) ->
+                    ( default, [ repError ] )
+
+                Err jsonError ->
+                    ( default, [ JDError jsonError ] )
 
 
 registerWritableFieldDecoder : Int -> ( FieldSlot, FieldName ) -> Fallback parentSeed fieldSeed fieldType -> Bool -> Codec fieldSeed o fieldType -> RegisterFieldDecoderInputs -> ( Maybe (RW fieldType), List RepDecodeError )
@@ -132,7 +142,21 @@ registerWritableFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
 
         wrapRW : Change.Pointer -> fieldType -> RW fieldType
         wrapRW targetObject head =
-            buildRW targetObject fieldIdentifier fieldEncoder head
+            let
+                nestedChange newValue =
+                    encodeFieldPayloadAsObjectPayload fieldIdentifier
+                        (fieldEncoder newValue).complex
+
+                setter setValue =
+                    Change.changeObject
+                        { target = targetObject
+                        , objectChanges = [ Change.NewPayload (nestedChange setValue) ]
+                        }
+                        |> .changeSet
+            in
+            { get = head
+            , set = \setValue -> Change.WithFrameIndex (\_ -> setter setValue)
+            }
     in
     case registerReadOnlyFieldDecoder index fieldIdentifier fallback fieldCodec inputs of
         ( Just thingToWrap, errorsSoFar ) ->
@@ -159,7 +183,7 @@ extractFieldEventFromObjectPayload event =
                     Err <| "Register: Missing payload for field " ++ fieldName
 
                 head :: tail ->
-                    Ok ( ( fieldSlot, fieldName ), Nonempty head tail )
+                    Ok ( ( fieldSlot, fieldName ), head :: tail )
 
         badList ->
             Err ("Register: Failed to extract field slot, field name, event payload from the given op payload because the value list is supposed to have 3+ elements and I found " ++ String.fromInt (List.length badList))
