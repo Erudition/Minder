@@ -24,6 +24,7 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Change.Primitive as Primitive
 import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SelfSeededCodec, getBytesDecoder, getBytesEncoder, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Bytes.Encoder as BytesEncoder exposing (BytesEncoder)
@@ -74,7 +75,7 @@ list codec =
         nodeEncoder inputs =
             case NodeEncoder.getEncodedPrimitive inputs.thingToEncode of
                 [] ->
-                    { complex = Nonempty.singleton <| Change.FromPrimitiveAtom <| Change.NakedStringAtom "[]"
+                    { complex = Nonempty.singleton <| Change.FromPrimitiveAtom <| Primitive.NakedStringAtom "[]"
                     }
 
                 headItem :: moreItems ->

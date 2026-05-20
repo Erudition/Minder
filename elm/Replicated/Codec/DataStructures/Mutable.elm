@@ -377,7 +377,7 @@ repDict keyCodec valueCodec =
                         repDictPointer =
                             Collection.getPointer repDictObject
                     in
-                    Ok <| RepDict.buildFromReplicaDb keyToString (entryRonDecoder node repDictPointer cutoff) (entryChanger node Nothing repDictPointer) nonChanger (Collection.Saved repDictObject)
+                    Ok <| RepDict.buildFromReplicaDb keyToString (entryRonDecoder node repDictPointer cutoff) (entryChanger node Nothing repDictPointer) nonChanger collection
             in
             { decoder = RonPayloadDecoderLegacy (JD.map repDictBuilder NodeDecoder.concurrentObjectIDsDecoder)
             , ancestors = AncestorDb.empty
@@ -513,7 +513,7 @@ repStore keyCodec valueCodec =
                     Change.becomeInstantParent repStorePointer
 
                 allEntries =
-                    List.filterMap (\event -> entryNodeDecoder node repStoreAsParent Nothing (Collection.eventPayloadAsJson event)) (AnyDict.values (Collection.getEvents repStoreObject))
+                    List.filterMap (\event -> entryNodeDecoder node repStoreAsParent Nothing (Collection.eventPayload event)) (Collection.getEvents savedObject)
 
                 entriesDict : AnyDict String k (List v)
                 entriesDict =
@@ -535,8 +535,7 @@ repStore keyCodec valueCodec =
                         Just prevEntries ->
                             Just (newVal :: prevEntries)
 
-                fetcher : k -> v
-                fetcher key =
+                repStoreFetcher node cutoff key =
                     AnyDict.get key entriesDict
                         |> Maybe.andThen List.head
                         |> Maybe.withDefault (createObjectAt key)
@@ -549,7 +548,7 @@ repStore keyCodec valueCodec =
                     Change.delayedChangeObject repStorePointer
                         (Change.NewPayload (entryNodeEncodeWrapper node Nothing repStoreAsParent (Location.newSingle "repStoreVal") key pendingChild))
             in
-            RepStore.buildFromReplicaDb { object = Collection.Saved repStoreObject, fetcher = fetcher, start = changer }
+            Ok <| RepStore.buildFromReplicaDb { object = Collection.Saved savedObject, fetcher = repStoreFetcher node cutoff, start = changer }
 
         repStoreNodeEncoder : NodeEncoder (RepStore k v) NodeEncoder.SoloObject
         repStoreNodeEncoder { thingToEncode, parent, position } =

@@ -23,6 +23,7 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Change.Primitive as Primitive
 import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SelfSeededCodec)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Bytes.Encoder as BytesEncoder exposing (BytesEncoder)
@@ -37,6 +38,7 @@ import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.ObjectHeader as ObjectHeader exposing (ObjectHeader)
 import Replicated.Reducer.Register as Reg exposing (..)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
@@ -82,7 +84,7 @@ string =
     let
         nodeEncoder : NodeEncoder.Inputs String -> NodeEncoder.PrimitiveOutput
         nodeEncoder inputs =
-            NodeEncoder.singlePrimitiveOut <| Change.StringAtom <| NodeEncoder.getEncodedPrimitive inputs.thingToEncode
+            NodeEncoder.singlePrimitiveOut <| Primitive.StringAtom <| NodeEncoder.getEncodedPrimitive inputs.thingToEncode
     in
     Codec
         { bytesEncoder =
@@ -127,12 +129,12 @@ id =
         idToPrimitiveAtom givenID =
             case ID.toPointer "bogus reducer unused" givenID of
                 ExistingObjectPointer existingID ->
-                    Change.StringAtom (OpID.toString existingID.object)
+                    Primitive.StringAtom (OpID.toString existingID.object)
 
                 PlaceholderPointer pendingID _ ->
                     -- can't crash here because primitive mode is always calculated even if unused
                     -- Log.crashInDev ("Tried to primitive-serialize an ID that was pending. Pending ID: " ++ Log.dump pendingID) <|
-                    Change.StringAtom "pendingID"
+                    Primitive.StringAtom "pendingID"
 
         toString givenID =
             OpID.toString (toObjectID givenID)
@@ -148,7 +150,7 @@ id =
                             Log.crashInDev ("Failed to sucessfully un-serialize OpID " ++ asString ++ ", is it in ron pointer form?") OpID.fromStringForced asString
 
                 finalPointer reducerID =
-                    ID.fromPointer (ExistingObjectPointer (Change.Op.ObjectHeader reducerID opID))
+                    ID.fromPointer (ExistingObjectPointer { operationID = opID, reducer = reducerID })
             in
             case nodeMaybe of
                 Nothing ->
@@ -161,12 +163,12 @@ id =
                             Log.crashInDev
                                 ("Un-serializing an ID " ++ asString ++ " but I couldn't find the object referenced in the node!")
                                 ID.fromPointer
-                                (ExistingObjectPointer (Change.Op.ObjectHeader "error" opID))
+                                (ExistingObjectPointer { operationID = opID, reducer = "error" })
 
                         Just ( reducerID, objectID ) ->
                             -- TODO should we use the OpID instead? For versioning?
                             -- Or is this better to switch to canonical ObjectIDs
-                            ID.fromPointer (ExistingObjectPointer (Change.Op.ObjectHeader reducerID objectID))
+                            ID.fromPointer (ExistingObjectPointer { operationID = objectID, reducer = reducerID })
 
         nodeEncoder : NodeEncoder.Inputs (ID userType) -> NodeEncoder.PrimitiveOutput
         nodeEncoder inputs =
@@ -199,10 +201,10 @@ bool =
         boolNodeEncoder : NodeEncoder Bool NodeEncoder.Primitive
         boolNodeEncoder { thingToEncode } =
             if NodeEncoder.getEncodedPrimitive thingToEncode then
-                NodeEncoder.singlePrimitiveOut <| Change.NakedStringAtom "true"
+                NodeEncoder.singlePrimitiveOut <| Primitive.NakedStringAtom "true"
 
             else
-                NodeEncoder.singlePrimitiveOut <| Change.NakedStringAtom "false"
+                NodeEncoder.singlePrimitiveOut <| Primitive.NakedStringAtom "false"
 
         boolNodeDecoder : NodeDecoder Bool
         boolNodeDecoder _ =
@@ -262,7 +264,7 @@ int =
         JE.int
         (JD.int |> JD.map Ok)
         (\{ thingToEncode } ->
-            NodeEncoder.singlePrimitiveOut <| Change.IntegerAtom <| NodeEncoder.getEncodedPrimitive thingToEncode
+            NodeEncoder.singlePrimitiveOut <| Primitive.IntegerAtom <| NodeEncoder.getEncodedPrimitive thingToEncode
         )
         (\_ -> JD.int |> JD.map Ok)
 
@@ -275,7 +277,7 @@ float =
         JE.float
         (JD.float |> JD.map Ok)
         (\{ thingToEncode } ->
-            NodeEncoder.singlePrimitiveOut <| Change.FloatAtom <| NodeEncoder.getEncodedPrimitive thingToEncode
+            NodeEncoder.singlePrimitiveOut <| Primitive.FloatAtom <| NodeEncoder.getEncodedPrimitive thingToEncode
         )
         (\_ -> JD.float |> JD.map Ok)
 
@@ -315,7 +317,7 @@ char =
                             Err (BadChar text)
                 )
         )
-        (\{ thingToEncode } -> NodeEncoder.singlePrimitiveOut <| Change.StringAtom <| String.fromChar <| NodeEncoder.getEncodedPrimitive thingToEncode)
+        (\{ thingToEncode } -> NodeEncoder.singlePrimitiveOut <| Primitive.StringAtom <| String.fromChar <| NodeEncoder.getEncodedPrimitive thingToEncode)
         (\_ ->
             JD.string
                 |> JD.map
@@ -337,7 +339,7 @@ unit =
         (BD.succeed (Ok ()))
         (\_ -> JE.int 0)
         (JD.succeed (Ok ()))
-        (\_ -> NodeEncoder.singlePrimitiveOut <| Change.IntegerAtom 0)
+        (\_ -> NodeEncoder.singlePrimitiveOut <| Primitive.IntegerAtom 0)
         (\_ -> JD.succeed (Ok ()))
 
 
@@ -363,7 +365,7 @@ bytes =
                             Err (BadByteString text)
                 )
         )
-        (\inputs -> NodeEncoder.singlePrimitiveOut <| Change.StringAtom <| BytesEncoder.replaceBase64Chars <| NodeEncoder.getEncodedPrimitive inputs.thingToEncode)
+        (\inputs -> NodeEncoder.singlePrimitiveOut <| Primitive.StringAtom <| BytesEncoder.replaceBase64Chars <| NodeEncoder.getEncodedPrimitive inputs.thingToEncode)
         (\_ ->
             JD.string
                 |> JD.map
@@ -385,7 +387,7 @@ byte =
         (BD.unsignedInt8 |> BD.map Ok)
         (modBy 256 >> JE.int)
         (JD.int |> JD.map Ok)
-        (\{ thingToEncode } -> NodeEncoder.singlePrimitiveOut <| Change.IntegerAtom <| modBy 256 <| NodeEncoder.getEncodedPrimitive thingToEncode)
+        (\{ thingToEncode } -> NodeEncoder.singlePrimitiveOut <| Primitive.IntegerAtom <| modBy 256 <| NodeEncoder.getEncodedPrimitive thingToEncode)
         (\_ -> JD.int |> JD.map Ok)
 
 
@@ -418,7 +420,7 @@ quickEnum defaultItem items =
 
         intNodeEncoder : NodeEncoder a NodeEncoder.Primitive
         intNodeEncoder { thingToEncode } =
-            NodeEncoder.singlePrimitiveOut <| Change.IntegerAtom <| getIndex <| NodeEncoder.getEncodedPrimitive <| thingToEncode
+            NodeEncoder.singlePrimitiveOut <| Primitive.IntegerAtom <| getIndex <| NodeEncoder.getEncodedPrimitive <| thingToEncode
     in
     buildCodec
         (getIndex >> BE.unsignedInt32 BytesEncoder.endian)
@@ -459,7 +461,7 @@ todo bogusValue =
         , bytesDecoder = BD.fail
         , jsonEncoder = \_ -> JE.null
         , jsonDecoder = JD.fail "TODO"
-        , nodeEncoder = \_ -> NodeEncoder.singlePrimitiveOut <| Change.StringAtom "TODO"
+        , nodeEncoder = \_ -> NodeEncoder.singlePrimitiveOut <| Primitive.StringAtom "TODO"
         , nodeDecoder = \_ -> JD.fail "TODO"
         , nodePlaceholder = \_ -> bogusValue
         }
