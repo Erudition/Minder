@@ -65,6 +65,7 @@ As a rule, the raw `Codec` type is never invoked directly in user code. Instead,
 | `WrappedCodec thing` | `Codec (Changer thing) SoloObject thing` | Registers initialized purely from a changer (no external seed) |
 | `WrappedSeededCodec seed thing` | `Codec (seed, Changer thing) SoloObject thing` | Registers that need both external seed data and a changer |
 | `WrappedOrSkelCodec s thing` | `Codec (Changer s) SoloObject thing` | Functions accepting either wrapped or skel codecs (generalizes `SkelCodec` when `s = ()`) |
+| `SeededRecordCodec seed thing` | `Codec seed SoloObject thing` | Naked records that need a seed but no changer (e.g. all-required-field records, read-only records) |
 
 ### `finishRecord` / `finishRegister` Return Types
 
@@ -73,11 +74,9 @@ The `finish*` functions determine which alias the resulting codec matches:
 | Function | Returns | Notes |
 |---|---|---|
 | `finishRecord` | `SkelCodec full` | Seedless record |
-| `finishSeededRecord` | `Codec s SoloObject full` | Seeded record (no alias — no changer paired) |
+| `finishSeededRecord` | `SeededRecordCodec s full` | Seeded record (no changer paired with seed) |
 | `finishRegister` | `WrappedCodec (Reg full)` | Seedless register (changer-only init) |
 | `finishSeededRegister` | `WrappedSeededCodec s (Reg full)` | Seeded register (seed + changer paired) |
-
-Note: `finishSeededRecord` returns the raw `Codec s SoloObject full` — there is no dedicated alias for "seeded record without changer."
 
 ## Codec Type Alias Conventions (Post-Collection Migration)
 - **NullCodec, SkelCodec, WrappedCodec**: Now take only 1 type argument (the `thing` type). Old code may have 2 args (seed + thing) — the seed arg must be removed.
