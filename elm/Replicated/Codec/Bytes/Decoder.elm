@@ -1,4 +1,4 @@
-module Replicated.Codec.Bytes.Decoder exposing (BytesDecoder, decodeStringToBytes, lazy, map, mapTry)
+module Replicated.Codec.Bytes.Decoder exposing (BytesDecoder(..), decodeStringToBytes, fromRaw, lazy, map, mapTry)
 
 {-| Wrapper for whatever Bytes decoding library is currently chosen.
 
@@ -22,6 +22,13 @@ endian =
 
 type BytesDecoder a
     = BytesDecoder (Bytes.Decode.Decoder (Result RepDecodeError a))
+
+
+{-| Wrap a raw Bytes.Decode.Decoder into a BytesDecoder.
+-}
+fromRaw : Bytes.Decode.Decoder (Result RepDecodeError a) -> BytesDecoder a
+fromRaw =
+    BytesDecoder
 
 
 map : (a -> b) -> BytesDecoder a -> BytesDecoder b

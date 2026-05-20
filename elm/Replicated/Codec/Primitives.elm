@@ -36,9 +36,11 @@ import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Collection as Collection exposing (Collection)
+import Replicated.Node.AncestorDb as AncestorDb exposing (AncestorDb)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Op.ObjectHeader as ObjectHeader exposing (ObjectHeader)
+import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import Replicated.Reducer.Register as Reg exposing (..)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
@@ -57,20 +59,20 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 -}
 buildCodec :
     BytesEncoder a
-    -> BytesDecoder a
+    -> BD.Decoder (Result Error.RepDecodeError a)
     -> JsonEncoder a
     -> JsonDecoder a
     -> NodeEncoder a o
-    -> NodeDecoder a
+    -> (NodeDecoder.Inputs a -> JD.Decoder (Result Error.RepDecodeError a))
     -> SelfSeededCodec o a
-buildCodec encoder_ decoder_ jsonEncoder jsonDecoder ronEncoder ronDecoder =
+buildCodec encoder_ rawBytesDecoder jsonEncoder jsonDecoder ronEncoder rawNodeDecoder =
     Codec
         { bytesEncoder = encoder_
-        , bytesDecoder = decoder_
+        , bytesDecoder = BytesDecoder.fromRaw rawBytesDecoder
         , jsonEncoder = jsonEncoder
         , jsonDecoder = jsonDecoder
         , nodeEncoder = ronEncoder
-        , nodeDecoder = ronDecoder
+        , nodeDecoder = \inputs -> { decoder = RonPayloadDecoderLegacy (rawNodeDecoder inputs), ancestors = AncestorDb.empty }
         , nodePlaceholder = Initializer.flatInit
         }
 
@@ -94,13 +96,15 @@ string =
                     , BE.string text
                     ]
         , bytesDecoder =
-            BD.unsignedInt32 BytesEncoder.endian
-                |> BD.andThen
-                    (\charCount -> BD.string charCount |> BD.map Ok)
+            BytesDecoder.fromRaw
+                (BD.unsignedInt32 BytesEncoder.endian
+                    |> BD.andThen
+                        (\charCount -> BD.string charCount |> BD.map Ok)
+                )
         , jsonEncoder = JE.string
         , jsonDecoder = JD.string |> JD.map Ok
         , nodeEncoder = nodeEncoder
-        , nodeDecoder = \_ -> JD.string |> JD.map Ok
+        , nodeDecoder = NodeDecoder.primitive (RonPayloadDecoderLegacy (JD.string |> JD.map Ok))
         , nodePlaceholder = Initializer.flatInit
         }
 
@@ -119,17 +123,17 @@ id =
                         ("Uninitialized! " ++ Log.dump givenID)
 
         idToChangeAtom givenID =
-            case ID.toPointer "bogus reducer unused" givenID of
+            case ID.toPointer ReducerID.RegisterReducer givenID of
                 ExistingObjectPointer existingID ->
-                    Change.ExistingObjectReferenceAtom existingID.object
+                    Change.ExistingObjectReferenceAtom existingID.operationID
 
                 PlaceholderPointer pendingID _ ->
                     Change.PendingObjectReferenceAtom pendingID
 
         idToPrimitiveAtom givenID =
-            case ID.toPointer "bogus reducer unused" givenID of
+            case ID.toPointer ReducerID.RegisterReducer givenID of
                 ExistingObjectPointer existingID ->
-                    Primitive.StringAtom (OpID.toString existingID.object)
+                    Primitive.StringAtom (OpID.toString existingID.operationID)
 
                 PlaceholderPointer pendingID _ ->
                     -- can't crash here because primitive mode is always calculated even if unused
@@ -184,13 +188,15 @@ id =
                     , BE.string (toString i)
                     ]
         , bytesDecoder =
-            BD.unsignedInt32 BytesEncoder.endian
-                |> BD.andThen
-                    (\charCount -> BD.string charCount |> BD.map (fromString Nothing >> Ok))
+            BytesDecoder.fromRaw
+                (BD.unsignedInt32 BytesEncoder.endian
+                    |> BD.andThen
+                        (\charCount -> BD.string charCount |> BD.map (fromString Nothing >> Ok))
+                )
         , jsonEncoder = toString >> JE.string
         , jsonDecoder = JD.string |> JD.map (fromString Nothing >> Ok)
         , nodeEncoder = nodeEncoder
-        , nodeDecoder = \inputs -> JD.string |> JD.map (fromString (Just inputs.node) >> Ok)
+        , nodeDecoder = \inputs -> { decoder = RonPayloadDecoderLegacy (JD.string |> JD.map (fromString (Just inputs.node) >> Ok)), ancestors = AncestorDb.empty }
         , nodePlaceholder = Initializer.flatInit
         }
 
@@ -458,10 +464,10 @@ todo : a -> PrimitiveCodec a
 todo bogusValue =
     Codec
         { bytesEncoder = \_ -> BE.unsignedInt8 9
-        , bytesDecoder = BD.fail
+        , bytesDecoder = BytesDecoder.fromRaw BD.fail
         , jsonEncoder = \_ -> JE.null
         , jsonDecoder = JD.fail "TODO"
         , nodeEncoder = \_ -> NodeEncoder.singlePrimitiveOut <| Primitive.StringAtom "TODO"
-        , nodeDecoder = \_ -> JD.fail "TODO"
+        , nodeDecoder = NodeDecoder.primitive (RonPayloadDecoderLegacy (JD.fail "TODO"))
         , nodePlaceholder = \_ -> bogusValue
         }
