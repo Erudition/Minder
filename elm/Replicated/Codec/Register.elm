@@ -42,6 +42,7 @@ import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Codec.Initializer exposing (Initializer, Skel)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Collection as Collection exposing (Collection)
+import Replicated.Node.AncestorDb as AncestorDb
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
@@ -75,7 +76,7 @@ record : remaining -> PartialRegister i full remaining
 record remainingConstructor =
     PartialRegister
         { bytesEncoder = \_ -> []
-        , bytesDecoder = BD.succeed (Ok remainingConstructor)
+        , bytesDecoder = BytesDecoder.fromRaw (BD.succeed (Ok remainingConstructor))
         , jsonEncoders = []
         , jsonArrayDecoder = JD.succeed (Ok remainingConstructor)
         , fieldIndex = 0
@@ -231,7 +232,9 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
                     in
                     JD.succeed <| Ok <| finalRecord
             in
-            JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder
+            { decoder = RonPayloadDecoderLegacy (JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder)
+            , ancestors = AncestorDb.empty
+            }
 
         nodeEncoder : NodeEncoder full NodeEncoder.SoloObject
         nodeEncoder inputs =
@@ -245,7 +248,7 @@ finishRecord ((PartialRegister allFieldsCodec) as partial) =
             in
             allFieldsCodec.nodeInitializer () (Collection.getPointer object)
 
-        bytesDecoder : BD.Decoder (Result RepDecodeError full)
+        bytesDecoder : BytesDecoder full
         bytesDecoder =
             allFieldsCodec.bytesDecoder
 
@@ -334,7 +337,9 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
                         Nothing ->
                             JD.succeed <| Err <| WrongCutoff cutoff regPointer
             in
-            JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder
+            { decoder = RonPayloadDecoderLegacy (JD.andThen nakedRegisterDecoder concurrentObjectIDsDecoder)
+            , ancestors = AncestorDb.empty
+            }
 
         nodeEncoder : NodeEncoder full NodeEncoder.SoloObject
         nodeEncoder inputs =
@@ -348,7 +353,7 @@ finishSeededRecord ((PartialRegister allFieldsCodec) as partial) =
             in
             allFieldsCodec.nodeInitializer seed (Collection.getPointer object)
 
-        bytesDecoder : BD.Decoder (Result RepDecodeError full)
+        bytesDecoder : BytesDecoder full
         bytesDecoder =
             allFieldsCodec.bytesDecoder
 
@@ -424,7 +429,9 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                     in
                     JD.succeed <| Ok <| Register { pointer = regPointer, included = Collection.All, latest = regToRecord Nothing, older = Just >> regToRecord, history = history, init = nonChanger }
             in
-            JD.andThen registerDecoder concurrentObjectIDsDecoder
+            { decoder = RonPayloadDecoderLegacy (JD.andThen registerDecoder concurrentObjectIDsDecoder)
+            , ancestors = AncestorDb.empty
+            }
 
         nodeEncoder : NodeEncoder (Reg full) NodeEncoder.SoloObject
         nodeEncoder inputs =
@@ -447,10 +454,10 @@ finishRegister ((PartialRegister allFieldsCodec) as partialRegister) =
         tempEmpty =
             emptyRegister { parent = Change.genesisParent "flatTodo", seed = nonChanger, position = Location.none }
 
-        bytesDecoder : BD.Decoder (Result RepDecodeError (Reg full))
+        bytesDecoder : BytesDecoder (Reg full)
         bytesDecoder =
             -- TODO use allFieldsCodec.bytesDecoder
-            BD.succeed <| Ok <| tempEmpty
+            BytesDecoder.fromRaw <| BD.succeed <| Ok <| tempEmpty
 
         jsonDecoder : JD.Decoder (Result RepDecodeError (Reg full))
         jsonDecoder =
@@ -528,7 +535,9 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                         Nothing ->
                             JD.succeed <| Err <| WrongCutoff cutoff regPointer
             in
-            JD.andThen registerDecoder concurrentObjectIDsDecoder
+            { decoder = RonPayloadDecoderLegacy (JD.andThen registerDecoder concurrentObjectIDsDecoder)
+            , ancestors = AncestorDb.empty
+            }
 
         nodeEncoder : NodeEncoder (Reg full) NodeEncoder.SoloObject
         nodeEncoder inputs =
@@ -557,10 +566,10 @@ finishSeededRegister ((PartialRegister allFieldsCodec) as partialRegister) =
                 , init = Tuple.second seed
                 }
 
-        bytesDecoder : BD.Decoder (Result RepDecodeError (Reg full))
+        bytesDecoder : BytesDecoder (Reg full)
         bytesDecoder =
             -- TODO use allFieldsCodec.bytesDecoder
-            BD.fail
+            BytesDecoder.fromRaw BD.fail
 
         jsonDecoder : JD.Decoder (Result RepDecodeError (Reg full))
         jsonDecoder =
@@ -824,10 +833,11 @@ readableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback (Partial
     PartialRegister
         { bytesEncoder = addToPartialBytesEncoderList
         , bytesDecoder =
-            BD.map2
-                combineIfBothSucceed
-                recordCodecSoFar.bytesDecoder
-                (Base.getBytesDecoder fieldCodec)
+            BytesDecoder.fromRaw <|
+                BD.map2
+                    combineIfBothSucceed
+                    (BytesDecoder.toRaw recordCodecSoFar.bytesDecoder)
+                    (BytesDecoder.toRaw (Base.getBytesDecoder fieldCodec))
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder =
             JD.map2
@@ -956,7 +966,7 @@ writableHelper ( fieldSlot, fieldName ) fieldGetter fieldCodec fallback isDelaya
     in
     PartialRegister
         { bytesEncoder = addToPartialBytesEncoderList
-        , bytesDecoder = BD.fail
+        , bytesDecoder = BytesDecoder.fromRaw BD.fail
         , jsonEncoders = addToPartialJsonEncoderList
         , jsonArrayDecoder = JD.fail "Can't use RW wrapper with JSON decoding"
         , fieldIndex = newFieldIndex
@@ -1042,7 +1052,7 @@ buildRegisterFieldDictionary object =
     let
         addFieldEntry : OpID -> Collection.Event Payload -> Dict FieldSlot FieldHistoryBackwards -> Dict FieldSlot FieldHistoryBackwards
         addFieldEntry eventID event buildingDict =
-            case extractFieldEventFromObjectPayload (Collection.eventPayload event) of
+            case extractFieldEventFromObjectPayload event of
                 Ok ( ( fieldSlot, fieldName ), fieldPayload ) ->
                     let
                         logMsg =
