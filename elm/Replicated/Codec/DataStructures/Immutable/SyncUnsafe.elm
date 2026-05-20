@@ -25,7 +25,7 @@ import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Change.Primitive as Primitive
-import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SelfSeededCodec, getBytesDecoder, getBytesEncoder, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder)
+import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SelfSeededCodec, getBytesDecoder, getBytesEncoder, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, map)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Bytes.Encoder as BytesEncoder exposing (BytesEncoder)
 import Replicated.Codec.DataStructures.Immutable.SyncSafe as SyncSafe exposing (pair)
@@ -37,6 +37,7 @@ import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecode
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Collection as Collection exposing (Collection)
+import Replicated.Node.AncestorDb as AncestorDb exposing (AncestorDb)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
@@ -93,28 +94,36 @@ list codec =
                     in
                     { complex = Nonempty.concat <| Nonempty.indexedMap memberNodeEncoded (Nonempty headItem moreItems) }
 
-        nodeDecoder : Inputs (List a) -> JD.Decoder (Result RepDecodeError (List a))
+        nodeDecoder : NodeDecoder (List a)
         nodeDecoder _ =
-            JD.oneOf
-                [ JD.andThen
-                    (\v ->
-                        -- TODO what if someone encodes a list like ["[]"]
-                        if v == "[]" then
-                            JD.succeed (Ok [])
+            let
+                rawDecoder =
+                    JD.oneOf
+                        [ JD.andThen
+                            (\v ->
+                                -- TODO what if someone encodes a list like ["[]"]
+                                if v == "[]" then
+                                    JD.succeed (Ok [])
 
-                        else
-                            JD.fail "Not empty, moving on to normal list decoder below"
-                    )
-                    JD.string
-                , normalJsonDecoder
-                ]
+                                else
+                                    JD.fail "Not empty, moving on to normal list decoder below"
+                            )
+                            JD.string
+                        , normalJsonDecoder
+                        ]
+            in
+            { decoder = RonPayloadDecoderLegacy rawDecoder
+            , ancestors = AncestorDb.empty
+            }
     in
     Codec
         { bytesEncoder = listEncodeHelper (getBytesEncoder codec)
         , bytesDecoder =
-            BD.unsignedInt32 BytesEncoder.endian
-                |> BD.andThen
-                    (\length -> BD.loop ( length, [] ) (listStepHelper (getBytesDecoder codec)))
+            BytesDecoder.fromRaw
+                (BD.unsignedInt32 BytesEncoder.endian
+                    |> BD.andThen
+                        (\length -> BD.loop ( length, [] ) (listStepHelper (getBytesDecoder codec)))
+                )
         , jsonEncoder = JE.list (getJsonEncoder codec)
         , jsonDecoder = normalJsonDecoder
         , nodeEncoder = nodeEncoder
@@ -146,7 +155,7 @@ listStepHelper decoder_ ( n, xs ) =
                     Err err ->
                         BD.Done (Err err)
             )
-            decoder_
+            (BytesDecoder.toRaw decoder_)
 
 
 nonempty : SelfSeededCodec o userType -> SelfSeededCodec {} (Nonempty userType)
@@ -178,14 +187,36 @@ nonempty wrappedCodec =
     Codec
         { bytesEncoder = \v -> Nonempty.toList v |> getBytesEncoder listCodec
         , bytesDecoder =
-            getBytesDecoder listCodec
-                |> BD.map nonemptyFromList
+            BytesDecoder.fromRaw
+                (BD.map nonemptyFromList (BytesDecoder.toRaw (getBytesDecoder listCodec)))
         , jsonEncoder = \v -> Nonempty.toList v |> getJsonEncoder listCodec
         , jsonDecoder =
             getJsonDecoder listCodec
                 |> JD.map nonemptyFromList
         , nodeEncoder = \inputs -> mapNodeEncoderInputs inputs |> getNodeEncoder listCodec
-        , nodeDecoder = \inputs -> getNodeDecoder listCodec inputs |> JD.map nonemptyFromList
+        , nodeDecoder =
+            \inputs ->
+                let
+                    listInputs : Inputs (List userType)
+                    listInputs =
+                        { node = inputs.node
+                        , parent = inputs.parent
+                        , position = inputs.position
+                        , cutoff = inputs.cutoff
+                        , oldMaybe = Maybe.map Nonempty.toList inputs.oldMaybe
+                        , changedObjectIDs = inputs.changedObjectIDs
+                        }
+
+                    listOutput =
+                        getNodeDecoder listCodec listInputs
+
+                    rawJD =
+                        RonPayloadDecoder.toJsonDecoder listOutput.decoder
+                            |> JD.map nonemptyFromList
+                in
+                { decoder = RonPayloadDecoderLegacy rawJD
+                , ancestors = listOutput.ancestors
+                }
         , nodePlaceholder = Initializer.flatInit
         }
 

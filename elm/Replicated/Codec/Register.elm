@@ -1,4 +1,4 @@
-module Replicated.Codec.Register exposing (coreR, coreRW, field, fieldList, fieldRW, fieldRec, fieldReg, fieldStore, finishRecord, finishRegister, finishSeededRecord, finishSeededRegister, maybeR, record, seededR, seededRW, updateRegisterPostChildInit)
+module Replicated.Codec.Register exposing (coreR, coreRW, field, fieldList, fieldRW, fieldRec, fieldReg, fieldStore, finishRecord, finishRegister, finishSeededRecord, finishSeededRegister, maybeR, record, seededR, seededRW, seedlessPair, updateRegisterPostChildInit)
 
 {-| Module for building a Register codec.
 -}
@@ -1117,3 +1117,11 @@ interceptPlaceholderLocation givenObjectPointer freshPointerFromEncoder =
             -- existing objects don't need to be intercepted,
             -- and the fresh pointer given should always be a placeholder
             givenObjectPointer
+
+
+seedlessPair : Base.WrappedOrSkelCodec s1 a -> Base.WrappedOrSkelCodec s2 b -> Base.SkelCodec ( a, b )
+seedlessPair codecFirst codecSecond =
+    record Tuple.pair
+        |> fieldReg ( 1, "first" ) Tuple.first codecFirst
+        |> fieldReg ( 2, "second" ) Tuple.second codecSecond
+        |> finishRecord

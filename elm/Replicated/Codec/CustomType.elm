@@ -35,9 +35,11 @@ import Replicated.Codec.Node.Decoder as NodeDecoder exposing (NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Collection as Collection exposing (Collection)
+import Replicated.Node.AncestorDb as AncestorDb exposing (AncestorDb)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.ReducerID as ReducerID
 import Replicated.Reducer.Register as Reg exposing (..)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
@@ -59,9 +61,9 @@ type CustomTypeCodec a matcher v
         { bytesMatcher : matcher
         , jsonMatcher : matcher
         , nodeMatcher : matcher
-        , bytesDecoder : Int -> BytesDecoder v -> BytesDecoder v
+        , bytesDecoder : Int -> BD.Decoder (Result RepDecodeError v) -> BD.Decoder (Result RepDecodeError v)
         , jsonDecoder : Int -> JD.Decoder (Result RepDecodeError v) -> JD.Decoder (Result RepDecodeError v)
-        , nodeDecoder : Int -> NodeDecoder v -> NodeDecoder v
+        , nodeDecoder : Int -> (NodeDecoder.Inputs v -> JD.Decoder (Result RepDecodeError v)) -> (NodeDecoder.Inputs v -> JD.Decoder (Result RepDecodeError v))
         , idCounter : Int
         }
 
@@ -138,7 +140,7 @@ variantBuilder :
     -> ((List VariantNodeEncoder -> VariantEncoder) -> finalWrappedValue)
     -> BD.Decoder (Result RepDecodeError v)
     -> JD.Decoder (Result RepDecodeError v)
-    -> NodeDecoder v
+    -> (NodeDecoder.Inputs v -> JD.Decoder (Result RepDecodeError v))
     -> CustomTypeCodec z (finalWrappedValue -> b) v
     -> CustomTypeCodec () b v
 variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNodeEncoder piecesBytesDecoder piecesJsonDecoder piecesNodeDecoder (CustomTypeCodec priorVariants) =
@@ -208,7 +210,7 @@ variantBuilder ( tagNum, tagName ) piecesBytesEncoder piecesJsonEncoder piecesNo
                 -- not this variantBuilder, pass along to other variantBuilder decoders
                 priorVariants.jsonDecoder tagNumToDecode orElse
 
-        unwrapND : Int -> NodeDecoder v -> NodeDecoder v
+        unwrapND : Int -> (NodeDecoder.Inputs v -> JD.Decoder (Result RepDecodeError v)) -> (NodeDecoder.Inputs v -> JD.Decoder (Result RepDecodeError v))
         unwrapND tagNumToDecode orElse =
             if tagNumToDecode == tagNum then
                 -- variantBuilder match! now decode the pieces
@@ -240,12 +242,29 @@ variant0 tag ctor =
         (\_ -> JD.succeed (Ok ctor))
 
 
-passNDInputs : Int -> NodeDecoder.Inputs a -> NodeDecoder.Inputs a
+passNDInputs : Int -> NodeDecoder.Inputs a -> NodeDecoder.Inputs b
 passNDInputs pieceNum inputsND =
-    { inputsND
-        | parent = Change.becomeInstantParent <| Change.newPointer { parent = inputsND.parent, position = Location.nest inputsND.position "piece" pieceNum, reducerID = "variant" }
-        , position = Location.nest inputsND.position "piece" pieceNum
+    { node = inputsND.node
+    , parent = Change.becomeInstantParent <| Change.newPointer { parent = inputsND.parent, position = Location.nest inputsND.position "piece" pieceNum, reducerID = ReducerID.RegisterReducer }
+    , position = Location.nest inputsND.position "piece" pieceNum
+    , cutoff = inputsND.cutoff
+    , oldMaybe = Nothing
+    , changedObjectIDs = inputsND.changedObjectIDs
     }
+
+
+{-| Convert a NodeDecoder Output to a raw JD.Decoder, for use in variant decoders.
+-}
+nodeDecoderToJD : NodeDecoder.Output a -> JD.Decoder (Result RepDecodeError a)
+nodeDecoderToJD output =
+    RonPayloadDecoder.toJsonDecoder output.decoder
+
+
+{-| Unwrap a BytesDecoder to a raw BD.Decoder, for use in variant decoders.
+-}
+rawBD : BytesDecoder a -> BD.Decoder (Result RepDecodeError a)
+rawBD =
+    BytesDecoder.toRaw
 
 
 variant1 :
@@ -271,10 +290,10 @@ variant1 tag ctor codec1 =
                 [ getNodeEncoderModifiedForVariants 1 codec1 v
                 ]
         )
-        (BD.map (result1 ctor) (getBytesDecoder codec1))
+        (BD.map (result1 ctor) (rawBD (getBytesDecoder codec1)))
         (JD.map (result1 ctor) (JD.index 1 (getJsonDecoder codec1)))
         (\inputsND ->
-            JD.map (result1 ctor) (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
+            JD.map (result1 ctor) (JD.index 1 (nodeDecoderToJD (getNodeDecoder codec1 (passNDInputs 1 inputsND))))
         )
 
 
@@ -320,8 +339,8 @@ variant2 tag ctor codec1 codec2 =
         )
         (BD.map2
             (result2 ctor)
-            (getBytesDecoder codec1)
-            (getBytesDecoder codec2)
+            (rawBD (getBytesDecoder codec1))
+            (rawBD (getBytesDecoder codec2))
         )
         (JD.map2
             (result2 ctor)
@@ -331,8 +350,8 @@ variant2 tag ctor codec1 codec2 =
         (\inputsND ->
             JD.map2
                 (result2 ctor)
-                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
-                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
+                (JD.index 1 (nodeDecoderToJD (getNodeDecoder codec1 (passNDInputs 1 inputsND))))
+                (JD.index 2 (nodeDecoderToJD (getNodeDecoder codec2 (passNDInputs 2 inputsND))))
         )
 
 
@@ -386,9 +405,9 @@ variant3 tag ctor codec1 codec2 codec3 =
         )
         (BD.map3
             (result3 ctor)
-            (getBytesDecoder codec1)
-            (getBytesDecoder codec2)
-            (getBytesDecoder codec3)
+            (rawBD (getBytesDecoder codec1))
+            (rawBD (getBytesDecoder codec2))
+            (rawBD (getBytesDecoder codec3))
         )
         (JD.map3
             (result3 ctor)
@@ -399,9 +418,9 @@ variant3 tag ctor codec1 codec2 codec3 =
         (\inputsND ->
             JD.map3
                 (result3 ctor)
-                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
-                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
-                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
+                (JD.index 1 (nodeDecoderToJD (getNodeDecoder codec1 (passNDInputs 1 inputsND))))
+                (JD.index 2 (nodeDecoderToJD (getNodeDecoder codec2 (passNDInputs 2 inputsND))))
+                (JD.index 3 (nodeDecoderToJD (getNodeDecoder codec3 (passNDInputs 3 inputsND))))
         )
 
 
@@ -463,10 +482,10 @@ variant4 tag ctor codec1 codec2 codec3 codec4 =
         )
         (BD.map4
             (result4 ctor)
-            (getBytesDecoder codec1)
-            (getBytesDecoder codec2)
-            (getBytesDecoder codec3)
-            (getBytesDecoder codec4)
+            (rawBD (getBytesDecoder codec1))
+            (rawBD (getBytesDecoder codec2))
+            (rawBD (getBytesDecoder codec3))
+            (rawBD (getBytesDecoder codec4))
         )
         (JD.map4
             (result4 ctor)
@@ -478,10 +497,10 @@ variant4 tag ctor codec1 codec2 codec3 codec4 =
         (\inputsND ->
             JD.map4
                 (result4 ctor)
-                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
-                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
-                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
-                (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
+                (JD.index 1 (nodeDecoderToJD (getNodeDecoder codec1 (passNDInputs 1 inputsND))))
+                (JD.index 2 (nodeDecoderToJD (getNodeDecoder codec2 (passNDInputs 2 inputsND))))
+                (JD.index 3 (nodeDecoderToJD (getNodeDecoder codec3 (passNDInputs 3 inputsND))))
+                (JD.index 4 (nodeDecoderToJD (getNodeDecoder codec4 (passNDInputs 4 inputsND))))
         )
 
 
@@ -551,11 +570,11 @@ variant5 tag ctor codec1 codec2 codec3 codec4 codec5 =
         )
         (BD.map5
             (result5 ctor)
-            (getBytesDecoder codec1)
-            (getBytesDecoder codec2)
-            (getBytesDecoder codec3)
-            (getBytesDecoder codec4)
-            (getBytesDecoder codec5)
+            (rawBD (getBytesDecoder codec1))
+            (rawBD (getBytesDecoder codec2))
+            (rawBD (getBytesDecoder codec3))
+            (rawBD (getBytesDecoder codec4))
+            (rawBD (getBytesDecoder codec5))
         )
         (JD.map5
             (result5 ctor)
@@ -568,11 +587,11 @@ variant5 tag ctor codec1 codec2 codec3 codec4 codec5 =
         (\inputsND ->
             JD.map5
                 (result5 ctor)
-                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
-                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
-                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
-                (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
-                (JD.index 5 (getNodeDecoder codec5 (passNDInputs 5 inputsND)))
+                (JD.index 1 (nodeDecoderToJD (getNodeDecoder codec1 (passNDInputs 1 inputsND))))
+                (JD.index 2 (nodeDecoderToJD (getNodeDecoder codec2 (passNDInputs 2 inputsND))))
+                (JD.index 3 (nodeDecoderToJD (getNodeDecoder codec3 (passNDInputs 3 inputsND))))
+                (JD.index 4 (nodeDecoderToJD (getNodeDecoder codec4 (passNDInputs 4 inputsND))))
+                (JD.index 5 (nodeDecoderToJD (getNodeDecoder codec5 (passNDInputs 5 inputsND))))
         )
 
 
@@ -650,13 +669,13 @@ variant6 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 =
         )
         (BD.map5
             (result6 ctor)
-            (getBytesDecoder codec1)
-            (getBytesDecoder codec2)
-            (getBytesDecoder codec3)
-            (getBytesDecoder codec4)
+            (rawBD (getBytesDecoder codec1))
+            (rawBD (getBytesDecoder codec2))
+            (rawBD (getBytesDecoder codec3))
+            (rawBD (getBytesDecoder codec4))
             (BD.map2 Tuple.pair
-                (getBytesDecoder codec5)
-                (getBytesDecoder codec6)
+                (rawBD (getBytesDecoder codec5))
+                (rawBD (getBytesDecoder codec6))
             )
         )
         (JD.map5
@@ -673,13 +692,13 @@ variant6 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 =
         (\inputsND ->
             JD.map5
                 (result6 ctor)
-                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
-                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
-                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
-                (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
+                (JD.index 1 (nodeDecoderToJD (getNodeDecoder codec1 (passNDInputs 1 inputsND))))
+                (JD.index 2 (nodeDecoderToJD (getNodeDecoder codec2 (passNDInputs 2 inputsND))))
+                (JD.index 3 (nodeDecoderToJD (getNodeDecoder codec3 (passNDInputs 3 inputsND))))
+                (JD.index 4 (nodeDecoderToJD (getNodeDecoder codec4 (passNDInputs 4 inputsND))))
                 (JD.map2 Tuple.pair
-                    (JD.index 5 (getNodeDecoder codec5 (passNDInputs 5 inputsND)))
-                    (JD.index 6 (getNodeDecoder codec6 (passNDInputs 6 inputsND)))
+                    (JD.index 5 (nodeDecoderToJD (getNodeDecoder codec5 (passNDInputs 5 inputsND))))
+                    (JD.index 6 (nodeDecoderToJD (getNodeDecoder codec6 (passNDInputs 6 inputsND))))
                 )
         )
 
@@ -765,16 +784,16 @@ variant7 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
         )
         (BD.map5
             (result7 ctor)
-            (getBytesDecoder codec1)
-            (getBytesDecoder codec2)
-            (getBytesDecoder codec3)
+            (rawBD (getBytesDecoder codec1))
+            (rawBD (getBytesDecoder codec2))
+            (rawBD (getBytesDecoder codec3))
             (BD.map2 Tuple.pair
-                (getBytesDecoder codec4)
-                (getBytesDecoder codec5)
+                (rawBD (getBytesDecoder codec4))
+                (rawBD (getBytesDecoder codec5))
             )
             (BD.map2 Tuple.pair
-                (getBytesDecoder codec6)
-                (getBytesDecoder codec7)
+                (rawBD (getBytesDecoder codec6))
+                (rawBD (getBytesDecoder codec7))
             )
         )
         (JD.map5
@@ -794,16 +813,16 @@ variant7 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 =
         (\inputsND ->
             JD.map5
                 (result7 ctor)
-                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
-                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
-                (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
+                (JD.index 1 (nodeDecoderToJD (getNodeDecoder codec1 (passNDInputs 1 inputsND))))
+                (JD.index 2 (nodeDecoderToJD (getNodeDecoder codec2 (passNDInputs 2 inputsND))))
+                (JD.index 3 (nodeDecoderToJD (getNodeDecoder codec3 (passNDInputs 3 inputsND))))
                 (JD.map2 Tuple.pair
-                    (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
-                    (JD.index 5 (getNodeDecoder codec5 (passNDInputs 5 inputsND)))
+                    (JD.index 4 (nodeDecoderToJD (getNodeDecoder codec4 (passNDInputs 4 inputsND))))
+                    (JD.index 5 (nodeDecoderToJD (getNodeDecoder codec5 (passNDInputs 5 inputsND))))
                 )
                 (JD.map2 Tuple.pair
-                    (JD.index 6 (getNodeDecoder codec6 (passNDInputs 6 inputsND)))
-                    (JD.index 7 (getNodeDecoder codec7 (passNDInputs 7 inputsND)))
+                    (JD.index 6 (nodeDecoderToJD (getNodeDecoder codec6 (passNDInputs 6 inputsND))))
+                    (JD.index 7 (nodeDecoderToJD (getNodeDecoder codec7 (passNDInputs 7 inputsND))))
                 )
         )
 
@@ -896,19 +915,19 @@ variant8 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
         )
         (BD.map5
             (result8 ctor)
-            (getBytesDecoder codec1)
-            (getBytesDecoder codec2)
+            (rawBD (getBytesDecoder codec1))
+            (rawBD (getBytesDecoder codec2))
             (BD.map2 Tuple.pair
-                (getBytesDecoder codec3)
-                (getBytesDecoder codec4)
+                (rawBD (getBytesDecoder codec3))
+                (rawBD (getBytesDecoder codec4))
             )
             (BD.map2 Tuple.pair
-                (getBytesDecoder codec5)
-                (getBytesDecoder codec6)
+                (rawBD (getBytesDecoder codec5))
+                (rawBD (getBytesDecoder codec6))
             )
             (BD.map2 Tuple.pair
-                (getBytesDecoder codec7)
-                (getBytesDecoder codec8)
+                (rawBD (getBytesDecoder codec7))
+                (rawBD (getBytesDecoder codec8))
             )
         )
         (JD.map5
@@ -931,19 +950,19 @@ variant8 tag ctor codec1 codec2 codec3 codec4 codec5 codec6 codec7 codec8 =
         (\inputsND ->
             JD.map5
                 (result8 ctor)
-                (JD.index 1 (getNodeDecoder codec1 (passNDInputs 1 inputsND)))
-                (JD.index 2 (getNodeDecoder codec2 (passNDInputs 2 inputsND)))
+                (JD.index 1 (nodeDecoderToJD (getNodeDecoder codec1 (passNDInputs 1 inputsND))))
+                (JD.index 2 (nodeDecoderToJD (getNodeDecoder codec2 (passNDInputs 2 inputsND))))
                 (JD.map2 Tuple.pair
-                    (JD.index 3 (getNodeDecoder codec3 (passNDInputs 3 inputsND)))
-                    (JD.index 4 (getNodeDecoder codec4 (passNDInputs 4 inputsND)))
+                    (JD.index 3 (nodeDecoderToJD (getNodeDecoder codec3 (passNDInputs 3 inputsND))))
+                    (JD.index 4 (nodeDecoderToJD (getNodeDecoder codec4 (passNDInputs 4 inputsND))))
                 )
                 (JD.map2 Tuple.pair
-                    (JD.index 5 (getNodeDecoder codec5 (passNDInputs 5 inputsND)))
-                    (JD.index 6 (getNodeDecoder codec6 (passNDInputs 6 inputsND)))
+                    (JD.index 5 (nodeDecoderToJD (getNodeDecoder codec5 (passNDInputs 5 inputsND))))
+                    (JD.index 6 (nodeDecoderToJD (getNodeDecoder codec6 (passNDInputs 6 inputsND))))
                 )
                 (JD.map2 Tuple.pair
-                    (JD.index 7 (getNodeDecoder codec7 (passNDInputs 7 inputsND)))
-                    (JD.index 8 (getNodeDecoder codec8 (passNDInputs 8 inputsND)))
+                    (JD.index 7 (nodeDecoderToJD (getNodeDecoder codec7 (passNDInputs 7 inputsND))))
+                    (JD.index 8 (nodeDecoderToJD (getNodeDecoder codec8 (passNDInputs 8 inputsND))))
                 )
         )
 
@@ -1085,22 +1104,29 @@ finishCustomType (CustomTypeCodec priorVariants) =
 
                         Err errorMessage ->
                             JD.fail (JD.errorToString errorMessage)
-            in
-            JD.oneOf
-                [ JD.list JD.value |> JD.map captureSubGroups |> JD.andThen reDecodeGroupedList
 
-                -- allow non-array input for variant0s:
-                , findDecoderMatchingTag
-                ]
+                rawJDDecoder =
+                    JD.oneOf
+                        [ JD.list JD.value |> JD.map captureSubGroups |> JD.andThen reDecodeGroupedList
+
+                        -- allow non-array input for variant0s:
+                        , findDecoderMatchingTag
+                        ]
+            in
+            { decoder = RonPayloadDecoderLegacy rawJDDecoder
+            , ancestors = AncestorDb.empty
+            }
     in
     Codec
         { bytesEncoder = priorVariants.bytesMatcher >> (\(VariantEncoder encoders) -> encoders.bytes)
         , bytesDecoder =
-            BD.unsignedInt16 BytesEncoder.endian
-                |> BD.andThen
-                    (\tag ->
-                        priorVariants.bytesDecoder tag (BD.succeed (Err (NoMatchingVariant (String.fromInt tag))))
-                    )
+            BytesDecoder.fromRaw
+                (BD.unsignedInt16 BytesEncoder.endian
+                    |> BD.andThen
+                        (\tag ->
+                            priorVariants.bytesDecoder tag (BD.succeed (Err (NoMatchingVariant (String.fromInt tag))))
+                        )
+                )
         , jsonEncoder = priorVariants.jsonMatcher >> (\(VariantEncoder encoders) -> encoders.json)
         , jsonDecoder =
             JD.index 0 JD.int

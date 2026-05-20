@@ -675,7 +675,7 @@ Doesn't support seeded reptypes.
 -}
 seedlessPair : WrappedOrSkelCodec s1 a -> WrappedOrSkelCodec s2 b -> SkelCodec ( a, b )
 seedlessPair codecFirst codecSecond =
-    Replicated.Codec.DataStructures.Mutable.seedlessPair codecFirst codecSecond
+    Replicated.Codec.Register.seedlessPair codecFirst codecSecond
 
 
 
