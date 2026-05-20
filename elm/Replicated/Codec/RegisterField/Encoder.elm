@@ -1,4 +1,4 @@
-module Replicated.Codec.RegisterField.Encoder exposing (Inputs, Output, RegisterFieldEncoder, SmartJsonFieldEncoder, newRegisterFieldEncoderEntry)
+module Replicated.Codec.RegisterField.Encoder exposing (Inputs, Output, RegisterFieldEncoder, SmartJsonFieldEncoder, newRegisterFieldEncoderEntry, updateRegisterPostChildInit)
 
 import Array exposing (Array)
 import Base64
@@ -20,6 +20,7 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Change.PendingID as PendingID exposing (PendingID)
 import Replicated.Codec.Base as Base exposing (Codec(..))
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
@@ -97,8 +98,8 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
         fieldDecodedMaybe rawPayload =
             -- even though we're in an encoder, we must run the decoder to get the value out of the register's memory. This is borrowed from registerReadOnlyFieldDecoder
             let
-                (Payload.Payload payloadAtoms) =
-                    rawPayload
+                payloadAtoms =
+                    Payload.toComplex rawPayload
 
                 run =
                     JD.decodeValue
@@ -300,3 +301,11 @@ getFieldHistory fields ( desiredFieldSlot, name ) =
 getFieldHistoryValues : FieldHistoryDict -> FieldIdentifier -> List FieldPayload
 getFieldHistoryValues fields givenField =
     List.map Tuple.second (getFieldHistory fields givenField)
+
+
+{-| Internal helper to wrap child changes in parent changes when the parent is still a placeholder.
+-}
+updateRegisterPostChildInit : Pointer -> FieldIdentifier -> PendingID -> Change.DelayedChange
+updateRegisterPostChildInit parentPointer fieldIdentifier pendingChildToWrap =
+    Change.delayedChangeObject parentPointer
+        (Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (Nonempty.singleton <| PendingObjectReferenceAtom pendingChildToWrap)))

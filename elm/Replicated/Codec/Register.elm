@@ -1,4 +1,4 @@
-module Replicated.Codec.Register exposing (coreR, coreRW, field, fieldList, fieldRW, fieldRec, fieldReg, fieldStore, finishRecord, finishRegister, finishSeededRecord, finishSeededRegister, maybeR, record, seededR, seededRW)
+module Replicated.Codec.Register exposing (coreR, coreRW, field, fieldList, fieldRW, fieldRec, fieldReg, fieldStore, finishRecord, finishRegister, finishSeededRecord, finishSeededRegister, maybeR, record, seededR, seededRW, updateRegisterPostChildInit)
 
 {-| Module for building a Register codec.
 -}
@@ -1025,11 +1025,11 @@ mapRegisterNodeDecoder twoArgFunction nestableDecoderA nestableDecoderB inputs =
 
 
 {-| Internal helper to wrap child changes in parent changes when the parent is still a placeholder.
+Canonical implementation is in RegisterField.Encoder.
 -}
 updateRegisterPostChildInit : Pointer -> FieldIdentifier -> Change.PendingID -> Change.DelayedChange
-updateRegisterPostChildInit parentPointer fieldIdentifier pendingChildToWrap =
-    Change.delayedChangeObject parentPointer
-        (Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (Nonempty.singleton <| PendingObjectReferenceAtom pendingChildToWrap)))
+updateRegisterPostChildInit =
+    RegisterFieldEncoder.updateRegisterPostChildInit
 
 
 buildRegisterFieldDictionary : Object -> FieldHistoryDict

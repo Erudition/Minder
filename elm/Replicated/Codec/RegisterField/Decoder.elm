@@ -26,6 +26,7 @@ import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
+import Replicated.Codec.RegisterField.Encoder as RegisterFieldEncoder exposing (updateRegisterPostChildInit)
 import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Collection as Collection exposing (Collection)
@@ -148,7 +149,7 @@ registerWritableFieldDecoder index (( fieldSlot, fieldName ) as fieldIdentifier)
 extractFieldEventFromObjectPayload : Collection.Event Payload.Payload -> Result String ( FieldIdentifier, FieldPayload )
 extractFieldEventFromObjectPayload event =
     let
-        (Payload.Payload payload) =
+        payload =
             Collection.eventPayload event
     in
     case payload of
