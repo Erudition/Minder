@@ -42,6 +42,20 @@ type RonPayloadDecoder a
     | RonPayloadDecoderNew (Payload.Payload -> Result RepDecodeError a)
 
 
+{-| Run a RonPayloadDecoder against a JSON Value. For legacy decoders, this uses
+JD.decodeValue. For new decoders, converts the JSON back to a Payload.
+-}
+toJsonDecoder : RonPayloadDecoder a -> JD.Decoder (Result RepDecodeError a)
+toJsonDecoder decoder =
+    case decoder of
+        RonPayloadDecoderLegacy jsonDecoder ->
+            jsonDecoder
+
+        RonPayloadDecoderNew _ ->
+            -- TODO implement proper conversion from JSON to Payload for new decoders
+            JD.fail "RonPayloadDecoderNew is not yet supported via JSON decoding"
+
+
 
 -- fromJsonDecoder : JD.Decoder a -> RonPayloadDecoder a
 -- fromJsonDecoder jsonDecoder =

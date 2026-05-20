@@ -21,6 +21,7 @@ import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Change.PendingID as PendingID exposing (PendingID)
+import Replicated.Change.Primitive as Primitive
 import Replicated.Codec.Base as Base exposing (Codec(..))
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
@@ -101,12 +102,21 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                 payloadAtoms =
                     Payload.toComplex rawPayload
 
+                nodeDecoderOutput =
+                    Base.getNodeDecoder fieldCodec
+                        { node = node
+                        , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
+                        , parent = regAsParent
+                        , cutoff = Nothing
+                        , oldMaybe = Nothing
+                        , changedObjectIDs = []
+                        }
+
+                jsonDecoder =
+                    RonPayloadDecoder.toJsonDecoder nodeDecoderOutput.decoder
+
                 run =
-                    JD.decodeValue
-                        (Base.getNodeDecoder fieldCodec
-                            { node = node, position = Location.new (fieldLocationLabel fieldName fieldSlot) index, parent = regAsParent, cutoff = Nothing }
-                        )
-                        (Payload.toJsonValue payloadAtoms)
+                    JD.decodeValue jsonDecoder (Payload.toJsonValue payloadAtoms)
             in
             case run of
                 Ok goodValue ->
@@ -209,7 +219,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
 
                         Just fieldValue ->
                             -- object acquired! make sure we don't miss the opportunity to pass objectID info to naked subcodecs
-                            case extractQuotedObjects (Nonempty.toList latestPayload) of
+                            case extractQuotedObjects latestPayload of
                                 [] ->
                                     -- -- give up! spit back out what we already had in the register.
                                     -- EncodeThisField <| Change.NewPayload <| Nonempty.map Change.FromPrimitiveAtom latestPayload
@@ -250,7 +260,7 @@ extractQuotedObjects atomList =
 encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Change.ComplexPayload -> Change.ComplexPayload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
     Nonempty.append
-        (Nonempty (Change.FromPrimitiveAtom (Atom.IntegerAtom fieldSlot)) [ Change.FromPrimitiveAtom (Atom.NakedStringAtom fieldName) ])
+        (Nonempty (Change.FromPrimitiveAtom (Primitive.IntegerAtom fieldSlot)) [ Change.FromPrimitiveAtom (Primitive.NakedStringAtom fieldName) ])
         fieldPayload
 
 

@@ -159,7 +159,7 @@ id =
             case nodeMaybe of
                 Nothing ->
                     -- TODO should only happen with other serialization types
-                    finalPointer ""
+                    finalPointer ReducerID.RegisterReducer
 
                 Just node ->
                     case Node.lookupObject node opID of
@@ -167,12 +167,12 @@ id =
                             Log.crashInDev
                                 ("Un-serializing an ID " ++ asString ++ " but I couldn't find the object referenced in the node!")
                                 ID.fromPointer
-                                (ExistingObjectPointer { operationID = opID, reducer = "error" })
+                                (ExistingObjectPointer { operationID = opID, reducer = ReducerID.RegisterReducer })
 
-                        Just ( reducerID, objectID ) ->
+                        Just objectHeader ->
                             -- TODO should we use the OpID instead? For versioning?
                             -- Or is this better to switch to canonical ObjectIDs
-                            ID.fromPointer (ExistingObjectPointer { operationID = objectID, reducer = reducerID })
+                            ID.fromPointer (ExistingObjectPointer objectHeader)
 
         nodeEncoder : NodeEncoder.Inputs (ID userType) -> NodeEncoder.PrimitiveOutput
         nodeEncoder inputs =
@@ -212,10 +212,8 @@ bool =
             else
                 NodeEncoder.singlePrimitiveOut <| Primitive.NakedStringAtom "false"
 
-        boolNodeDecoder : NodeDecoder Bool
         boolNodeDecoder _ =
-            NodeDecoder.primitive <|
-                JD.oneOf [ JD.bool |> JD.map Ok, JD.string |> JD.andThen stringToBool ]
+            JD.oneOf [ JD.bool |> JD.map Ok, JD.string |> JD.andThen stringToBool ]
 
         stringToBool givenString =
             case givenString of
