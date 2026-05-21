@@ -549,11 +549,34 @@ view shared model =
               box-shadow: var(--glass-card-shadow) !important;
               transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
-            .custom-glass-card:hover {
-              background: var(--glass-input-focus-bg) !important;
-              border-color: var(--glass-input-border) !important;
-            }
-          """ ]
+             .custom-glass-card:hover {
+               background: var(--glass-input-focus-bg) !important;
+               border-color: var(--glass-input-border) !important;
+             }
+             
+             :root, ion-app {
+               --card-width: 14rem !important;
+               --card-gap: 0.8rem !important;
+               --card-start: 0.4rem !important;
+             }
+             
+             @media (max-width: 600px) {
+               :root, ion-app {
+                 --card-width: calc(100vw - 2.4rem) !important;
+                 --card-gap: 0.8rem !important;
+               }
+             }
+             
+             .absolute-snap-target {
+               position: absolute !important;
+               left: calc(var(--card-start) + var(--index) * (var(--card-width) + var(--card-gap))) !important;
+               width: var(--card-width) !important;
+               height: 100% !important;
+               pointer-events: none !important;
+               visibility: hidden !important;
+               scroll-snap-align: end !important;
+             }
+           """ ]
         , div
             [ css
                 [ padding (rem 1.5)
@@ -762,15 +785,8 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
             let
                 makeSnapTarget i =
                     div
-                        [ css
-                            [ position absolute
-                            , left (rem (0.4 + toFloat i * 14.8))
-                            , Css.width (px 1)
-                            , Css.height (pct 100)
-                            , Css.property "scroll-snap-align" "start"
-                            , Css.property "pointer-events" "none"
-                            , Css.property "visibility" "hidden"
-                            ]
+                        [ class "absolute-snap-target"
+                        , style "--index" (String.fromInt i)
                         ]
                         []
             in
@@ -786,7 +802,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
             div
                 [ onClick (AddAssignment assignable)
                 , css
-                    [ Css.width (rem 14)
+                    [ Css.property "width" "var(--card-width)"
                     , margin (rem 0.4)
                     , flexShrink (Css.int 0)
                     , borderRadius (px 14)
@@ -966,6 +982,7 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                         []
                     , text "TRACKING"
                     ]
+
             else
                 SH.text ""
     in
@@ -974,7 +991,7 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
         , css
             [ position sticky
             , left (px 0)
-            , Css.width (rem 14)
+            , Css.property "width" "var(--card-width)"
             , margin (rem 0.4)
             , flexShrink (Css.int 0)
             , padding (rem 1.0)
@@ -1001,7 +1018,14 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
         , div [ css [ displayFlex, flexDirection column, Css.property "gap" "2px" ] ]
             [ span [ css [ fontSize (rem 0.75), Css.property "color" "var(--glass-text-muted)" ] ] [ text "Assigned" ]
             , span [ css [ fontSize (rem 0.85), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
-                [ text (if assignedTimeText == "" then "just now" else assignedTimeText) ]
+                [ text
+                    (if assignedTimeText == "" then
+                        "just now"
+
+                     else
+                        assignedTimeText
+                    )
+                ]
             ]
         , div
             [ css
