@@ -52,10 +52,14 @@ init { launchTime, replicaCodec, outPort, storedRon } =
             case storedRon of
                 Just ronString ->
                     let
-                        { node } =
-                            Node.updateWithRon { node = startNode, warnings = [], newObjects = [] } ronString
+                        frames =
+                            String.split "❃" ronString
+                                |> List.filter (not << String.isEmpty << String.trim)
+
+                        importFrame frame acc =
+                            Node.updateWithRon acc frame
                     in
-                    node
+                    (List.foldl importFrame { node = startNode, warnings = [], newObjects = [] } frames).node
 
                 Nothing ->
                     startNode
