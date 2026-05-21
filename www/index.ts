@@ -58,9 +58,11 @@ async function startElmApp() {
 
     updateLoadInfo("Installing TaskPorts");
     await installTaskPorts();
+    updateLoadInfo("Loading stored data");
+    const storedRon = await Preferences.get({ key: 'appData' });
     updateLoadInfo("Starting Elm app");
     let app = Elm.Main.init({ flags: 
-        { storedRonMaybe : (null) 
+        { storedRonMaybe : storedRon.value
         , darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches
         , notifPermission : await LocalNotifications.checkPermissions()
         , launchTime : Date.now()
@@ -90,6 +92,14 @@ function elmStarted(app) {
         console.log("No Capacitor splash screen to hide.");
     });
 
+    // SET STORAGE — persist RON frames to Capacitor Preferences
+    if (app.ports.setStorage) app.ports.setStorage.subscribe(async function(data) {
+        const existing = await Preferences.get({ key: 'appData' });
+        await Preferences.set({
+            key: 'appData',
+            value: (existing.value || '') + data
+        });
+    });
 
     // Try to make storage persistent
     if (navigator.storage && navigator.storage.persist)
