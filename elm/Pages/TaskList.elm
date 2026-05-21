@@ -635,11 +635,13 @@ view shared model =
                --card-gap: 0.8rem !important;
                --card-start: 0.4rem !important;
                --stack-step: 0.8rem !important;
+               --peek: 2rem !important;
              }
              
              .horizontal-scroll-container {
                --stack-step: calc(1rem / var(--total-count, 1)) !important;
                --card-start: 1.2rem !important;
+               --card-width: calc(100% - var(--card-start) - var(--peek)) !important;
                padding-left: calc(var(--card-start) - 0.4rem) !important;
                padding-right: 1.2rem !important;
                scroll-padding: 1.2rem !important;
