@@ -763,7 +763,7 @@ viewProjects time timeZone filters replica =
             Task.Layers.buildLayerDatabase replica.projects
 
         projectList =
-            AnyDict.values taskLayers.projects
+            AnyDict.values taskLayers.rootProjects
 
         items =
             List.map (viewKeyedProject replica ( time, timeZone ) trackedTaskMaybe) projectList

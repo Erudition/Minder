@@ -33,7 +33,8 @@ import ZoneHistory exposing (ZoneHistory)
 
 
 type alias ProjectLayers =
-    { projects : AnyDict String ProjectID Project
+    { rootProjects : AnyDict String ProjectID Project
+    , allProjects : AnyDict String ProjectID Project
     , assignables : AnyDict String AssignableID Assignable
     , subAssignables : AnyDict String SubAssignableID SubAssignable
     , actions : AnyDict String ActionID Action
@@ -47,7 +48,8 @@ buildLayerDatabase rootProjects =
     let
         start : ProjectLayers
         start =
-            { projects = AnyDict.empty ID.toString
+            { rootProjects = AnyDict.empty ID.toString
+            , allProjects = AnyDict.empty ID.toString
             , assignables = AnyDict.empty ID.toString
             , subAssignables = AnyDict.empty ID.toString
             , actions = AnyDict.empty ID.toString
@@ -67,9 +69,15 @@ buildLayerDatabase rootProjects =
                     List.foldl (itemInsideProject thisProject) layersSoFar (RepList.list thisProjectSkel.children)
             in
             { childrenToProcess
-                | projects =
-                    AnyDict.insert (Project.id thisProject) thisProject layersSoFar.projects
-                        |> AnyDict.union childrenToProcess.projects
+                | allProjects =
+                    AnyDict.insert (Project.id thisProject) thisProject layersSoFar.allProjects
+                        |> AnyDict.union childrenToProcess.allProjects
+                , rootProjects =
+                    if parentMaybe == Nothing then
+                        AnyDict.insert (Project.id thisProject) thisProject childrenToProcess.rootProjects
+
+                    else
+                        childrenToProcess.rootProjects
             }
 
         itemInsideProject : Project -> RepList.Item NestedOrAssignable -> ProjectLayers -> ProjectLayers
