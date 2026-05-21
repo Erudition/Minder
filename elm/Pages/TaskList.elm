@@ -564,7 +564,6 @@ view shared model =
                background: transparent !important;
                border: 1px solid var(--glass-card-border) !important;
                border-radius: 16px !important;
-               box-shadow: var(--glass-card-shadow) !important;
                overflow: hidden !important;
                pointer-events: auto !important;
                z-index: calc(10 + var(--index)) !important;
