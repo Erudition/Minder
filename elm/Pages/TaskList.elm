@@ -794,8 +794,13 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
     div
         [ attribute "data-flip-key" ("project-" ++ Project.idString project)
         , css
-            [ position relative
-            , padding2 (rem 0.5) (px 0)
+            [ Css.property "background" "var(--glass-card-bg)"
+            , Css.property "border" "1px solid var(--glass-card-border)"
+            , borderRadius (px 14)
+            , paddingTop (rem 1.0)
+            , paddingBottom (rem 1.0)
+            , position relative
+            , marginBottom (rem 1.5)
             ]
         ]
         [ div [ css [ Css.width (pct 100), displayFlex, flexDirection column, Css.property "gap" "1rem" ] ]
@@ -805,7 +810,10 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                     , alignItems center
                     , justifyContent spaceBetween
                     , Css.property "border-bottom" "1px solid var(--glass-card-border)"
-                    , paddingBottom (rem 0.6)
+                    , paddingLeft (rem 1.2)
+                    , paddingRight (rem 1.2)
+                    , paddingBottom (rem 0.8)
+                    , marginBottom (rem 0.5)
                     ]
                 ]
                 [ div
@@ -924,11 +932,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
     div
         [ attribute "data-flip-key" ("assignable-" ++ Assignable.idString assignable)
         , css
-            [ Css.property "background" "var(--glass-card-bg)"
-            , Css.property "border" "1px solid var(--glass-card-border)"
-            , borderRadius (px 14)
-            , padding (px 0)
-            , displayFlex
+            [ displayFlex
             , flexDirection column
             , position relative
             ]
