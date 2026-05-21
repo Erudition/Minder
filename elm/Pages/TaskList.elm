@@ -927,12 +927,8 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
         ]
         [ div
             [ css
-                [ displayFlex
-                , alignItems center
-                , Css.height (rem 3.5)
-                , Css.property "margin-bottom" "-4.3rem"
-                , paddingLeft (rem 1.2)
-                , paddingTop (rem 0.8)
+                [ Css.height (px 0)
+                , overflow visible
                 , position relative
                 , zIndex (Css.int 1)
                 ]
@@ -945,6 +941,9 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                     , alignItems center
                     , Css.property "gap" "0.5rem"
                     , hover [ opacity (num 0.8) ]
+                    , paddingLeft (rem 1.2)
+                    , paddingTop (rem 0.8)
+                    , Css.height (rem 3.5)
                     ]
                 ]
                 [ SH.fromUnstyled <| identicon "1.2em" (Assignable.idString assignable)
