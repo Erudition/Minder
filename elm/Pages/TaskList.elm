@@ -570,21 +570,32 @@ view shared model =
               z-index: calc(10 + var(--index)) !important;
             }
             
+            .stepped-deck-glass {
+              background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
+              backdrop-filter: blur(12px) !important;
+              -webkit-backdrop-filter: blur(12px) !important;
+              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            
+            .stepped-deck-card-tag {
+              position: absolute !important;
+              right: 0 !important;
+              top: 0 !important;
+              width: 5.5rem !important;
+              height: 3.5rem !important;
+              z-index: 0 !important;
+            }
+            
             .stepped-deck-card-body {
               position: absolute !important;
               left: 0 !important;
               right: 0 !important;
               bottom: 0 !important;
               top: 3.5rem !important;
-              background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
-              backdrop-filter: blur(12px) !important;
-              -webkit-backdrop-filter: blur(12px) !important;
-              border: none !important;
               z-index: 0 !important;
-              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
             
-            .stepped-deck-card:hover .stepped-deck-card-body {
+            .stepped-deck-card:hover .stepped-deck-glass {
               background: var(--glass-input-focus-bg) !important;
             }
             
@@ -1036,7 +1047,8 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
         [ classList [ ( "stepped-deck-card", True ), ( "tracking-pulse", isCurrentlyTracked ) ]
         , attribute "style" ("--index: " ++ String.fromInt index)
         ]
-        [ div [ class "stepped-deck-card-body" ] []
+        [ div [ class "stepped-deck-glass stepped-deck-card-tag" ] []
+        , div [ class "stepped-deck-glass stepped-deck-card-body" ] []
         , div
             [ css
                 [ position relative
