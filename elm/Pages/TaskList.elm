@@ -634,6 +634,10 @@ view shared model =
                --card-width: 14rem !important;
                --card-gap: 0.8rem !important;
                --card-start: 0.4rem !important;
+               --stack-step: 0.8rem !important;
+             }
+             
+             .horizontal-scroll-container {
                --stack-step: calc(1rem / var(--total-count, 1)) !important;
              }
              
