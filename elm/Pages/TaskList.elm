@@ -926,7 +926,8 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 [ displayFlex
                 , alignItems center
                 , Css.height (rem 3.5)
-                , Css.property "margin-bottom" "-3.5rem"
+                , Css.property "margin-bottom" "-4.5rem"
+                , paddingLeft (rem 0.4)
                 , position relative
                 , zIndex (Css.int 1)
                 ]
