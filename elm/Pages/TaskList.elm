@@ -556,7 +556,7 @@ view shared model =
              
             .stepped-deck-card {
               position: sticky !important;
-              left: calc(var(--index) * var(--stack-step)) !important;
+              left: calc((var(--index) - var(--total-count)) * var(--stack-step)) !important;
               width: var(--card-width) !important;
               margin: 0.4rem !important;
               flex-shrink: 0 !important;
@@ -654,7 +654,7 @@ view shared model =
              
              .absolute-snap-target {
                position: absolute !important;
-               left: calc(var(--card-start) + var(--index) * (var(--card-width) + var(--card-gap)) - var(--index) * var(--stack-step)) !important;
+               left: calc(var(--card-start) + var(--index) * (var(--card-width) + var(--card-gap))) !important;
                width: var(--card-width) !important;
                height: 100% !important;
                pointer-events: none !important;
