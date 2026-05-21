@@ -458,6 +458,40 @@ view shared model =
     { title = "Task List"
     , body =
         [ node "style" [] [ text """
+            :root, ion-app {
+              --glass-bg: rgba(0, 0, 0, 0.03) !important;
+              --glass-border: rgba(0, 0, 0, 0.08) !important;
+              --glass-text-primary: rgba(0, 0, 0, 0.85) !important;
+              --glass-text-secondary: rgba(0, 0, 0, 0.55) !important;
+              --glass-text-muted: rgba(0, 0, 0, 0.38) !important;
+              --glass-card-bg: rgba(0, 0, 0, 0.015) !important;
+              --glass-card-border: rgba(0, 0, 0, 0.06) !important;
+              --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.06) !important;
+              --glass-input-bg: rgba(0, 0, 0, 0.02) !important;
+              --glass-input-border: rgba(0, 0, 0, 0.08) !important;
+              --glass-input-focus-bg: rgba(0, 0, 0, 0.04) !important;
+              --glass-input-color: #000 !important;
+              --glass-scroll-thumb: rgba(0, 0, 0, 0.15) !important;
+              --glass-scroll-thumb-hover: rgba(0, 0, 0, 0.25) !important;
+            }
+            
+            ion-app.dark {
+              --glass-bg: rgba(255, 255, 255, 0.03) !important;
+              --glass-border: rgba(255, 255, 255, 0.08) !important;
+              --glass-text-primary: rgba(255, 255, 255, 0.95) !important;
+              --glass-text-secondary: rgba(255, 255, 255, 0.65) !important;
+              --glass-text-muted: rgba(255, 255, 255, 0.45) !important;
+              --glass-card-bg: rgba(255, 255, 255, 0.02) !important;
+              --glass-card-border: rgba(255, 255, 255, 0.05) !important;
+              --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+              --glass-input-bg: rgba(255, 255, 255, 0.03) !important;
+              --glass-input-border: rgba(255, 255, 255, 0.08) !important;
+              --glass-input-focus-bg: rgba(255, 255, 255, 0.06) !important;
+              --glass-input-color: #fff !important;
+              --glass-scroll-thumb: rgba(255, 255, 255, 0.15) !important;
+              --glass-scroll-thumb-hover: rgba(255, 255, 255, 0.25) !important;
+            }
+
             @keyframes pulseGlow {
               from {
                 box-shadow: 0 0 5px rgba(66, 140, 255, 0.4), inset 0 0 5px rgba(66, 140, 255, 0.2);
@@ -477,18 +511,18 @@ view shared model =
               border: 1px solid rgba(66, 140, 255, 0.8) !important;
             }
             .glass-input::part(native) {
-              background: rgba(255, 255, 255, 0.03) !important;
-              border: 1px solid rgba(255, 255, 255, 0.08) !important;
+              background: var(--glass-input-bg) !important;
+              border: 1px solid var(--glass-input-border) !important;
               border-radius: 12px !important;
               padding: 12px 20px !important;
-              color: #fff !important;
+              color: var(--glass-input-color) !important;
               font-family: inherit !important;
               transition: all 0.3s ease !important;
             }
             .glass-input::part(native):focus-within {
               border-color: rgba(66, 140, 255, 0.5) !important;
               box-shadow: 0 0 15px rgba(66, 140, 255, 0.3) !important;
-              background: rgba(255, 255, 255, 0.06) !important;
+              background: var(--glass-input-focus-bg) !important;
             }
             .horizontal-scroll-container::-webkit-scrollbar {
               height: 6px;
@@ -498,25 +532,24 @@ view shared model =
               border-radius: 3px;
             }
             .horizontal-scroll-container::-webkit-scrollbar-thumb {
-              background: rgba(255, 255, 255, 0.15);
+              background: var(--glass-scroll-thumb);
               border-radius: 3px;
             }
             .horizontal-scroll-container::-webkit-scrollbar-thumb:hover {
-              background: rgba(255, 255, 255, 0.25);
+              background: var(--glass-scroll-thumb-hover);
             }
             .custom-glass-card {
-              background: rgba(255, 255, 255, 0.02) !important;
+              background: var(--glass-card-bg) !important;
               backdrop-filter: blur(12px) !important;
               -webkit-backdrop-filter: blur(12px) !important;
-              border: 1px solid rgba(255, 255, 255, 0.05) !important;
+              border: 1px solid var(--glass-card-border) !important;
               border-radius: 16px !important;
-              box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+              box-shadow: var(--glass-card-shadow) !important;
               transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
             .custom-glass-card:hover {
-              background: rgba(255, 255, 255, 0.04) !important;
-              border-color: rgba(255, 255, 255, 0.08) !important;
-              box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4) !important;
+              background: var(--glass-input-focus-bg) !important;
+              border-color: var(--glass-input-border) !important;
             }
           """ ]
         , div
@@ -544,7 +577,7 @@ view shared model =
                         ]
                     ]
                     [ text "Minder Space" ]
-                , p [ css [ margin (px 0), fontSize (rem 0.9), color (rgba 255 255 255 0.5), fontWeight (Css.int 300) ] ]
+                , p [ css [ margin (px 0), fontSize (rem 0.9), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 300) ] ]
                     [ text "Your timeless spatial task environment" ]
                 ]
             , lazy viewInput model.newTaskField
@@ -670,7 +703,7 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                     [ displayFlex
                     , alignItems center
                     , justifyContent spaceBetween
-                    , borderBottom3 (px 1) solid (rgba 255 255 255 0.05)
+                    , Css.property "border-bottom" "1px solid var(--glass-card-border)"
                     , paddingBottom (rem 0.6)
                     ]
                 ]
@@ -698,7 +731,7 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                         [ css
                             [ fontSize (rem 1.1)
                             , fontWeight (Css.int 700)
-                            , color (rgba 255 255 255 0.95)
+                            , Css.property "color" "var(--glass-text-primary)"
                             , letterSpacing (px -0.2)
                             ]
                         ]
@@ -706,7 +739,7 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                     , span
                         [ css
                             [ fontSize (rem 0.8)
-                            , color (rgba 255 255 255 0.3)
+                            , Css.property "color" "var(--glass-text-muted)"
                             ]
                         ]
                         [ text "➤" ]
@@ -715,8 +748,8 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                     [ id sheetButtonID
                     , css
                         [ cursor Css.pointer
-                        , color (rgba 255 255 255 0.4)
-                        , hover [ color (rgba 255 255 255 0.8) ]
+                        , Css.property "color" "var(--glass-text-muted)"
+                        , hover [ Css.property "color" "var(--glass-text-primary)" ]
                         ]
                     ]
                     [ Ion.Icon.basic "ellipsis-horizontal-outline" |> SH.fromUnstyled ]
@@ -754,8 +787,8 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                     , maxWidth (vw 80)
                     , margin (rem 0.4)
                     , borderRadius (px 14)
-                    , border3 (px 1.5) dashed (rgba 255 255 255 0.1)
-                    , Css.property "background" "rgba(255, 255, 255, 0.01)"
+                    , Css.property "border" "1.5px dashed var(--glass-border)"
+                    , Css.property "background" "var(--glass-card-bg)"
                     , displayFlex
                     , flexDirection column
                     , alignItems center
@@ -773,7 +806,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 ]
                 [ node "ion-icon"
                     [ name "add-circle-outline"
-                    , css [ fontSize (rem 2.0), marginBottom (rem 0.5), color (rgba 255 255 255 0.3) ]
+                    , css [ fontSize (rem 2.0), marginBottom (rem 0.5), Css.property "color" "var(--glass-text-muted)" ]
                     ]
                     []
                 , span [ css [ fontSize (rem 0.9), fontWeight (Css.int 500) ] ] [ text "New Assignment" ]
@@ -795,8 +828,8 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
     div
         [ attribute "data-flip-key" ("assignable-" ++ Assignable.idString assignable)
         , css
-            [ Css.property "background" "rgba(255, 255, 255, 0.01)"
-            , border3 (px 1) solid (rgba 255 255 255 0.03)
+            [ Css.property "background" "var(--glass-card-bg)"
+            , Css.property "border" "1px solid var(--glass-card-border)"
             , borderRadius (px 14)
             , padding (rem 0.8)
             , displayFlex
@@ -816,14 +849,14 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                     ]
                 ]
                 [ SH.fromUnstyled <| identicon "1.2em" (Assignable.idString assignable)
-                , span [ css [ fontWeight (Css.int 600), fontSize (rem 0.95), color (rgba 255 255 255 0.85) ] ] [ text assignableDisplayTitle ]
+                , span [ css [ fontWeight (Css.int 600), fontSize (rem 0.95), Css.property "color" "var(--glass-text-primary)" ] ] [ text assignableDisplayTitle ]
                 , span
                     [ css
                         [ fontSize (rem 0.7)
                         , padding2 (px 2) (px 6)
                         , borderRadius (px 10)
-                        , backgroundColor (rgba 255 255 255 0.05)
-                        , color (rgba 255 255 255 0.5)
+                        , Css.property "background-color" "var(--glass-bg)"
+                        , Css.property "color" "var(--glass-text-secondary)"
                         , fontWeight (Css.int 500)
                         ]
                     ]
@@ -835,14 +868,14 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                     [ attribute "fill" "clear"
                     , attribute "size" "small"
                     , onClick (AddAssignment assignable)
-                    , css [ margin (px 0), Css.property "--color" "rgba(255, 255, 255, 0.4)" ]
+                    , css [ margin (px 0), Css.property "--color" "var(--glass-text-muted)" ]
                     ]
                     [ node "ion-icon" [ name "add-circle-outline", attribute "slot" "icon-only" ] [] ]
                 , node "ion-button"
                     [ attribute "fill" "clear"
                     , attribute "size" "small"
                     , id sheetButtonID
-                    , css [ margin (px 0), Css.property "--color" "rgba(255, 255, 255, 0.4)" ]
+                    , css [ margin (px 0), Css.property "--color" "var(--glass-text-muted)" ]
                     ]
                     [ node "ion-icon" [ name "ellipsis-horizontal-outline", attribute "slot" "icon-only" ] [] ]
                 ]
@@ -959,14 +992,14 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                     ]
                 ]
                 [ SH.fromUnstyled <| identicon "1.1em" (Assignment.idString assignment)
-                , span [ css [ fontWeight (Css.int 700), fontSize (rem 0.9), color (rgba 255 255 255 0.9) ] ]
+                , span [ css [ fontWeight (Css.int 700), fontSize (rem 0.9), Css.property "color" "var(--glass-text-primary)" ] ]
                     [ text <| "#" ++ String.fromInt (index + 1) ]
                 ]
             , trackingIndicator
             ]
         , div [ css [ displayFlex, flexDirection column, Css.property "gap" "2px" ] ]
-            [ span [ css [ fontSize (rem 0.75), color (rgba 255 255 255 0.4) ] ] [ text "Assigned" ]
-            , span [ css [ fontSize (rem 0.85), color (rgba 255 255 255 0.8), fontWeight (Css.int 500) ] ]
+            [ span [ css [ fontSize (rem 0.75), Css.property "color" "var(--glass-text-muted)" ] ] [ text "Assigned" ]
+            , span [ css [ fontSize (rem 0.85), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
                 [ text (if assignedTimeText == "" then "just now" else assignedTimeText) ]
             ]
         , div
@@ -974,7 +1007,7 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                 [ displayFlex
                 , alignItems center
                 , justifyContent spaceBetween
-                , borderTop3 (px 1) solid (rgba 255 255 255 0.05)
+                , Css.property "border-top" "1px solid var(--glass-card-border)"
                 , paddingTop (rem 0.6)
                 , marginTop (rem 0.2)
                 ]
@@ -985,19 +1018,19 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                         [ Css.width (rem 1.2)
                         , Css.height (rem 1.2)
                         , borderRadius (pct 50)
-                        , backgroundColor (rgba 255 255 255 0.05)
+                        , Css.property "background-color" "var(--glass-bg)"
                         , displayFlex
                         , alignItems center
                         , justifyContent center
                         , fontSize (rem 0.7)
-                        , color (rgba 255 255 255 0.6)
+                        , Css.property "color" "var(--glass-text-secondary)"
                         ]
                     ]
                     [ text "✓" ]
-                , span [ css [ fontSize (rem 0.8), color (rgba 255 255 255 0.5), fontWeight (Css.int 500) ] ]
+                , span [ css [ fontSize (rem 0.8), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
                     [ text <| String.fromInt (Assignment.completion assignment) ++ "% Done" ]
                 ]
-            , div [ id sheetButtonID, css [ cursor Css.pointer, color (rgba 255 255 255 0.4), hover [ color (rgba 255 255 255 0.8) ] ] ]
+            , div [ id sheetButtonID, css [ cursor Css.pointer, Css.property "color" "var(--glass-text-muted)", hover [ Css.property "color" "var(--glass-text-primary)" ] ] ]
                 [ Ion.Icon.basic "ellipsis-horizontal-outline" |> SH.fromUnstyled ]
             ]
         , presentActionSheet
