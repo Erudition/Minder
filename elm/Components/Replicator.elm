@@ -38,21 +38,34 @@ type alias ReplicatorConfig replica yourFrameDesc =
     { launchTime : Maybe Moment
     , replicaCodec : WrappedOrSkelCodecWithoutSeed replica
     , outPort : String -> Cmd (Msg yourFrameDesc)
+    , storedRon : Maybe String
     }
 
 
 init : ReplicatorConfig replica desc -> ( Replicator replica desc, replica )
-init { launchTime, replicaCodec, outPort } =
+init { launchTime, replicaCodec, outPort, storedRon } =
     let
         ( startNode, initChanges ) =
             Codec.startNodeFromRoot launchTime replicaCodec
 
+        nodeWithStoredData =
+            case storedRon of
+                Just ronString ->
+                    let
+                        { node } =
+                            Node.updateWithRon { node = startNode, warnings = [], newObjects = [] } ronString
+                    in
+                    node
+
+                Nothing ->
+                    startNode
+
         ( startReplica, replicaDecodeWarnings ) =
-            Codec.decodeFromNode replicaCodec startNode Nothing
+            Codec.decodeFromNode replicaCodec nodeWithStoredData Nothing
     in
     -- TODO return warnings?
     ( ReplicatorModel
-        { node = startNode
+        { node = nodeWithStoredData
         , replicaCodec = replicaCodec
         , replica = startReplica
         , outPort = outPort
