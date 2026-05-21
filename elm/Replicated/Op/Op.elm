@@ -146,8 +146,34 @@ create givenReducerID givenObjectID opID givenReference givenPayload =
                     , operationID = opID
                     }
 
+        ( False, Just True, OpReference _ ) ->
+            -- "+", "-": Acknowledgement op, not yet supported
+            Err
+                ("Op " ++ OpID.toString opID
+                    ++ ": Normal op (+) cannot reference a deletion op (-). (Acknowledgement ops are not yet supported.)"
+                )
+
+        ( True, Nothing, ReducerReference givenReducer ) ->
+            -- "-", "$": trying to revert a creation/header op
+            Err
+                ("Op " ++ OpID.toString opID
+                    ++ ": Deletion op (-) cannot target a Reducer reference ("
+                    ++ ReducerID.toString givenReducer
+                    ++ "). Creation/header ops cannot be reverted."
+                )
+
         _ ->
-            Err "Corrupt Op"
+            Err
+                ("Op " ++ OpID.toString opID
+                    ++ ": Unrecognized op pattern (isDeletion="
+                    ++ (if OpID.isDeletion opID then "True" else "False")
+                    ++ ", ref="
+                    ++ (case givenReference of
+                            OpReference refOp -> "Op(" ++ OpID.toString (id refOp) ++ ")"
+                            ReducerReference r -> "Reducer(" ++ ReducerID.toString r ++ ")"
+                       )
+                    ++ ")"
+                )
 
 
 initObject : ReducerID -> OpID -> Op
