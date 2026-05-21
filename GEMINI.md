@@ -90,3 +90,12 @@ The `finish*` functions determine which alias the resulting codec matches:
 - **Ambiguous int**: Font weight levels or grid dimensions must be qualified as `Css.int` to avoid conflicts with `Json.Encode.int` or `Url.Parser.int`.
 - **Gap property**: The standard `gap` layout helper is unsupported in our `elm-css` library. Use `Css.property "gap" "Xrem"` (or similar dimensions) instead.
 - **Scroll snap alignment**: Do not mix `Html.Styled.Attributes.style` directly inside `css [ ... ]` blocks. Standardize scroll-snap configurations using `Css.property "scroll-snap-align" "start"` inside `css` style lists.
+
+## Task List Stepped Deck & Underlay Layout Constraints
+- **Self-Contained Cards with See-Through Holes**: Each assignment card must be completely self-contained in its DOM element representation. The top-left region of the card must remain fully transparent and see-through to display the underlay header underneath.
+- **Normal Flow Header Underlay with Negative Margin**: The assignable's title header row must remain relatively positioned in the normal DOM flow rather than absolutely positioned. The scroll container must be pulled up to overlap the header by assigning the header a matching height and a negative bottom margin (e.g. `margin-bottom: -3.5rem; height: 3.5rem;`).
+- **Interactive Click Pass-Through**: The scroll container must be assigned `pointer-events: none` and the cards `pointer-events: auto` to allow interactive clicks to pass through transparent sections directly to the underlying assignable header title.
+- **Dashed Uniform Add Card**: The "New Assignment" card-button must match standard cards exactly in height (`180px`), margins, and sticky offsets, rendering a dashed outline backing at `top: 3.5rem` to remain visually uniform and aligned in the stack.
+- **Tag Element Formatting**: Display the card's `#Number` followed by the `Identicon` (`[#Number] [Identicon]`) inside the top-right tag backing.
+- **Mathematical Stack Snapping**: Sticky card decks that stack on the left must have their `.absolute-snap-target` offsets mathematically aligned leftwards to match the stacking offset: `left: calc(var(--card-start) + var(--index) * (var(--card-width) + var(--card-gap)) - var(--index) * var(--stack-step))`.
+

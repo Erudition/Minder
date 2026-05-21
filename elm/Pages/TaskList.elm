@@ -554,27 +554,109 @@ view shared model =
                border-color: var(--glass-input-border) !important;
              }
              
+            .stepped-deck-card {
+              position: sticky !important;
+              left: calc(var(--index) * var(--stack-step)) !important;
+              width: var(--card-width) !important;
+              margin: 0.4rem !important;
+              flex-shrink: 0 !important;
+              height: 180px !important;
+              background: transparent !important;
+              border: none !important;
+              box-shadow: none !important;
+              backdrop-filter: none !important;
+              -webkit-backdrop-filter: none !important;
+              pointer-events: auto !important;
+              z-index: calc(10 + var(--index)) !important;
+            }
+            
+            .stepped-deck-card-tag {
+              position: absolute !important;
+              right: 0 !important;
+              top: 0 !important;
+              width: 5.5rem !important;
+              height: 3.5rem !important;
+              background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
+              backdrop-filter: blur(12px) !important;
+              -webkit-backdrop-filter: blur(12px) !important;
+              border: 1px solid var(--glass-card-border) !important;
+              border-top-right-radius: 16px !important;
+              border-bottom-left-radius: 12px !important;
+              z-index: 0 !important;
+              box-shadow: var(--glass-card-shadow) !important;
+            }
+            
+            .stepped-deck-card-body {
+              position: absolute !important;
+              left: 0 !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              top: 3.5rem !important;
+              background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
+              backdrop-filter: blur(12px) !important;
+              -webkit-backdrop-filter: blur(12px) !important;
+              border: 1px solid var(--glass-card-border) !important;
+              border-radius: 16px !important;
+              z-index: 0 !important;
+              box-shadow: var(--glass-card-shadow) !important;
+              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            
+            .stepped-deck-card:hover .stepped-deck-card-body {
+              background: var(--glass-input-focus-bg) !important;
+              border-color: var(--glass-input-border) !important;
+            }
+            
+            .stepped-deck-card:hover .stepped-deck-card-tag {
+              background: var(--glass-input-focus-bg) !important;
+              border-color: var(--glass-input-border) !important;
+            }
+            
+            .stepped-deck-card-new-backing {
+              position: absolute !important;
+              left: 0 !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              top: 3.5rem !important;
+              border: 2px dashed var(--glass-card-border) !important;
+              border-radius: 16px !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              cursor: pointer !important;
+              color: var(--glass-text-muted) !important;
+              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+              z-index: 0 !important;
+            }
+            
+            .stepped-deck-card:hover .stepped-deck-card-new-backing {
+              color: var(--glass-text-primary) !important;
+              border-color: var(--glass-input-border) !important;
+            }
+             
              :root, ion-app {
                --card-width: 14rem !important;
                --card-gap: 0.8rem !important;
                --card-start: 0.4rem !important;
+               --stack-step: 0.8rem !important;
              }
              
              @media (max-width: 600px) {
                :root, ion-app {
                  --card-width: calc(100vw - 2.4rem) !important;
                  --card-gap: 0.8rem !important;
+                 --stack-step: 0.5rem !important;
                }
              }
              
              .absolute-snap-target {
                position: absolute !important;
-               left: calc(var(--card-start) + var(--index) * (var(--card-width) + var(--card-gap))) !important;
+               left: calc(var(--card-start) + var(--index) * (var(--card-width) + var(--card-gap)) - var(--index) * var(--stack-step)) !important;
                width: var(--card-width) !important;
                height: 100% !important;
                pointer-events: none !important;
                visibility: hidden !important;
-               scroll-snap-align: end !important;
+               scroll-snap-align: start !important;
              }
            """ ]
         , div
@@ -801,33 +883,16 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
         addAssignmentCard =
             div
                 [ onClick (AddAssignment assignable)
-                , css
-                    [ Css.property "width" "var(--card-width)"
-                    , margin (rem 0.4)
-                    , flexShrink (Css.int 0)
-                    , borderRadius (px 14)
-                    , Css.property "border" "1.5px dashed var(--glass-border)"
-                    , Css.property "background" "var(--glass-card-bg)"
-                    , displayFlex
-                    , flexDirection column
-                    , alignItems center
-                    , justifyContent center
-                    , cursor Css.pointer
-                    , padding (rem 1.5)
-                    , hover
-                        [ border3 (px 1.5) dashed (rgba 66 140 255 0.4)
-                        , Css.property "background" "rgba(66, 140, 255, 0.03)"
-                        , color (Css.hsl 215 1 0.7)
-                        ]
-                    , Css.property "transition" "all 0.2s ease"
-                    ]
+                , class "stepped-deck-card"
+                , attribute "style" ("--index: " ++ String.fromInt (List.length assignments))
                 ]
-                [ node "ion-icon"
-                    [ name "add-circle-outline"
-                    , css [ fontSize (rem 2.0), marginBottom (rem 0.5), Css.property "color" "var(--glass-text-muted)" ]
+                [ div [ class "stepped-deck-card-new-backing" ]
+                    [ node "ion-icon"
+                        [ name "add-outline"
+                        , css [ fontSize (rem 2.0) ]
+                        ]
+                        []
                     ]
-                    []
-                , span [ css [ fontSize (rem 0.9), fontWeight (Css.int 500) ] ] [ text "New Assignment" ]
                 ]
 
         presentActionSheet =
@@ -853,9 +918,19 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
             , displayFlex
             , flexDirection column
             , Css.property "gap" "0.6rem"
+            , position relative
             ]
         ]
-        [ div [ css [ displayFlex, alignItems center, justifyContent spaceBetween ] ]
+        [ div
+            [ css
+                [ displayFlex
+                , alignItems center
+                , Css.height (rem 3.5)
+                , Css.property "margin-bottom" "-3.5rem"
+                , position relative
+                , zIndex (Css.int 1)
+                ]
+            ]
             [ div
                 [ id sheetButtonID
                 , css
@@ -880,23 +955,6 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                     ]
                     [ text <| String.fromInt (List.length assignments) ]
                 ]
-            , div
-                [ css [ displayFlex, Css.property "gap" "0.4rem" ] ]
-                [ node "ion-button"
-                    [ attribute "fill" "clear"
-                    , attribute "size" "small"
-                    , onClick (AddAssignment assignable)
-                    , css [ margin (px 0), Css.property "--color" "var(--glass-text-muted)" ]
-                    ]
-                    [ node "ion-icon" [ name "add-circle-outline", attribute "slot" "icon-only" ] [] ]
-                , node "ion-button"
-                    [ attribute "fill" "clear"
-                    , attribute "size" "small"
-                    , id sheetButtonID
-                    , css [ margin (px 0), Css.property "--color" "var(--glass-text-muted)" ]
-                    ]
-                    [ node "ion-icon" [ name "ellipsis-horizontal-outline", attribute "slot" "icon-only" ] [] ]
-                ]
             ]
         , div
             [ class "horizontal-scroll-container"
@@ -906,6 +964,8 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 , overflowX scroll
                 , paddingBottom (rem 0.5)
                 , position relative
+                , zIndex (Css.int 2)
+                , Css.property "pointer-events" "none"
                 ]
             , style "scroll-snap-type" "x mandatory"
             , style "scroll-padding" "0.4rem"
@@ -987,76 +1047,100 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                 SH.text ""
     in
     div
-        [ classList [ ( "custom-glass-card", True ), ( "tracking-pulse", isCurrentlyTracked ) ]
-        , css
-            [ position sticky
-            , left (px 0)
-            , Css.property "width" "var(--card-width)"
-            , margin (rem 0.4)
-            , flexShrink (Css.int 0)
-            , padding (rem 1.0)
-            , displayFlex
-            , flexDirection column
-            , Css.property "gap" "0.8rem"
-            ]
+        [ classList [ ( "stepped-deck-card", True ), ( "tracking-pulse", isCurrentlyTracked ) ]
+        , attribute "style" ("--index: " ++ String.fromInt index)
         ]
-        [ div [ css [ displayFlex, alignItems center, justifyContent spaceBetween ] ]
-            [ div
-                [ title assignmentTooltip
-                , css
-                    [ displayFlex
-                    , alignItems center
-                    , Css.property "gap" "0.4rem"
-                    ]
-                ]
-                [ SH.fromUnstyled <| identicon "1.1em" (Assignment.idString assignment)
-                , span [ css [ fontWeight (Css.int 700), fontSize (rem 0.9), Css.property "color" "var(--glass-text-primary)" ] ]
-                    [ text <| "#" ++ String.fromInt (index + 1) ]
-                ]
-            , trackingIndicator
-            ]
-        , div [ css [ displayFlex, flexDirection column, Css.property "gap" "2px" ] ]
-            [ span [ css [ fontSize (rem 0.75), Css.property "color" "var(--glass-text-muted)" ] ] [ text "Assigned" ]
-            , span [ css [ fontSize (rem 0.85), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
-                [ text
-                    (if assignedTimeText == "" then
-                        "just now"
-
-                     else
-                        assignedTimeText
-                    )
-                ]
-            ]
+        [ div [ class "stepped-deck-card-tag" ] []
+        , div [ class "stepped-deck-card-body" ] []
         , div
             [ css
-                [ displayFlex
-                , alignItems center
-                , justifyContent spaceBetween
-                , Css.property "border-top" "1px solid var(--glass-card-border)"
-                , paddingTop (rem 0.6)
-                , marginTop (rem 0.2)
+                [ position relative
+                , zIndex (Css.int 1)
+                , Css.height (pct 100)
+                , displayFlex
+                , flexDirection column
                 ]
             ]
-            [ div [ css [ displayFlex, alignItems center, Css.property "gap" "6px" ] ]
+            [ div
+                [ css
+                    [ displayFlex
+                    , alignItems center
+                    , justifyContent flexEnd
+                    , Css.height (rem 3.5)
+                    , paddingRight (rem 0.8)
+                    , Css.property "pointer-events" "none"
+                    ]
+                ]
                 [ div
-                    [ css
-                        [ Css.width (rem 1.2)
-                        , Css.height (rem 1.2)
-                        , borderRadius (pct 50)
-                        , Css.property "background-color" "var(--glass-bg)"
-                        , displayFlex
+                    [ title assignmentTooltip
+                    , css
+                        [ displayFlex
                         , alignItems center
-                        , justifyContent center
-                        , fontSize (rem 0.7)
-                        , Css.property "color" "var(--glass-text-secondary)"
+                        , Css.property "gap" "0.4rem"
+                        , Css.property "pointer-events" "auto"
                         ]
                     ]
-                    [ text "✓" ]
-                , span [ css [ fontSize (rem 0.8), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
-                    [ text <| String.fromInt (Assignment.completion assignment) ++ "% Done" ]
+                    [ span [ css [ fontWeight (Css.int 700), fontSize (rem 0.9), Css.property "color" "var(--glass-text-primary)" ] ]
+                        [ text <| "#" ++ String.fromInt (index + 1) ]
+                    , SH.fromUnstyled <| identicon "1.1em" (Assignment.idString assignment)
+                    ]
                 ]
-            , div [ id sheetButtonID, css [ cursor Css.pointer, Css.property "color" "var(--glass-text-muted)", hover [ Css.property "color" "var(--glass-text-primary)" ] ] ]
-                [ Ion.Icon.basic "ellipsis-horizontal-outline" |> SH.fromUnstyled ]
+            , div
+                [ css
+                    [ displayFlex
+                    , flexDirection column
+                    , Css.property "gap" "0.6rem"
+                    , padding (rem 0.8)
+                    , paddingTop (rem 0.2)
+                    , flexGrow (Css.int 1)
+                    ]
+                ]
+                [ div [ css [ displayFlex, alignItems center, minHeight (rem 1.0) ] ]
+                    [ trackingIndicator ]
+                , div [ css [ displayFlex, flexDirection column, Css.property "gap" "2px" ] ]
+                    [ span [ css [ fontSize (rem 0.75), Css.property "color" "var(--glass-text-muted)" ] ] [ text "Assigned" ]
+                    , span [ css [ fontSize (rem 0.85), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
+                        [ text
+                            (if assignedTimeText == "" then
+                                "just now"
+
+                             else
+                                assignedTimeText
+                            )
+                        ]
+                    ]
+                , div
+                    [ css
+                        [ displayFlex
+                        , alignItems center
+                        , justifyContent spaceBetween
+                        , Css.property "border-top" "1px solid var(--glass-card-border)"
+                        , paddingTop (rem 0.6)
+                        , marginTop auto
+                        ]
+                    ]
+                    [ div [ css [ displayFlex, alignItems center, Css.property "gap" "6px" ] ]
+                        [ div
+                            [ css
+                                [ Css.width (rem 1.2)
+                                , Css.height (rem 1.2)
+                                , borderRadius (pct 50)
+                                , Css.property "background-color" "var(--glass-bg)"
+                                , displayFlex
+                                , alignItems center
+                                , justifyContent center
+                                , fontSize (rem 0.7)
+                                , Css.property "color" "var(--glass-text-secondary)"
+                                ]
+                            ]
+                            [ text "✓" ]
+                        , span [ css [ fontSize (rem 0.8), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
+                            [ text <| String.fromInt (Assignment.completion assignment) ++ "% Done" ]
+                        ]
+                    , div [ id sheetButtonID, css [ cursor Css.pointer, Css.property "color" "var(--glass-text-muted)", hover [ Css.property "color" "var(--glass-text-primary)" ] ] ]
+                        [ Ion.Icon.basic "ellipsis-horizontal-outline" |> SH.fromUnstyled ]
+                    ]
+                ]
             ]
         , presentActionSheet
         ]
