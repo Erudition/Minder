@@ -562,25 +562,7 @@ view shared model =
                 , Css.property "gap" "1.5rem"
                 ]
             ]
-            [ div [ css [ displayFlex, flexDirection column, Css.property "gap" "0.5rem", marginBottom (rem 0.5) ] ]
-                [ h1
-                    [ css
-                        [ fontSize (rem 2.2)
-                        , fontWeight (Css.int 800)
-                        , margin (px 0)
-                        , letterSpacing (px -1)
-                        , Css.property "background" "linear-gradient(135deg, hsl(215, 100%, 70%), hsl(280, 100%, 70%))"
-                        , Css.property "background-clip" "text"
-                        , Css.property "-webkit-background-clip" "text"
-                        , Css.property "-webkit-text-fill-color" "transparent"
-                        , Css.property "text-shadow" "0 10px 30px rgba(106, 100, 255, 0.15)"
-                        ]
-                    ]
-                    [ text "Minder Space" ]
-                , p [ css [ margin (px 0), fontSize (rem 0.9), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 300) ] ]
-                    [ text "Your timeless spatial task environment" ]
-                ]
-            , lazy viewInput model.newTaskField
+            [ lazy viewInput model.newTaskField
             , Html.Styled.Lazy.lazy4 viewProjects shared.time shared.timeZone model.filters shared.replica
             ]
         ]
