@@ -308,19 +308,25 @@ updateNodeWithChunk chunk old =
                                 Nothing ->
                                     Err (UnknownReference referencedOpID)
 
-        resolveReference : OpenOp -> Maybe Reference
-        resolveReference openTextOp =
+        resolveReference : AnyDict OpID.OpIDString OpID Op -> OpenOp -> Maybe Reference
+        resolveReference closedSoFar openTextOp =
             case openTextOp.reference of
                 RonParser.UnresolvedReducerReference reducer ->
                     Just (ReducerReference reducer)
 
                 RonParser.UnresolvedOpReference opIDToFind ->
-                    AnyDict.get opIDToFind old.node.ops
-                        |> Maybe.map OpReference
+                    -- Check ops closed earlier in this same chunk first, then the node
+                    case AnyDict.get opIDToFind closedSoFar of
+                        Just foundOp ->
+                            Just (OpReference foundOp)
 
-        closeOp : ObjectHeader -> OpenOp -> Maybe Op
-        closeOp deducedObject openOp =
-            case resolveReference openOp of
+                        Nothing ->
+                            AnyDict.get opIDToFind old.node.ops
+                                |> Maybe.map OpReference
+
+        closeOp : AnyDict OpID.OpIDString OpID Op -> ObjectHeader -> OpenOp -> Maybe Op
+        closeOp closedSoFar deducedObject openOp =
+            case resolveReference closedSoFar openOp of
                 Just foundRef ->
                     case
                         Op.create
@@ -339,11 +345,27 @@ updateNodeWithChunk chunk old =
                 Nothing ->
                     Nothing
 
+        closeOpsSequentially : ObjectHeader -> List OpenOp -> List Op
+        closeOpsSequentially objectHeader openOps =
+            let
+                step openOp ( closedSoFar, acc ) =
+                    case closeOp closedSoFar objectHeader openOp of
+                        Just closedOp ->
+                            ( AnyDict.insert (Op.id closedOp) closedOp closedSoFar
+                            , acc ++ [ closedOp ]
+                            )
+
+                        Nothing ->
+                            ( closedSoFar, acc )
+            in
+            List.foldl step ( AnyDict.empty OpID.toString, [] ) openOps
+                |> Tuple.second
+
         closedOpListResult =
             case deduceChunkReducerAndObject of
                 Ok foundObject ->
                     -- TODO propogate errors instead of Nothing
-                    Ok <| List.filterMap (closeOp foundObject) chunk.ops
+                    Ok <| closeOpsSequentially foundObject chunk.ops
 
                 Err newErrs ->
                     Err newErrs
