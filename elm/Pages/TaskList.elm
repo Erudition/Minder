@@ -455,22 +455,100 @@ subscriptions model =
 
 view : Shared.Model -> Model -> View Msg
 view shared model =
-    -- let
-    --     -- modalIfOpen =
-    --                     --     case editing of
-    --                     --         Just (EditingProjectModal assignment) ->
-    --                     --             [ viewTaskEditModal profile env assignment ]
-    --                     --         _ ->
-    --                     --             []
-    -- in
     { title = "Task List"
     , body =
-        [ section []
-            [ lazy viewInput model.newTaskField
+        [ node "style" [] [ text """
+            @keyframes pulseGlow {
+              from {
+                box-shadow: 0 0 5px rgba(66, 140, 255, 0.4), inset 0 0 5px rgba(66, 140, 255, 0.2);
+                border-color: rgba(66, 140, 255, 0.6);
+              }
+              50% {
+                box-shadow: 0 0 20px rgba(66, 140, 255, 0.8), inset 0 0 10px rgba(66, 140, 255, 0.4);
+                border-color: rgba(66, 140, 255, 1);
+              }
+              to {
+                box-shadow: 0 0 5px rgba(66, 140, 255, 0.4), inset 0 0 5px rgba(66, 140, 255, 0.2);
+                border-color: rgba(66, 140, 255, 0.6);
+              }
+            }
+            .tracking-pulse {
+              animation: pulseGlow 2.5s infinite ease-in-out !important;
+              border: 1px solid rgba(66, 140, 255, 0.8) !important;
+            }
+            .glass-input::part(native) {
+              background: rgba(255, 255, 255, 0.03) !important;
+              border: 1px solid rgba(255, 255, 255, 0.08) !important;
+              border-radius: 12px !important;
+              padding: 12px 20px !important;
+              color: #fff !important;
+              font-family: inherit !important;
+              transition: all 0.3s ease !important;
+            }
+            .glass-input::part(native):focus-within {
+              border-color: rgba(66, 140, 255, 0.5) !important;
+              box-shadow: 0 0 15px rgba(66, 140, 255, 0.3) !important;
+              background: rgba(255, 255, 255, 0.06) !important;
+            }
+            .horizontal-scroll-container::-webkit-scrollbar {
+              height: 6px;
+            }
+            .horizontal-scroll-container::-webkit-scrollbar-track {
+              background: rgba(255, 255, 255, 0.02);
+              border-radius: 3px;
+            }
+            .horizontal-scroll-container::-webkit-scrollbar-thumb {
+              background: rgba(255, 255, 255, 0.15);
+              border-radius: 3px;
+            }
+            .horizontal-scroll-container::-webkit-scrollbar-thumb:hover {
+              background: rgba(255, 255, 255, 0.25);
+            }
+            .custom-glass-card {
+              background: rgba(255, 255, 255, 0.02) !important;
+              backdrop-filter: blur(12px) !important;
+              -webkit-backdrop-filter: blur(12px) !important;
+              border: 1px solid rgba(255, 255, 255, 0.05) !important;
+              border-radius: 16px !important;
+              box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            .custom-glass-card:hover {
+              background: rgba(255, 255, 255, 0.04) !important;
+              border-color: rgba(255, 255, 255, 0.08) !important;
+              box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4) !important;
+            }
+          """ ]
+        , div
+            [ css
+                [ padding (rem 1.5)
+                , maxWidth (px 800)
+                , margin2 (px 0) auto
+                , displayFlex
+                , flexDirection column
+                , Css.property "gap" "1.5rem"
+                ]
+            ]
+            [ div [ css [ displayFlex, flexDirection column, Css.property "gap" "0.5rem", marginBottom (rem 0.5) ] ]
+                [ h1
+                    [ css
+                        [ fontSize (rem 2.2)
+                        , fontWeight (Css.int 800)
+                        , margin (px 0)
+                        , letterSpacing (px -1)
+                        , Css.property "background" "linear-gradient(135deg, hsl(215, 100%, 70%), hsl(280, 100%, 70%))"
+                        , Css.property "background-clip" "text"
+                        , Css.property "-webkit-background-clip" "text"
+                        , Css.property "-webkit-text-fill-color" "transparent"
+                        , Css.property "text-shadow" "0 10px 30px rgba(106, 100, 255, 0.15)"
+                        ]
+                    ]
+                    [ text "Minder Space" ]
+                , p [ css [ margin (px 0), fontSize (rem 0.9), color (rgba 255 255 255 0.5), fontWeight (Css.int 300) ] ]
+                    [ text "Your timeless spatial task environment" ]
+                ]
+            , lazy viewInput model.newTaskField
             , Html.Styled.Lazy.lazy4 viewProjects shared.time shared.timeZone model.filters shared.replica
-
-            -- , Html.Styled.Lazy.lazy5 viewTasks env.launchTime env.timeZone activeFilter editing profile
-            -- , Html.Styled.Lazy.lazy4 viewControls filters env.launchTime env.timeZone profile
             ]
         ]
     }
@@ -479,7 +557,7 @@ view shared model =
 viewInput : String -> Html Msg
 viewInput newEntryFieldContents =
     node "ion-input"
-        [ class "new-task"
+        [ class "glass-input"
         , placeholder "Type new project name here..."
         , autofocus True
         , value newEntryFieldContents
@@ -487,6 +565,14 @@ viewInput newEntryFieldContents =
         , onInput UpdateNewEntryField
         , SHE.onEnter AddProject
         , attribute "data-flip-key" ("task-named-" ++ String.Normalize.slug newEntryFieldContents)
+        , css
+            [ fontSize (rem 1.1)
+            , fontFamily inherit
+            , Css.property "--padding-start" "0"
+            , Css.property "--padding-end" "0"
+            , Css.property "--background" "transparent"
+            , Css.property "--color" "#fff"
+            ]
         ]
         []
 
@@ -505,11 +591,15 @@ viewProjects time timeZone filters replica =
 
         items =
             List.map (viewKeyedProject replica ( time, timeZone ) trackedTaskMaybe) projectList
-
-        header =
-            node "ion-list-header" [] [ node "ion-label" [] [ text "Tasks" ] ]
     in
-    Keyed.node "ion-list" [ SHA.attribute "lines" "full" ] (( "tasks-header", header ) :: items)
+    Keyed.node "div"
+        [ css
+            [ displayFlex
+            , flexDirection column
+            , Css.property "gap" "1.5rem"
+            ]
+        ]
+        items
 
 
 viewKeyedProject : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Project -> ( String, Html Msg )
@@ -523,10 +613,15 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
         entryContents =
             case Project.children project |> RepList.listValues of
                 [] ->
-                    node "ion-button" [ attribute "fill" "clear", onClick (AddAssignable project) ] [ node "ion-icon" [ name "add-circle-outline" ] [], text "Add first assignable" ]
+                    node "ion-button"
+                        [ attribute "fill" "clear"
+                        , onClick (AddAssignable project)
+                        , css [ Css.property "--color" "rgba(255,255,255,0.6)" ]
+                        ]
+                        [ node "ion-icon" [ name "add-circle-outline", attribute "slot" "start" ] [], text "Add first assignable" ]
 
                 someChildren ->
-                    div [] <| List.map viewProjectChild someChildren
+                    div [ css [ displayFlex, flexDirection column, Css.property "gap" "0.8rem" ] ] <| List.map viewProjectChild someChildren
 
         viewProjectChild projectChild =
             case projectChild of
@@ -561,40 +656,75 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                 Just other ->
                     other
     in
-    node "ion-item"
-        [ classList []
+    div
+        [ class "custom-glass-card"
         , attribute "data-flip-key" ("project-" ++ Project.idString project)
+        , css
+            [ padding (rem 1.2)
+            , position relative
+            ]
         ]
-        [ -- node "ion-thumbnail"
-          -- [ class "project-image"
-          -- , attribute "slot" "start"
-          -- , css
-          --     [ backgroundColor <| Css.hsl 0 0 0.5
-          --     , Css.height (pct 100)
-          --     ]
-          -- ]
-          -- [ --img [ src "https://ionicframework.com/docs/img/demos/thumbnail.svg" ] []
-          --   SH.fromUnstyled <| identicon "100%" (RepList.handleString rootEntryItem)
-          -- ]
-          div [ css [ Css.width (pct 100) ] ]
-            [ node "ion-label"
-                [ id sheetButtonID, css [ cursor Css.pointer ] ]
-                [ text (projectDisplayTitle ++ " ➤ ") -- Project title if assignable is deeper
+        [ div [ css [ Css.width (pct 100), displayFlex, flexDirection column, Css.property "gap" "1rem" ] ]
+            [ div
+                [ css
+                    [ displayFlex
+                    , alignItems center
+                    , justifyContent spaceBetween
+                    , borderBottom3 (px 1) solid (rgba 255 255 255 0.05)
+                    , paddingBottom (rem 0.6)
+                    ]
+                ]
+                [ div
+                    [ id sheetButtonID
+                    , css
+                        [ cursor Css.pointer
+                        , displayFlex
+                        , alignItems center
+                        , Css.property "gap" "0.5rem"
+                        , hover [ opacity (num 0.8) ]
+                        ]
+                    ]
+                    [ div
+                        [ css
+                            [ Css.width (rem 0.4)
+                            , Css.height (rem 1.2)
+                            , borderRadius (px 2)
+                            , backgroundColor (Css.hsl 215 1 0.6)
+                            , boxShadow4 (px 0) (px 0) (px 8) (rgba 42 140 255 0.5)
+                            ]
+                        ]
+                        []
+                    , span
+                        [ css
+                            [ fontSize (rem 1.1)
+                            , fontWeight (Css.int 700)
+                            , color (rgba 255 255 255 0.95)
+                            , letterSpacing (px -0.2)
+                            ]
+                        ]
+                        [ text projectDisplayTitle ]
+                    , span
+                        [ css
+                            [ fontSize (rem 0.8)
+                            , color (rgba 255 255 255 0.3)
+                            ]
+                        ]
+                        [ text "➤" ]
+                    ]
+                , div
+                    [ id sheetButtonID
+                    , css
+                        [ cursor Css.pointer
+                        , color (rgba 255 255 255 0.4)
+                        , hover [ color (rgba 255 255 255 0.8) ]
+                        ]
+                    ]
+                    [ Ion.Icon.basic "ellipsis-horizontal-outline" |> SH.fromUnstyled ]
                 ]
             , entryContents
-
-            --, viewMenuButton sheetButtonID
             ]
         , presentActionSheet
         ]
-
-
-
--- , node "ion-item-options"
---     []
---     [ node "ion-item-option" [ attribute "color" "danger" ] [ text "delete" ]
---     , node "ion-item-option" [ attribute "color" "primary", onClick (AddAssignable project) ] [ text "add assignable" ]
---     ]
 
 
 viewAssignable : Profile -> ( Moment, HumanMoment.Zone ) -> Maybe AssignmentID -> Assignable -> Html Msg
@@ -608,43 +738,50 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 other ->
                     other
 
-        project =
-            Assignable.parent assignable
-
-        viewSubAssignables =
-            List.map viewSubAssignable (RepList.listValues (Assignable.children assignable))
-
-        viewSubAssignable subAssignableNested =
-            case subAssignableNested of
-                SubAssignableSkel.ActionIsHere actionClassReg ->
-                    text (Reg.latest actionClassReg).title.get
-
-                SubAssignableSkel.ActionIsDeeper containerOfActions ->
-                    text (Debug.toString containerOfActions)
-
         assignments =
             Assignment.fromAssignable Assignment.AllSaved assignable
 
         viewAssignments =
             List.indexedMap (viewAssignment ( time, timeZone ) trackedTaskMaybe) assignments
+                ++ [ addAssignmentCard ]
 
-        -- ++ [ addAssignment ]
-        addAssignment =
-            node "ion-card"
-                [ css [ minWidth (pct 60), maxWidth (pct 90) ] ]
-                [ node "ion-card-header"
-                    []
-                    [ node "ion-card-subtitle" [] [ text "Add another assignment" ]
+        addAssignmentCard =
+            div
+                [ onClick (AddAssignment assignable)
+                , css
+                    [ Css.width (vw 80)
+                    , minWidth (rem 14)
+                    , maxWidth (vw 80)
+                    , margin (rem 0.4)
+                    , borderRadius (px 14)
+                    , border3 (px 1.5) dashed (rgba 255 255 255 0.1)
+                    , Css.property "background" "rgba(255, 255, 255, 0.01)"
+                    , displayFlex
+                    , flexDirection column
+                    , alignItems center
+                    , justifyContent center
+                    , cursor Css.pointer
+                    , padding (rem 1.5)
+                    , hover
+                        [ border3 (px 1.5) dashed (rgba 66 140 255 0.4)
+                        , Css.property "background" "rgba(66, 140, 255, 0.03)"
+                        , color (Css.hsl 215 1 0.7)
+                        ]
+                    , Css.property "transition" "all 0.2s ease"
                     ]
-                , node "ion-card-content"
+                , style "scroll-snap-align" "start"
+                ]
+                [ node "ion-icon"
+                    [ name "add-circle-outline"
+                    , css [ fontSize (rem 2.0), marginBottom (rem 0.5), color (rgba 255 255 255 0.3) ]
+                    ]
                     []
-                    []
-                , node "ion-button" [ attribute "fill" "clear", onClick (AddAssignment assignable) ] [ node "ion-icon" [ name "add-circle-outline" ] [], text "assign" ]
+                , span [ css [ fontSize (rem 0.9), fontWeight (Css.int 500) ] ] [ text "New Assignment" ]
                 ]
 
         presentActionSheet =
             ActionSheet.actionSheet
-                [ ActionSheet.header ("Assignable:" ++ assignableDisplayTitle)
+                [ ActionSheet.header ("Assignable: " ++ assignableDisplayTitle)
                 , ActionSheet.trigger sheetButtonID
                 ]
                 [ ActionSheet.buttonWithIcon "Rename" "create-outline" (PromptRename assignableDisplayTitle (\t -> Assignable.setTitle t assignable))
@@ -655,29 +792,75 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
         sheetButtonID =
             "actionsheet-trigger-for-assignable-" ++ Assignable.idString assignable
     in
-    node "ion-item"
-        [ classList []
-        , attribute "data-flip-key" ("assignable-" ++ Assignable.idString assignable)
-        ]
-        [ div [ css [ Css.width (pct 100) ] ]
-            [ node "ion-label"
-                [ id sheetButtonID, css [ cursor Css.pointer ] ]
-                [ SH.fromUnstyled <| identicon "1em" (Assignable.idString assignable)
-                , span [ css [ fontWeight bold ] ] [ text (Assignable.title assignable) ]
-                , SH.small [ css [ color <| Css.rgb 100 100 100 ] ] [ text <| " (×" ++ String.fromInt (List.length assignments) ++ ")" ]
-                ]
-            , div [ css [ displayFlex, flexDirection row, overflowX scroll, padding (rem 0.5) ], style "scroll-snap-type" "x mandatory", style "scroll-padding" "1rem" ] viewAssignments
+    div
+        [ attribute "data-flip-key" ("assignable-" ++ Assignable.idString assignable)
+        , css
+            [ Css.property "background" "rgba(255, 255, 255, 0.01)"
+            , border3 (px 1) solid (rgba 255 255 255 0.03)
+            , borderRadius (px 14)
+            , padding (rem 0.8)
+            , displayFlex
+            , flexDirection column
+            , Css.property "gap" "0.6rem"
             ]
+        ]
+        [ div [ css [ displayFlex, alignItems center, justifyContent spaceBetween ] ]
+            [ div
+                [ id sheetButtonID
+                , css
+                    [ cursor Css.pointer
+                    , displayFlex
+                    , alignItems center
+                    , Css.property "gap" "0.5rem"
+                    , hover [ opacity (num 0.8) ]
+                    ]
+                ]
+                [ SH.fromUnstyled <| identicon "1.2em" (Assignable.idString assignable)
+                , span [ css [ fontWeight (Css.int 600), fontSize (rem 0.95), color (rgba 255 255 255 0.85) ] ] [ text assignableDisplayTitle ]
+                , span
+                    [ css
+                        [ fontSize (rem 0.7)
+                        , padding2 (px 2) (px 6)
+                        , borderRadius (px 10)
+                        , backgroundColor (rgba 255 255 255 0.05)
+                        , color (rgba 255 255 255 0.5)
+                        , fontWeight (Css.int 500)
+                        ]
+                    ]
+                    [ text <| String.fromInt (List.length assignments) ]
+                ]
+            , div
+                [ css [ displayFlex, Css.property "gap" "0.4rem" ] ]
+                [ node "ion-button"
+                    [ attribute "fill" "clear"
+                    , attribute "size" "small"
+                    , onClick (AddAssignment assignable)
+                    , css [ margin (px 0), Css.property "--color" "rgba(255, 255, 255, 0.4)" ]
+                    ]
+                    [ node "ion-icon" [ name "add-circle-outline", attribute "slot" "icon-only" ] [] ]
+                , node "ion-button"
+                    [ attribute "fill" "clear"
+                    , attribute "size" "small"
+                    , id sheetButtonID
+                    , css [ margin (px 0), Css.property "--color" "rgba(255, 255, 255, 0.4)" ]
+                    ]
+                    [ node "ion-icon" [ name "ellipsis-horizontal-outline", attribute "slot" "icon-only" ] [] ]
+                ]
+            ]
+        , div
+            [ class "horizontal-scroll-container"
+            , css
+                [ displayFlex
+                , flexDirection row
+                , overflowX scroll
+                , paddingBottom (rem 0.5)
+                ]
+            , style "scroll-snap-type" "x mandatory"
+            , style "scroll-padding" "0.4rem"
+            ]
+            viewAssignments
         , presentActionSheet
         ]
-
-
-
--- div
---     [ class "assignments" ]
---     [ node "ion-card-title" [ onDoubleClick (PromptRename (Assignable.title assignable) (\t -> Assignable.setTitle t assignable)) ] (viewAssignableTitle ++ viewSubAssignables)
---     , div [ css [ displayFlex, overflowX scroll ] ] viewAssignments
---     ]
 
 
 viewAssignment : ( Moment, Zone ) -> Maybe AssignmentID -> Int -> Assignment -> Html Msg
@@ -692,7 +875,7 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                     ""
 
                 Just assignedAt ->
-                    ", " ++ HumanMoment.describeGapVsNowSimple timeZone time assignedAt
+                    HumanMoment.describeGapVsNowSimple timeZone time assignedAt
 
         sheetButtonID =
             "actionsheet-trigger-for-assignment-" ++ Assignment.idString assignment
@@ -719,17 +902,103 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                          ]
                             ++ List.map (\( k, v ) -> Just ("instance " ++ k ++ ": " ++ v)) (RepDict.list (Assignment.extras assignment))
                         )
+
+        isCurrentlyTracked =
+            Maybe.map ((==) (Assignment.id assignment)) trackedTaskMaybe == Just True
+
+        trackingIndicator =
+            if isCurrentlyTracked then
+                span
+                    [ css
+                        [ fontSize (rem 0.7)
+                        , color (Css.hsl 140 0.8 0.6)
+                        , fontWeight (Css.int 700)
+                        , displayFlex
+                        , alignItems center
+                        , Css.property "gap" "4px"
+                        ]
+                    ]
+                    [ div
+                        [ css
+                            [ Css.width (px 6)
+                            , Css.height (px 6)
+                            , borderRadius (pct 50)
+                            , backgroundColor (Css.hsl 140 0.8 0.5)
+                            , boxShadow4 (px 0) (px 0) (px 6) (rgba 47 223 117 0.8)
+                            ]
+                        ]
+                        []
+                    , text "TRACKING"
+                    ]
+            else
+                SH.text ""
     in
-    node "ion-card"
-        [ css [ Css.width (vw 90), minWidth (rem 10), maxWidth (vw 90), position sticky, left (px 0) ], style "scroll-snap-align" "start" ]
-        [ node "ion-card-content"
-            []
-            [ node "ion-note"
-                [ title assignmentTooltip, id sheetButtonID, css [ cursor Css.pointer ] ]
-                [ SH.fromUnstyled <| identicon "1em" (Assignment.idString assignment)
-                , text <| "#" ++ String.fromInt (index + 1) ++ assignedTimeText
+    div
+        [ classList [ ( "custom-glass-card", True ), ( "tracking-pulse", isCurrentlyTracked ) ]
+        , css
+            [ Css.width (vw 80)
+            , minWidth (rem 14)
+            , maxWidth (vw 80)
+            , margin (rem 0.4)
+            , position sticky
+            , left (px 0)
+            , padding (rem 1.0)
+            , displayFlex
+            , flexDirection column
+            , Css.property "gap" "0.8rem"
+            , Css.property "scroll-snap-align" "start"
+            ]
+        ]
+        [ div [ css [ displayFlex, alignItems center, justifyContent spaceBetween ] ]
+            [ div
+                [ title assignmentTooltip
+                , css
+                    [ displayFlex
+                    , alignItems center
+                    , Css.property "gap" "0.4rem"
+                    ]
                 ]
-            , node "ion-list" [] [ node "ion-item" [] [ text <| "action 1" ] ]
+                [ SH.fromUnstyled <| identicon "1.1em" (Assignment.idString assignment)
+                , span [ css [ fontWeight (Css.int 700), fontSize (rem 0.9), color (rgba 255 255 255 0.9) ] ]
+                    [ text <| "#" ++ String.fromInt (index + 1) ]
+                ]
+            , trackingIndicator
+            ]
+        , div [ css [ displayFlex, flexDirection column, Css.property "gap" "2px" ] ]
+            [ span [ css [ fontSize (rem 0.75), color (rgba 255 255 255 0.4) ] ] [ text "Assigned" ]
+            , span [ css [ fontSize (rem 0.85), color (rgba 255 255 255 0.8), fontWeight (Css.int 500) ] ]
+                [ text (if assignedTimeText == "" then "just now" else assignedTimeText) ]
+            ]
+        , div
+            [ css
+                [ displayFlex
+                , alignItems center
+                , justifyContent spaceBetween
+                , borderTop3 (px 1) solid (rgba 255 255 255 0.05)
+                , paddingTop (rem 0.6)
+                , marginTop (rem 0.2)
+                ]
+            ]
+            [ div [ css [ displayFlex, alignItems center, Css.property "gap" "6px" ] ]
+                [ div
+                    [ css
+                        [ Css.width (rem 1.2)
+                        , Css.height (rem 1.2)
+                        , borderRadius (pct 50)
+                        , backgroundColor (rgba 255 255 255 0.05)
+                        , displayFlex
+                        , alignItems center
+                        , justifyContent center
+                        , fontSize (rem 0.7)
+                        , color (rgba 255 255 255 0.6)
+                        ]
+                    ]
+                    [ text "✓" ]
+                , span [ css [ fontSize (rem 0.8), color (rgba 255 255 255 0.5), fontWeight (Css.int 500) ] ]
+                    [ text <| String.fromInt (Assignment.completion assignment) ++ "% Done" ]
+                ]
+            , div [ id sheetButtonID, css [ cursor Css.pointer, color (rgba 255 255 255 0.4), hover [ color (rgba 255 255 255 0.8) ] ] ]
+                [ Ion.Icon.basic "ellipsis-horizontal-outline" |> SH.fromUnstyled ]
             ]
         , presentActionSheet
         ]
