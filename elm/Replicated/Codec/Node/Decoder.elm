@@ -180,12 +180,11 @@ mapTry fromAtoBResult fromBtoA nodeDecoderA =
 
 lazy : (() -> NodeDecoder a) -> NodeDecoder a
 lazy unitToNodeDecoder =
-    let
-        runNow =
-            unitToNodeDecoder ()
-    in
     \input ->
-        -- TODO is this lazy
+        let
+            runNow =
+                unitToNodeDecoder ()
+        in
         { decoder = RonPayloadDecoder.lazy (\() -> (runNow input).decoder)
         , ancestors = (runNow input).ancestors
         }
