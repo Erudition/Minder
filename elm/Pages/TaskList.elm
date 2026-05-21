@@ -565,7 +565,7 @@ view shared model =
                border: 1px solid var(--glass-card-border) !important;
                border-radius: 16px !important;
                overflow: hidden !important;
-               pointer-events: auto !important;
+               pointer-events: none !important;
                z-index: calc(10 + var(--index)) !important;
              }
              
@@ -575,9 +575,8 @@ view shared model =
             
             .stepped-deck-glass {
               background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
-
-
               transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+              pointer-events: auto !important;
             }
             
             .stepped-deck-card-tag {
@@ -607,30 +606,29 @@ view shared model =
             }
             
             .stepped-deck-card-new {
-               border: none !important;
+               background: transparent !important;
+               border: 2px dashed var(--glass-card-border) !important;
+               border-radius: 16px !important;
                box-shadow: none !important;
                width: var(--peek) !important;
+               height: auto !important;
+               align-self: stretch !important;
+               display: flex !important;
+               align-items: center !important;
+               justify-content: center !important;
+               cursor: pointer !important;
+               color: var(--glass-text-muted) !important;
+               transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+               pointer-events: auto !important;
+             }
+             
+             .stepped-deck-card-new:hover {
+               color: var(--glass-text-primary) !important;
+               border-color: var(--glass-input-border) !important;
              }
             
             .horizontal-scroll-container > :only-child {
               margin-left: auto !important;
-            }
-            
-            .stepped-deck-card-new-backing {
-              position: absolute !important;
-              left: 0 !important;
-              right: 0 !important;
-              bottom: 0 !important;
-              top: 3.5rem !important;
-              border: 2px dashed var(--glass-card-border) !important;
-              border-radius: 16px !important;
-              display: flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              cursor: pointer !important;
-              color: var(--glass-text-muted) !important;
-              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-              z-index: 0 !important;
             }
             
             .stepped-deck-card-disabled-hover-3 {
@@ -647,7 +645,7 @@ view shared model =
              }
              
              .horizontal-scroll-container {
-               --stack-step: calc(1rem / var(--total-count, 1)) !important;
+               --stack-step: calc(0.8rem / var(--total-count, 1)) !important;
                --card-start: 1.2rem !important;
                --card-width: calc(100% - var(--card-start) - var(--card-gap) - var(--peek)) !important;
                padding-left: 0 !important;
@@ -656,6 +654,7 @@ view shared model =
                scroll-snap-type: x mandatory !important;
                margin-left: calc(0px - var(--card-start)) !important;
                width: calc(100% + var(--card-start)) !important;
+               min-height: calc(3.5rem + 0.8rem) !important;
              }
              
              @media (max-width: 600px) {
@@ -912,13 +911,11 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 , class "stepped-deck-card stepped-deck-card-new"
                 , attribute "style" ("--index: " ++ String.fromInt (List.length assignments))
                 ]
-                [ div [ class "stepped-deck-card-new-backing" ]
-                    [ node "ion-icon"
-                        [ name "add-outline"
-                        , css [ fontSize (rem 2.0) ]
-                        ]
-                        []
+                [ node "ion-icon"
+                    [ name "add-outline"
+                    , css [ fontSize (rem 2.0) ]
                     ]
+                    []
                 ]
 
         presentActionSheet =
@@ -943,40 +940,35 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
             ]
         ]
         [ div
-            [ css
-                [ Css.height (px 0)
-                , overflow visible
+            [ id sheetButtonID
+            , css
+                [ cursor Css.pointer
+                , displayFlex
+                , alignItems center
+                , Css.property "gap" "0.5rem"
+                , hover [ opacity (num 0.8) ]
+                , paddingLeft (rem 1.2)
+                , paddingTop (rem 0.8)
+                , Css.height (rem 3.5)
+                , marginBottom (rem -3.5)
                 , position relative
                 , zIndex (Css.int 1)
+                , Css.property "pointer-events" "auto"
                 ]
             ]
-            [ div
-                [ id sheetButtonID
-                , css
-                    [ cursor Css.pointer
-                    , displayFlex
-                    , alignItems center
-                    , Css.property "gap" "0.5rem"
-                    , hover [ opacity (num 0.8) ]
-                    , paddingLeft (rem 1.2)
-                    , paddingTop (rem 0.8)
-                    , Css.height (rem 3.5)
+            [ SH.fromUnstyled <| identicon "1.2em" (Assignable.idString assignable)
+            , span [ css [ fontWeight (Css.int 600), fontSize (rem 0.95), Css.property "color" "var(--glass-text-primary)" ] ] [ text assignableDisplayTitle ]
+            , span
+                [ css
+                    [ fontSize (rem 0.7)
+                    , padding2 (px 2) (px 6)
+                    , borderRadius (px 10)
+                    , Css.property "background-color" "var(--glass-bg)"
+                    , Css.property "color" "var(--glass-text-secondary)"
+                    , fontWeight (Css.int 500)
                     ]
                 ]
-                [ SH.fromUnstyled <| identicon "1.2em" (Assignable.idString assignable)
-                , span [ css [ fontWeight (Css.int 600), fontSize (rem 0.95), Css.property "color" "var(--glass-text-primary)" ] ] [ text assignableDisplayTitle ]
-                , span
-                    [ css
-                        [ fontSize (rem 0.7)
-                        , padding2 (px 2) (px 6)
-                        , borderRadius (px 10)
-                        , Css.property "background-color" "var(--glass-bg)"
-                        , Css.property "color" "var(--glass-text-secondary)"
-                        , fontWeight (Css.int 500)
-                        ]
-                    ]
-                    [ text <| String.fromInt (List.length assignments) ]
-                ]
+                [ text <| String.fromInt (List.length assignments) ]
             ]
         , div
             [ class "horizontal-scroll-container"
@@ -1080,6 +1072,7 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                 , Css.height (pct 100)
                 , displayFlex
                 , flexDirection column
+                , Css.property "pointer-events" "none"
                 ]
             ]
             [ div
@@ -1114,6 +1107,7 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                     , padding (rem 0.8)
                     , paddingTop (rem 0.2)
                     , flexGrow (Css.int 1)
+                    , Css.property "pointer-events" "auto"
                     ]
                 ]
                 [ div [ css [ displayFlex, alignItems center, minHeight (rem 1.0) ] ]
