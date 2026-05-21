@@ -775,11 +775,10 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                     other
     in
     div
-        [ class "custom-glass-card"
-        , attribute "data-flip-key" ("project-" ++ Project.idString project)
+        [ attribute "data-flip-key" ("project-" ++ Project.idString project)
         , css
-            [ padding (rem 1.2)
-            , position relative
+            [ position relative
+            , padding2 (rem 0.5) (px 0)
             ]
         ]
         [ div [ css [ Css.width (pct 100), displayFlex, flexDirection column, Css.property "gap" "1rem" ] ]
