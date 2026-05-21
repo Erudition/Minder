@@ -556,7 +556,7 @@ view shared model =
              
             .stepped-deck-card {
               position: sticky !important;
-              left: calc((var(--index) - var(--total-count)) * var(--stack-step)) !important;
+              left: calc(var(--card-start) + (var(--index) - var(--total-count)) * var(--stack-step)) !important;
               width: var(--card-width) !important;
               margin: 0.4rem !important;
               flex-shrink: 0 !important;
@@ -643,6 +643,8 @@ view shared model =
                padding-right: 1.2rem !important;
                scroll-padding: 1.2rem !important;
                scroll-snap-type: x mandatory !important;
+               margin-left: calc(0px - var(--card-start)) !important;
+               width: calc(100% + var(--card-start)) !important;
              }
              
              @media (max-width: 600px) {
