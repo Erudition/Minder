@@ -39,8 +39,8 @@ type NestedSubAssignableOrSingleAction
     | ActionIsDeeper (Reg SubAssignableSkel)
 
 
-nestedOrActionCodec : NullCodec NestedSubAssignableOrSingleAction
-nestedOrActionCodec =
+nestedOrActionCodec : () -> NullCodec NestedSubAssignableOrSingleAction
+nestedOrActionCodec () =
     Codec.customType
         (\singleton nested value ->
             case value of
@@ -70,5 +70,5 @@ codec : WrappedCodec (Reg SubAssignableSkel)
 codec =
     Codec.record SubAssignableSkel
         |> Codec.fieldRWM ( 1, "title" ) .title Codec.string
-        |> Codec.fieldList ( 2, "children" ) .children nestedOrActionCodec
+        |> Codec.fieldList ( 2, "children" ) .children (nestedOrActionCodec ())
         |> Codec.finishRegister
