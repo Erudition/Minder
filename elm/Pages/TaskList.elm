@@ -562,8 +562,10 @@ view shared model =
               flex-shrink: 0 !important;
               height: 180px !important;
               background: transparent !important;
-              border: none !important;
-              box-shadow: none !important;
+              border: 1px solid var(--glass-card-border) !important;
+              border-radius: 16px !important;
+              box-shadow: var(--glass-card-shadow) !important;
+              overflow: hidden !important;
               pointer-events: auto !important;
               z-index: calc(10 + var(--index)) !important;
             }
@@ -577,17 +579,22 @@ view shared model =
               background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
               backdrop-filter: blur(12px) !important;
               -webkit-backdrop-filter: blur(12px) !important;
-              border: 1px solid var(--glass-card-border) !important;
-              border-radius: 16px !important;
-              box-shadow: var(--glass-card-shadow) !important;
+              border: none !important;
               z-index: 0 !important;
-              overflow: hidden !important;
               transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
             
             .stepped-deck-card:hover .stepped-deck-card-body {
               background: var(--glass-input-focus-bg) !important;
+            }
+            
+            .stepped-deck-card:hover {
               border-color: var(--glass-input-border) !important;
+            }
+            
+            .stepped-deck-card-new {
+              border: none !important;
+              box-shadow: none !important;
             }
             
             .stepped-deck-card-new-backing {
