@@ -297,7 +297,8 @@ updateNodeWithChunk chunk old =
                                     Ok foundObject
 
                                 Nothing ->
-                                    Err (UnknownReference firstOpenOp.opID)
+                                    -- Object doesn't exist yet — this IS the creation op
+                                    Ok { operationID = firstOpenOp.opID, reducer = reducerID }
 
                         ( _, _, RonParser.UnresolvedOpReference referencedOpID ) ->
                             case lookupObject old.node referencedOpID of

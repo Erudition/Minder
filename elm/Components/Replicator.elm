@@ -58,8 +58,15 @@ init { launchTime, replicaCodec, outPort, storedRon } =
 
                         importFrame frame acc =
                             Node.updateWithRon acc frame
+
+                        result =
+                            List.foldl importFrame { node = startNode, warnings = [], newObjects = [] } frames
                     in
-                    (List.foldl importFrame { node = startNode, warnings = [], newObjects = [] } frames).node
+                    Log.logSeparate ("Replicator.init: imported " ++ String.fromInt (List.length frames) ++ " stored frames, "
+                        ++ String.fromInt (List.length result.warnings) ++ " warnings, "
+                        ++ String.fromInt (List.length result.newObjects) ++ " new objects")
+                        (List.map Node.opImportWarningToString result.warnings)
+                        result.node
 
                 Nothing ->
                     startNode
