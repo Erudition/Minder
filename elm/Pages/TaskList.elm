@@ -786,7 +786,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 makeSnapTarget i =
                     div
                         [ class "absolute-snap-target"
-                        , style "--index" (String.fromInt i)
+                        , attribute "style" ("--index: " ++ String.fromInt i)
                         ]
                         []
             in
