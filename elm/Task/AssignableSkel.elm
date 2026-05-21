@@ -79,7 +79,7 @@ codec =
         |> fieldList ( 11, "defaultRelevanceEnds" ) .defaultRelevanceEnds relativeTimingCodec
         |> fieldRW ( 12, "importance" ) .importance Codec.float 1
         |> fieldDict ( 13, "extra" ) .extra ( Codec.string, Codec.string )
-        |> Codec.fieldList ( 14, "children" ) .children (nestedOrActionCodec ())
+        |> Codec.fieldList ( 14, "children" ) .children nestedOrActionCodec
         |> Codec.fieldDb ( 16, "manualAssignments" ) .manualAssignments AssignmentSkel.codec
         |> Codec.finishSeededRegister
 

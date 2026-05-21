@@ -273,7 +273,7 @@ lazy : (() -> Codec s o a) -> Codec s o a
 lazy f =
     Codec
         { bytesEncoder = \value -> getBytesEncoder (f ()) value
-        , bytesDecoder = BytesDecoder.lazy (getBytesDecoder (f ()))
+        , bytesDecoder = BytesDecoder.lazy (\() -> getBytesDecoder (f ()))
         , jsonEncoder = \value -> getJsonEncoder (f ()) value
         , jsonDecoder = JsonDecoder.lazy (\v -> getJsonDecoder (f v))
         , nodeEncoder = \value -> getNodeEncoder (f ()) value

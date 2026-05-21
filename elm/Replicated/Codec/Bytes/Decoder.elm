@@ -71,10 +71,10 @@ mapTry fromAtoBResult (BytesDecoder bdA) =
     BytesDecoder (Bytes.Decode.map fromResultData bdA)
 
 
-lazy : BytesDecoder a -> BytesDecoder a
-lazy (BytesDecoder dec) =
+lazy : (() -> BytesDecoder a) -> BytesDecoder a
+lazy f =
     Bytes.Decode.succeed ()
-        |> Bytes.Decode.andThen (\() -> dec)
+        |> Bytes.Decode.andThen (\() -> let (BytesDecoder dec) = f () in dec)
         |> BytesDecoder
 
 
