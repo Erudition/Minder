@@ -466,7 +466,7 @@ view shared model =
               --glass-text-muted: rgba(0, 0, 0, 0.38) !important;
               --glass-card-bg: rgba(0, 0, 0, 0.015) !important;
               --glass-card-backing: #ffffff !important;
-              --glass-card-border: rgba(0, 0, 0, 0.06) !important;
+              --glass-card-border: #f0f0f0 !important;
               --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.06) !important;
               --glass-input-bg: rgba(0, 0, 0, 0.02) !important;
               --glass-input-border: rgba(0, 0, 0, 0.08) !important;
@@ -484,7 +484,7 @@ view shared model =
               --glass-text-muted: rgba(255, 255, 255, 0.45) !important;
               --glass-card-bg: rgba(255, 255, 255, 0.02) !important;
               --glass-card-backing: #121212 !important;
-              --glass-card-border: rgba(255, 255, 255, 0.05) !important;
+              --glass-card-border: #222222 !important;
               --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
               --glass-input-bg: rgba(255, 255, 255, 0.03) !important;
               --glass-input-border: rgba(255, 255, 255, 0.08) !important;
@@ -574,7 +574,7 @@ view shared model =
              }
             
             .stepped-deck-glass {
-              background: var(--glass-card-backing) !important;
+              background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
 
 
               transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
