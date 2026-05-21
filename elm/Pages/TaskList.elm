@@ -554,21 +554,25 @@ view shared model =
                border-color: var(--glass-input-border) !important;
              }
              
-            .stepped-deck-card {
-              position: sticky !important;
-              left: calc(var(--card-start) + (var(--index) - var(--total-count)) * var(--stack-step)) !important;
-              width: var(--card-width) !important;
-              margin: 0.4rem !important;
-              flex-shrink: 0 !important;
-              height: 180px !important;
-              background: transparent !important;
-              border: 1px solid var(--glass-card-border) !important;
-              border-radius: 16px !important;
-              box-shadow: var(--glass-card-shadow) !important;
-              overflow: hidden !important;
-              pointer-events: auto !important;
-              z-index: calc(10 + var(--index)) !important;
-            }
+             .stepped-deck-card {
+               position: sticky !important;
+               left: calc(var(--card-start) + (var(--index) - var(--total-count)) * var(--stack-step)) !important;
+               width: var(--card-width) !important;
+               margin: 0.4rem !important;
+               flex-shrink: 0 !important;
+               height: 180px !important;
+               background: transparent !important;
+               border: 1px solid var(--glass-card-border) !important;
+               border-radius: 16px !important;
+               box-shadow: var(--glass-card-shadow) !important;
+               overflow: hidden !important;
+               pointer-events: auto !important;
+               z-index: calc(10 + var(--index)) !important;
+             }
+             
+             .stepped-deck-card:first-of-type {
+               margin-left: var(--card-start) !important;
+             }
             
             .stepped-deck-glass {
               background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
@@ -604,9 +608,10 @@ view shared model =
             }
             
             .stepped-deck-card-new {
-              border: none !important;
-              box-shadow: none !important;
-            }
+               border: none !important;
+               box-shadow: none !important;
+               margin-right: calc(var(--card-start) + var(--peek)) !important;
+             }
             
             .stepped-deck-card-new-backing {
               position: absolute !important;
@@ -642,9 +647,9 @@ view shared model =
                --stack-step: calc(1rem / var(--total-count, 1)) !important;
                --card-start: 1.2rem !important;
                --card-width: calc(100% - var(--card-start) - var(--peek)) !important;
-               padding-left: calc(var(--card-start) - 0.4rem) !important;
-               padding-right: 1.2rem !important;
-               scroll-padding: 1.2rem !important;
+               padding-left: 0 !important;
+               padding-right: 0 !important;
+               scroll-padding: var(--card-start) !important;
                scroll-snap-type: x mandatory !important;
                margin-left: calc(0px - var(--card-start)) !important;
                width: calc(100% + var(--card-start)) !important;
@@ -657,8 +662,9 @@ view shared model =
                }
              }
              
-             .absolute-snap-target {
+             snap-placeholder, .absolute-snap-target {
                position: absolute !important;
+               display: block !important;
                left: calc(var(--card-start) + var(--index) * (var(--card-width) + var(--card-gap))) !important;
                width: var(--card-width) !important;
                height: 100% !important;
@@ -876,7 +882,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
         snapTargets =
             let
                 makeSnapTarget i =
-                    div
+                    node "snap-placeholder"
                         [ class "absolute-snap-target"
                         , attribute "style" ("--index: " ++ String.fromInt i)
                         ]
