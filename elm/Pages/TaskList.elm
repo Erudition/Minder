@@ -574,9 +574,9 @@ view shared model =
              }
             
             .stepped-deck-glass {
-              background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
-              backdrop-filter: blur(12px) !important;
-              -webkit-backdrop-filter: blur(12px) !important;
+              background: var(--glass-card-backing) !important;
+
+
               transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
             
@@ -598,11 +598,11 @@ view shared model =
               z-index: 0 !important;
             }
             
-            .stepped-deck-card:hover .stepped-deck-glass {
+            .stepped-deck-card-disabled-hover-1 {
               background: var(--glass-input-focus-bg) !important;
             }
             
-            .stepped-deck-card:hover {
+            .stepped-deck-card-disabled-hover-2 {
               border-color: var(--glass-input-border) !important;
             }
             
@@ -629,7 +629,7 @@ view shared model =
               z-index: 0 !important;
             }
             
-            .stepped-deck-card:hover .stepped-deck-card-new-backing {
+            .stepped-deck-card-disabled-hover-3 {
               color: var(--glass-text-primary) !important;
               border-color: var(--glass-input-border) !important;
             }
@@ -639,13 +639,13 @@ view shared model =
                --card-gap: 0.8rem !important;
                --card-start: 0.4rem !important;
                --stack-step: 0.8rem !important;
-               --peek: 2rem !important;
+               --peek: 4rem !important;
              }
              
              .horizontal-scroll-container {
                --stack-step: calc(1rem / var(--total-count, 1)) !important;
                --card-start: 1.2rem !important;
-               --card-width: calc(100% - var(--card-start) - var(--peek)) !important;
+               --card-width: calc(100% - var(--card-start) - var(--card-gap) - var(--peek)) !important;
                padding-left: 0 !important;
                padding-right: 0 !important;
                scroll-padding: var(--card-start) !important;
@@ -656,7 +656,7 @@ view shared model =
              
              @media (max-width: 600px) {
                :root, ion-app {
-                 --card-width: calc(100vw - 2.4rem) !important;
+                 --card-width: calc(100% - var(--card-start) - var(--card-gap) - var(--peek)) !important;
                  --card-gap: 0.8rem !important;
                }
              }
