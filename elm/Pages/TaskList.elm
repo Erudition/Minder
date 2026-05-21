@@ -640,6 +640,7 @@ view shared model =
              .horizontal-scroll-container {
                --stack-step: calc(1rem / var(--total-count, 1)) !important;
                --card-start: 1.2rem !important;
+               padding-left: calc(var(--card-start) - 0.4rem) !important;
                padding-right: 1.2rem !important;
                scroll-padding: 1.2rem !important;
                scroll-snap-type: x mandatory !important;
