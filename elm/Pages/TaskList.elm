@@ -609,7 +609,7 @@ view shared model =
             .stepped-deck-card-new {
                border: none !important;
                box-shadow: none !important;
-               margin-right: calc(var(--card-start) + var(--peek)) !important;
+               width: var(--peek) !important;
              }
             
             .stepped-deck-card-new-backing {
@@ -878,22 +878,20 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
         totalCount =
             List.length assignments + 1
 
-        snapTargets =
-            let
-                makeSnapTarget i =
-                    node "snap-placeholder"
+        viewAssignments =
+            List.indexedMap
+                (\i assignment ->
+                    [ node "snap-placeholder"
                         [ class "absolute-snap-target"
                         , attribute "style" ("--index: " ++ String.fromInt i)
                         ]
                         []
-            in
-            List.range 0 (List.length assignments)
-                |> List.map makeSnapTarget
-
-        viewAssignments =
-            snapTargets
-                ++ List.indexedMap (viewAssignment ( time, timeZone ) trackedTaskMaybe) assignments
-                ++ [ addAssignmentCard ]
+                    , viewAssignment ( time, timeZone ) trackedTaskMaybe i assignment
+                    ]
+                )
+                assignments
+                |> List.concat
+                |> (\list -> list ++ [ addAssignmentCard ])
 
         addAssignmentCard =
             div
