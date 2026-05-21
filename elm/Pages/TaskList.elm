@@ -155,6 +155,7 @@ type Msg
     | OpenEditor (Maybe Assignment)
     | CloseEditor
     | AddProject
+    | AddChildProject Project
     | AddAssignable Project
     | AddAssignment Assignable
     | DeleteAssignment Assignment
@@ -185,6 +186,43 @@ update shared msg model =
                     ( { model | newTaskField = "", expandedTask = Nothing }
                     , Effect.userChangeNow (Profile.AddProject newProjectTitle)
                     )
+
+        AddChildProject parentProject ->
+            let
+                handleResult result =
+                    case result of
+                        Ok newName ->
+                            RunEffect <| Effect.saveUserChanges (frameDescription newName) (finalChanges newName)
+
+                        Err _ ->
+                            RunEffect <| Effect.none
+
+                promptOptions =
+                    { title = Just ("New Child Project in: " ++ Maybe.withDefault "Untitled Project" (Project.title parentProject))
+                    , message = "Enter a name for the child project."
+                    , okButtonTitle = Just "Create"
+                    , cancelButtonTitle = Nothing
+                    , inputPlaceholder = Just "Child project title here"
+                    , inputText = Nothing
+                    }
+
+                frameDescription newName =
+                    "Added a new child project: " ++ newName
+
+                childProjectCreator : String -> Change.Creator ProjectSkel.NestedOrAssignable
+                childProjectCreator newName =
+                    \wrappedContext ->
+                        ProjectSkel.create
+                            (\childReg -> [ Project.setTitle (Just newName) (Project.fromSkel (Just parentProject) childReg) ])
+                            (Change.reuseContext "NestedOrAssignable" wrappedContext)
+                            |> ProjectSkel.AssignableIsDeeper
+
+                finalChanges newName =
+                    [ RepList.insert RepList.Last (frameDescription newName) shared.replica.errors
+                    , RepList.insertNew RepList.Last [ childProjectCreator newName ] (Project.children parentProject)
+                    ]
+            in
+            ( model, Effect.dialogPrompt handleResult promptOptions )
 
         AddAssignable project ->
             let
@@ -780,6 +818,7 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                 [ ActionSheet.deleteButton (Toast "NYI: Delete Project")
                 , ActionSheet.buttonWithIcon "Rename" "create-outline" (PromptRename projectDisplayTitle (\t -> Project.setTitle (Just t) project))
                 , ActionSheet.buttonWithIcon "Add Assignable" "add-circle-outline" (AddAssignable project)
+                , ActionSheet.buttonWithIcon "Add Child Project" "folder-outline" (AddChildProject project)
                 ]
                 |> SH.fromUnstyled
 
