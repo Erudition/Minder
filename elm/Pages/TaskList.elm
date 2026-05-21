@@ -649,7 +649,7 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                     node "ion-button"
                         [ attribute "fill" "clear"
                         , onClick (AddAssignable project)
-                        , css [ Css.property "--color" "rgba(255,255,255,0.6)" ]
+                        , css [ Css.property "--color" "var(--glass-text-secondary)" ]
                         ]
                         [ node "ion-icon" [ name "add-circle-outline", attribute "slot" "start" ] [], text "Add first assignable" ]
 
@@ -973,8 +973,6 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
             , minWidth (rem 14)
             , maxWidth (vw 80)
             , margin (rem 0.4)
-            , position sticky
-            , left (px 0)
             , padding (rem 1.0)
             , displayFlex
             , flexDirection column
