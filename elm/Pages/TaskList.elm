@@ -639,6 +639,10 @@ view shared model =
              
              .horizontal-scroll-container {
                --stack-step: calc(1rem / var(--total-count, 1)) !important;
+               --card-start: 1.2rem !important;
+               padding-right: 1.2rem !important;
+               scroll-padding: 1.2rem !important;
+               scroll-snap-type: x mandatory !important;
              }
              
              @media (max-width: 600px) {
@@ -915,10 +919,9 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
             [ Css.property "background" "var(--glass-card-bg)"
             , Css.property "border" "1px solid var(--glass-card-border)"
             , borderRadius (px 14)
-            , padding (rem 0.8)
+            , padding (px 0)
             , displayFlex
             , flexDirection column
-            , Css.property "gap" "0.6rem"
             , position relative
             ]
         ]
@@ -927,8 +930,9 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 [ displayFlex
                 , alignItems center
                 , Css.height (rem 3.5)
-                , Css.property "margin-bottom" "-4.5rem"
-                , paddingLeft (rem 0.4)
+                , Css.property "margin-bottom" "-4.3rem"
+                , paddingLeft (rem 1.2)
+                , paddingTop (rem 0.8)
                 , position relative
                 , zIndex (Css.int 1)
                 ]
@@ -969,8 +973,6 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 , zIndex (Css.int 2)
                 , Css.property "pointer-events" "none"
                 ]
-            , style "scroll-snap-type" "x mandatory"
-            , style "scroll-padding" "0.4rem"
             , attribute "style" ("--total-count: " ++ String.fromInt totalCount)
             ]
             viewAssignments
