@@ -562,27 +562,10 @@ view shared model =
               flex-shrink: 0 !important;
               height: 180px !important;
               background: transparent !important;
-              border: 1px solid var(--glass-card-border) !important;
-              border-radius: 16px !important;
-              box-shadow: var(--glass-card-shadow) !important;
-              overflow: hidden !important;
-              backdrop-filter: none !important;
-              -webkit-backdrop-filter: none !important;
+              border: none !important;
+              box-shadow: none !important;
               pointer-events: auto !important;
               z-index: calc(10 + var(--index)) !important;
-            }
-            
-            .stepped-deck-card-tag {
-              position: absolute !important;
-              right: 0 !important;
-              top: 0 !important;
-              width: 5.5rem !important;
-              height: 3.5rem !important;
-              background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
-              backdrop-filter: blur(12px) !important;
-              -webkit-backdrop-filter: blur(12px) !important;
-              border: none !important;
-              z-index: 0 !important;
             }
             
             .stepped-deck-card-body {
@@ -594,26 +577,17 @@ view shared model =
               background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
               backdrop-filter: blur(12px) !important;
               -webkit-backdrop-filter: blur(12px) !important;
-              border: none !important;
+              border: 1px solid var(--glass-card-border) !important;
+              border-radius: 16px !important;
+              box-shadow: var(--glass-card-shadow) !important;
               z-index: 0 !important;
+              overflow: hidden !important;
               transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
             
             .stepped-deck-card:hover .stepped-deck-card-body {
               background: var(--glass-input-focus-bg) !important;
-            }
-            
-            .stepped-deck-card:hover .stepped-deck-card-tag {
-              background: var(--glass-input-focus-bg) !important;
-            }
-            
-            .stepped-deck-card:hover {
               border-color: var(--glass-input-border) !important;
-            }
-            
-            .stepped-deck-card-new {
-              border: none !important;
-              box-shadow: none !important;
             }
             
             .stepped-deck-card-new-backing {
@@ -1055,8 +1029,7 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
         [ classList [ ( "stepped-deck-card", True ), ( "tracking-pulse", isCurrentlyTracked ) ]
         , attribute "style" ("--index: " ++ String.fromInt index)
         ]
-        [ div [ class "stepped-deck-card-tag" ] []
-        , div [ class "stepped-deck-card-body" ] []
+        [ div [ class "stepped-deck-card-body" ] []
         , div
             [ css
                 [ position relative
