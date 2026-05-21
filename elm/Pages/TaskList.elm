@@ -799,6 +799,9 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
             , borderRadius (px 14)
             , paddingTop (rem 1.0)
             , paddingBottom (rem 1.0)
+            , paddingLeft (rem 1.2)
+            , paddingRight (rem 1.2)
+            , overflow Css.hidden
             , position relative
             , marginBottom (rem 1.5)
             ]
@@ -810,8 +813,6 @@ viewProject profile ( time, timeZone ) trackedTaskMaybe project =
                     , alignItems center
                     , justifyContent spaceBetween
                     , Css.property "border-bottom" "1px solid var(--glass-card-border)"
-                    , paddingLeft (rem 1.2)
-                    , paddingRight (rem 1.2)
                     , paddingBottom (rem 0.8)
                     , marginBottom (rem 0.5)
                     ]
