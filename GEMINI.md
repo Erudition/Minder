@@ -84,3 +84,9 @@ The `finish*` functions determine which alias the resulting codec matches:
 - **WrappedSeededCodec annotations**: Often wrong after refactoring because `finishSeededRecord` returns `Codec seed SoloObject thing` where seed is the raw seed, but `WrappedSeededCodec` wraps it as `(seed, Changer thing)`. Drop these annotations when they cause mismatches.
 - **BytesDecoder/JsonDecoder wrapping**: All raw `BD.Decoder`/`JD.Decoder` values must be wrapped with `BytesDecoder.fromRaw`/`toRaw` when crossing the opaque type boundary.
 - **NodeDecoder.Output**: Returns `{ decoder, ancestors }` — older code may destructure as `{ decoder, obSubs }`.
+
+## Elm-CSS Namespace & Styling Constraints
+- **Ambiguous property**: All custom/vendor CSS properties (e.g., `--padding-start`, `--background`, `-webkit-background-clip`) must be explicitly qualified as `Css.property` to avoid namespace conflicts with `Html.Styled.Attributes.property`.
+- **Ambiguous int**: Font weight levels or grid dimensions must be qualified as `Css.int` to avoid conflicts with `Json.Encode.int` or `Url.Parser.int`.
+- **Gap property**: The standard `gap` layout helper is unsupported in our `elm-css` library. Use `Css.property "gap" "Xrem"` (or similar dimensions) instead.
+- **Scroll snap alignment**: Do not mix `Html.Styled.Attributes.style` directly inside `css [ ... ]` blocks. Standardize scroll-snap configurations using `Css.property "scroll-snap-align" "start"` inside `css` style lists.
