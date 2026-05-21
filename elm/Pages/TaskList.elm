@@ -465,6 +465,7 @@ view shared model =
               --glass-text-secondary: rgba(0, 0, 0, 0.55) !important;
               --glass-text-muted: rgba(0, 0, 0, 0.38) !important;
               --glass-card-bg: rgba(0, 0, 0, 0.015) !important;
+              --glass-card-backing: #ffffff !important;
               --glass-card-border: rgba(0, 0, 0, 0.06) !important;
               --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.06) !important;
               --glass-input-bg: rgba(0, 0, 0, 0.02) !important;
@@ -482,6 +483,7 @@ view shared model =
               --glass-text-secondary: rgba(255, 255, 255, 0.65) !important;
               --glass-text-muted: rgba(255, 255, 255, 0.45) !important;
               --glass-card-bg: rgba(255, 255, 255, 0.02) !important;
+              --glass-card-backing: #121212 !important;
               --glass-card-border: rgba(255, 255, 255, 0.05) !important;
               --glass-card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
               --glass-input-bg: rgba(255, 255, 255, 0.03) !important;
@@ -539,7 +541,7 @@ view shared model =
               background: var(--glass-scroll-thumb-hover);
             }
             .custom-glass-card {
-              background: var(--glass-card-bg) !important;
+              background: linear-gradient(var(--glass-card-bg), var(--glass-card-bg)), var(--glass-card-backing) !important;
               backdrop-filter: blur(12px) !important;
               -webkit-backdrop-filter: blur(12px) !important;
               border: 1px solid var(--glass-card-border) !important;
@@ -955,6 +957,8 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
             , minWidth (rem 14)
             , maxWidth (vw 80)
             , margin (rem 0.4)
+            , position sticky
+            , left (px 0)
             , padding (rem 1.0)
             , displayFlex
             , flexDirection column
