@@ -758,8 +758,28 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
         assignments =
             Assignment.fromAssignable Assignment.AllSaved assignable
 
+        snapTargets =
+            let
+                makeSnapTarget i =
+                    div
+                        [ css
+                            [ position absolute
+                            , left (rem (0.4 + toFloat i * 14.8))
+                            , Css.width (px 1)
+                            , Css.height (pct 100)
+                            , Css.property "scroll-snap-align" "start"
+                            , Css.property "pointer-events" "none"
+                            , Css.property "visibility" "hidden"
+                            ]
+                        ]
+                        []
+            in
+            List.range 0 (List.length assignments)
+                |> List.map makeSnapTarget
+
         viewAssignments =
-            List.indexedMap (viewAssignment ( time, timeZone ) trackedTaskMaybe) assignments
+            snapTargets
+                ++ List.indexedMap (viewAssignment ( time, timeZone ) trackedTaskMaybe) assignments
                 ++ [ addAssignmentCard ]
 
         addAssignmentCard =
@@ -785,7 +805,6 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                         ]
                     , Css.property "transition" "all 0.2s ease"
                     ]
-                , style "scroll-snap-align" "start"
                 ]
                 [ node "ion-icon"
                     [ name "add-circle-outline"
@@ -870,6 +889,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 , flexDirection row
                 , overflowX scroll
                 , paddingBottom (rem 0.5)
+                , position relative
                 ]
             , style "scroll-snap-type" "x mandatory"
             , style "scroll-padding" "0.4rem"
@@ -950,79 +970,71 @@ viewAssignment ( time, timeZone ) trackedTaskMaybe index assignment =
                 SH.text ""
     in
     div
-        [ css
-            [ Css.width (rem 14)
+        [ classList [ ( "custom-glass-card", True ), ( "tracking-pulse", isCurrentlyTracked ) ]
+        , css
+            [ position sticky
+            , left (px 0)
+            , Css.width (rem 14)
             , margin (rem 0.4)
-            , Css.property "scroll-snap-align" "start"
-            , position relative
             , flexShrink (Css.int 0)
+            , padding (rem 1.0)
+            , displayFlex
+            , flexDirection column
+            , Css.property "gap" "0.8rem"
             ]
         ]
-        [ div
-            [ classList [ ( "custom-glass-card", True ), ( "tracking-pulse", isCurrentlyTracked ) ]
-            , css
-                [ position sticky
-                , left (px 0)
-                , Css.width (pct 100)
-                , padding (rem 1.0)
-                , displayFlex
-                , flexDirection column
-                , Css.property "gap" "0.8rem"
-                ]
-            ]
-            [ div [ css [ displayFlex, alignItems center, justifyContent spaceBetween ] ]
-                [ div
-                    [ title assignmentTooltip
-                    , css
-                        [ displayFlex
-                        , alignItems center
-                        , Css.property "gap" "0.4rem"
-                        ]
-                    ]
-                    [ SH.fromUnstyled <| identicon "1.1em" (Assignment.idString assignment)
-                    , span [ css [ fontWeight (Css.int 700), fontSize (rem 0.9), Css.property "color" "var(--glass-text-primary)" ] ]
-                        [ text <| "#" ++ String.fromInt (index + 1) ]
-                    ]
-                , trackingIndicator
-                ]
-            , div [ css [ displayFlex, flexDirection column, Css.property "gap" "2px" ] ]
-                [ span [ css [ fontSize (rem 0.75), Css.property "color" "var(--glass-text-muted)" ] ] [ text "Assigned" ]
-                , span [ css [ fontSize (rem 0.85), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
-                    [ text (if assignedTimeText == "" then "just now" else assignedTimeText) ]
-                ]
-            , div
-                [ css
+        [ div [ css [ displayFlex, alignItems center, justifyContent spaceBetween ] ]
+            [ div
+                [ title assignmentTooltip
+                , css
                     [ displayFlex
                     , alignItems center
-                    , justifyContent spaceBetween
-                    , Css.property "border-top" "1px solid var(--glass-card-border)"
-                    , paddingTop (rem 0.6)
-                    , marginTop (rem 0.2)
+                    , Css.property "gap" "0.4rem"
                     ]
                 ]
-                [ div [ css [ displayFlex, alignItems center, Css.property "gap" "6px" ] ]
-                    [ div
-                        [ css
-                            [ Css.width (rem 1.2)
-                            , Css.height (rem 1.2)
-                            , borderRadius (pct 50)
-                            , Css.property "background-color" "var(--glass-bg)"
-                            , displayFlex
-                            , alignItems center
-                            , justifyContent center
-                            , fontSize (rem 0.7)
-                            , Css.property "color" "var(--glass-text-secondary)"
-                            ]
-                        ]
-                        [ text "✓" ]
-                    , span [ css [ fontSize (rem 0.8), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
-                        [ text <| String.fromInt (Assignment.completion assignment) ++ "% Done" ]
-                    ]
-                , div [ id sheetButtonID, css [ cursor Css.pointer, Css.property "color" "var(--glass-text-muted)", hover [ Css.property "color" "var(--glass-text-primary)" ] ] ]
-                    [ Ion.Icon.basic "ellipsis-horizontal-outline" |> SH.fromUnstyled ]
+                [ SH.fromUnstyled <| identicon "1.1em" (Assignment.idString assignment)
+                , span [ css [ fontWeight (Css.int 700), fontSize (rem 0.9), Css.property "color" "var(--glass-text-primary)" ] ]
+                    [ text <| "#" ++ String.fromInt (index + 1) ]
                 ]
-            , presentActionSheet
+            , trackingIndicator
             ]
+        , div [ css [ displayFlex, flexDirection column, Css.property "gap" "2px" ] ]
+            [ span [ css [ fontSize (rem 0.75), Css.property "color" "var(--glass-text-muted)" ] ] [ text "Assigned" ]
+            , span [ css [ fontSize (rem 0.85), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
+                [ text (if assignedTimeText == "" then "just now" else assignedTimeText) ]
+            ]
+        , div
+            [ css
+                [ displayFlex
+                , alignItems center
+                , justifyContent spaceBetween
+                , Css.property "border-top" "1px solid var(--glass-card-border)"
+                , paddingTop (rem 0.6)
+                , marginTop (rem 0.2)
+                ]
+            ]
+            [ div [ css [ displayFlex, alignItems center, Css.property "gap" "6px" ] ]
+                [ div
+                    [ css
+                        [ Css.width (rem 1.2)
+                        , Css.height (rem 1.2)
+                        , borderRadius (pct 50)
+                        , Css.property "background-color" "var(--glass-bg)"
+                        , displayFlex
+                        , alignItems center
+                        , justifyContent center
+                        , fontSize (rem 0.7)
+                        , Css.property "color" "var(--glass-text-secondary)"
+                        ]
+                    ]
+                    [ text "✓" ]
+                , span [ css [ fontSize (rem 0.8), Css.property "color" "var(--glass-text-secondary)", fontWeight (Css.int 500) ] ]
+                    [ text <| String.fromInt (Assignment.completion assignment) ++ "% Done" ]
+                ]
+            , div [ id sheetButtonID, css [ cursor Css.pointer, Css.property "color" "var(--glass-text-muted)", hover [ Css.property "color" "var(--glass-text-primary)" ] ] ]
+                [ Ion.Icon.basic "ellipsis-horizontal-outline" |> SH.fromUnstyled ]
+            ]
+        , presentActionSheet
         ]
 
 
