@@ -612,6 +612,10 @@ view shared model =
                width: var(--peek) !important;
              }
             
+            .horizontal-scroll-container > :only-child {
+              margin-left: auto !important;
+            }
+            
             .stepped-deck-card-new-backing {
               position: absolute !important;
               left: 0 !important;
