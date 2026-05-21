@@ -1,4 +1,4 @@
-module Replicated.Codec.Bytes.Decoder exposing (BytesDecoder, decodeStringToBytes, lazy, map, mapTry)
+module Replicated.Codec.Bytes.Decoder exposing (BytesDecoder(..), decodeStringToBytes, fromRaw, lazy, map, mapTry, toRaw)
 
 {-| Wrapper for whatever Bytes decoding library is currently chosen.
 
@@ -22,6 +22,20 @@ endian =
 
 type BytesDecoder a
     = BytesDecoder (Bytes.Decode.Decoder (Result RepDecodeError a))
+
+
+{-| Wrap a raw Bytes.Decode.Decoder into a BytesDecoder.
+-}
+fromRaw : Bytes.Decode.Decoder (Result RepDecodeError a) -> BytesDecoder a
+fromRaw =
+    BytesDecoder
+
+
+{-| Unwrap a BytesDecoder to get the raw Bytes.Decode.Decoder.
+-}
+toRaw : BytesDecoder a -> Bytes.Decode.Decoder (Result RepDecodeError a)
+toRaw (BytesDecoder raw) =
+    raw
 
 
 map : (a -> b) -> BytesDecoder a -> BytesDecoder b
@@ -57,10 +71,10 @@ mapTry fromAtoBResult (BytesDecoder bdA) =
     BytesDecoder (Bytes.Decode.map fromResultData bdA)
 
 
-lazy : BytesDecoder a -> BytesDecoder a
-lazy (BytesDecoder dec) =
+lazy : (() -> BytesDecoder a) -> BytesDecoder a
+lazy f =
     Bytes.Decode.succeed ()
-        |> Bytes.Decode.andThen (\() -> dec)
+        |> Bytes.Decode.andThen (\() -> let (BytesDecoder dec) = f () in dec)
         |> BytesDecoder
 
 

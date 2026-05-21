@@ -40,7 +40,7 @@ export default defineConfig({
           ]
         }
     }),
-    elmPlugin({debug: false, optimize: false} ),
+    elmPlugin({debug: false, optimize: false, nodeElmCompilerOptions: { pathToElm: "elm" }} ),
     nodePolyfills({
         // Whether to polyfill `node:` protocol imports.
         protocolImports: true,

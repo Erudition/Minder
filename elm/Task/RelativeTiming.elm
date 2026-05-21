@@ -30,7 +30,7 @@ type RelativeTiming
     | FromToday Duration
 
 
-relativeTimingCodec : Codec.NullCodec String RelativeTiming
+relativeTimingCodec : Codec.NullCodec RelativeTiming
 relativeTimingCodec =
     Codec.customType
         (\fromDeadline fromToday value ->

@@ -1,4 +1,4 @@
-module Replicated.Codec.DataStructures.Mutable exposing (repDb, repDict, repList, repStore, seedlessPair)
+module Replicated.Codec.DataStructures.Mutable exposing (repDb, repDict, repList, repStore)
 
 {-| Codecs for reptype data structures, that support Changes (hence referred to as "mutable"). This is the special sauce!
 -}
@@ -21,11 +21,14 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Regex exposing (Regex)
-import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
+import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..), nonChanger)
 import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Codec.Base as Base exposing (Codec(..))
+import Replicated.Change.PendingID as PendingID exposing (PendingID)
+import Replicated.Change.Primitive as Primitive
+import Replicated.Codec.Base as Base exposing (Codec(..), PrimitiveCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec)
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Bytes.Encoder as BytesEncoder exposing (BytesEncoder)
+import Replicated.Codec.DataStructures.Immutable.SyncSafe exposing (pair)
 import Replicated.Codec.DataStructures.Immutable.SyncUnsafe exposing (..)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
 import Replicated.Codec.Initializer as Initializer exposing (Initializer)
@@ -35,9 +38,12 @@ import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecode
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Collection as Collection exposing (Collection)
+import Replicated.Node.AncestorDb as AncestorDb exposing (AncestorDb)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
+import Replicated.Op.Atom as Atom
 import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.Payload as Payload
 import Replicated.Reducer.Register as Reg exposing (..)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
@@ -58,21 +64,21 @@ repList memberCodec =
 
         jsonEncoder : RepList memberType -> JE.Value
         jsonEncoder input =
-            JE.list (getJsonEncoder memberCodec) (RepList.listValues input)
+            JE.list (Base.getJsonEncoder memberCodec) (RepList.listValues input)
 
         bytesEncoder : RepList memberType -> BE.Encoder
         bytesEncoder input =
-            listEncodeHelper (getBytesEncoder memberCodec) (RepList.listValues input)
+            listEncodeHelper (Base.getBytesEncoder memberCodec) (RepList.listValues input)
 
-        memberChanger : { node : Node, modeMaybe : Maybe ChangesToGenerate, parent : Change.Parent } -> Location -> memberType -> Maybe OpID -> Change.ObjectChange
+        memberChanger : { node : Node, modeMaybe : Maybe NodeEncoder.ChangesToGenerate, parent : Change.Parent } -> Location -> memberType -> Maybe OpID -> Change.ObjectChange
         memberChanger { node, modeMaybe, parent } memberIndex newMemberValue newRefMaybe =
             let
                 memberNodeEncoded : Change.ComplexPayload
                 memberNodeEncoded =
-                    getNodeEncoder memberCodec
-                        { mode = Maybe.withDefault defaultEncodeMode modeMaybe
+                    Base.getNodeEncoder memberCodec
+                        { mode = Maybe.withDefault NodeEncoder.defaultMode modeMaybe
                         , node = node
-                        , thingToEncode = EncodeThis newMemberValue
+                        , thingToEncode = NodeEncoder.EncodeThis newMemberValue
                         , parent = parent
                         , position = memberIndex
                         }
@@ -87,7 +93,7 @@ repList memberCodec =
 
         memberRonDecoder : { node : Node, parent : Parent, cutoff : Maybe Moment } -> JE.Value -> Maybe memberType
         memberRonDecoder { node, parent, cutoff } encodedMember =
-            case JD.decodeValue (getNodeDecoder memberCodec { node = node, parent = parent, position = Location.newSingle "repListContainer", cutoff = cutoff }) encodedMember of
+            case JD.decodeValue (RonPayloadDecoder.toJsonDecoder (Base.getNodeDecoder memberCodec { node = node, parent = parent, position = Location.newSingle "repListContainer", cutoff = cutoff, oldMaybe = Nothing, changedObjectIDs = [] }).decoder) encodedMember of
                 Ok (Ok member) ->
                     Just member
 
@@ -99,11 +105,11 @@ repList memberCodec =
             let
                 repListBuilder foundObjectIDs =
                     let
-                        object =
+                        collection =
                             Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepList.reducerID, position = position }
 
                         repListPointer =
-                            Object.getPointer object
+                            Collection.getPointer collection
 
                         repListAsParent =
                             Change.becomeInstantParent repListPointer
@@ -114,20 +120,21 @@ repList memberCodec =
                         finalPayloadToMember =
                             memberRonDecoder { node = node, parent = repListAsParent, cutoff = cutoff }
                     in
-                    Ok <| RepList.buildFromReplicaDb object finalPayloadToMember finalMemberChanger nonChanger
+                    Ok <| RepList.buildFromReplicaDb collection finalPayloadToMember finalMemberChanger nonChanger oldMaybe
             in
-            reuseOldIfUnchanged oldMaybe RepList.getPointer changedObjectIDs <|
-                JD.map repListBuilder concurrentObjectIDsDecoder
+            { decoder = RonPayloadDecoderLegacy (NodeDecoder.reuseOldIfUnchanged oldMaybe RepList.getPointer changedObjectIDs (JD.map repListBuilder NodeDecoder.concurrentObjectIDsDecoder))
+            , ancestors = AncestorDb.empty
+            }
 
-        repListRonEncoder : NodeEncoder (RepList memberType) SoloObject
+        repListRonEncoder : NodeEncoder (RepList memberType) NodeEncoder.SoloObject
         repListRonEncoder ({ node, thingToEncode, mode, parent, position } as details) =
             case thingToEncode of
-                EncodeThis givenRepList ->
+                NodeEncoder.EncodeThis givenRepList ->
                     let
                         externalChanges =
                             RepList.getInit givenRepList
                     in
-                    soloOut <|
+                    NodeEncoder.soloOut <|
                         Change.changeObjectWithExternal
                             { target = RepList.getPointer givenRepList
                             , objectChanges = []
@@ -139,16 +146,16 @@ repList memberCodec =
                         repListPointer =
                             Change.newPointer { parent = parent, position = position, reducerID = RepList.reducerID }
                     in
-                    justInit repListPointer
+                    NodeEncoder.justInit repListPointer
 
         initializer : Initializer (Changer (RepList memberType)) (RepList memberType)
         initializer { parent, position, seed } =
             let
-                object =
+                collection =
                     Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], position = position, reducer = RepList.reducerID, parent = parent }
 
                 repListAsParent =
-                    Change.becomeInstantParent (Object.getPointer object)
+                    Change.becomeInstantParent (Collection.getPointer collection)
 
                 finalMemberChanger =
                     memberChanger { node = Node.testNode, modeMaybe = Nothing, parent = repListAsParent }
@@ -157,14 +164,14 @@ repList memberCodec =
                     memberRonDecoder { node = Node.testNode, parent = repListAsParent, cutoff = Nothing }
 
                 repListBuilder =
-                    RepList.buildFromReplicaDb object finalPayloadToMember finalMemberChanger seed
+                    RepList.buildFromReplicaDb collection finalPayloadToMember finalMemberChanger seed Nothing
             in
             repListBuilder
     in
     Codec
         { bytesEncoder = bytesEncoder
         , bytesDecoder =
-            BD.fail
+            BytesDecoder.fromRaw BD.fail
         , jsonEncoder = jsonEncoder
         , jsonDecoder = normalJsonDecoder
         , nodeEncoder = repListRonEncoder
@@ -173,24 +180,28 @@ repList memberCodec =
         }
 
 
-repDb : Codec s SoloObject memberType -> WrappedCodec (RepDb memberType)
+repDb : Codec s NodeEncoder.SoloObject memberType -> WrappedCodec (RepDb memberType)
 repDb memberCodec =
     let
-        memberChanger : { node : Node, modeMaybe : Maybe ChangesToGenerate, asParent : Parent } -> memberType -> Change.ObjectChange
+        memberChanger : { node : Node, modeMaybe : Maybe NodeEncoder.ChangesToGenerate, asParent : Parent } -> memberType -> Change.ObjectChange
         memberChanger { node, modeMaybe, asParent } newValue =
-            getNodeEncoder memberCodec
-                { mode = Maybe.withDefault defaultEncodeMode modeMaybe
+            Base.getNodeEncoder memberCodec
+                { mode = Maybe.withDefault NodeEncoder.defaultMode modeMaybe
                 , node = node
-                , thingToEncode = EncodeThis newValue
+                , thingToEncode = NodeEncoder.EncodeThis newValue
                 , parent = asParent
                 , position = Location.newSingle "repDbContainer"
                 }
                 |> .complex
                 |> Change.NewPayload
 
-        memberRonDecoder : { node : Node, asParent : Parent, cutoff : Maybe Moment } -> JE.Value -> Maybe memberType
-        memberRonDecoder { node, asParent, cutoff } encodedMember =
-            case JD.decodeValue (getNodeDecoder memberCodec { node = node, parent = asParent, position = Location.newSingle "repDbMember", cutoff = cutoff }) encodedMember of
+        memberRonDecoder : { node : Node, asParent : Parent, cutoff : Maybe Moment } -> Collection.Event Payload.Payload -> Maybe memberType
+        memberRonDecoder { node, asParent, cutoff } event =
+            let
+                encodedMember =
+                    Collection.eventPayloadAsJson event
+            in
+            case JD.decodeValue (RonPayloadDecoder.toJsonDecoder (Base.getNodeDecoder memberCodec { node = node, parent = asParent, position = Location.newSingle "repDbMember", cutoff = cutoff, oldMaybe = Nothing, changedObjectIDs = [] }).decoder) encodedMember of
                 Ok (Ok member) ->
                     Just member
 
@@ -199,35 +210,37 @@ repDb memberCodec =
 
         childInstaller myPointer childPendingID =
             Change.delayedChangeObject myPointer
-                (Change.NewPayload <| Nonempty.singleton (PendingObjectReferenceAtom childPendingID))
+                (Change.NewPayload <| Nonempty.singleton (Change.PendingObjectReferenceAtom childPendingID))
 
         repDbNodeDecoder : NodeDecoder (RepDb memberType)
         repDbNodeDecoder { node, parent, position, cutoff } =
             let
                 repDbBuilder foundObjectIDs =
                     let
-                        object =
+                        collection =
                             Node.initializeCollection { node = node, cutoff = Nothing, foundIDs = foundObjectIDs, parent = parent, reducer = RepDb.reducerID, position = position }
 
                         repDbPointer =
-                            Object.getPointer object
+                            Collection.getPointer collection
 
                         repDbAsParent =
                             Change.becomeDelayedParent repDbPointer (childInstaller repDbPointer)
                     in
-                    Ok <| RepDb.buildFromReplicaDb object (memberRonDecoder { node = node, asParent = repDbAsParent, cutoff = cutoff }) (memberChanger { node = node, modeMaybe = Nothing, asParent = repDbAsParent }) nonChanger
+                    Ok <| RepDb.buildFromReplicaDb collection (memberRonDecoder { node = node, asParent = repDbAsParent, cutoff = cutoff }) (memberChanger { node = node, modeMaybe = Nothing, asParent = repDbAsParent }) nonChanger
             in
-            JD.map repDbBuilder concurrentObjectIDsDecoder
+            { decoder = RonPayloadDecoderLegacy (JD.map repDbBuilder NodeDecoder.concurrentObjectIDsDecoder)
+            , ancestors = AncestorDb.empty
+            }
 
-        repDbNodeEncoder : NodeEncoder (RepDb memberType) SoloObject
+        repDbNodeEncoder : NodeEncoder (RepDb memberType) NodeEncoder.SoloObject
         repDbNodeEncoder ({ node, thingToEncode, mode, parent, position } as details) =
             case thingToEncode of
-                EncodeThis givenRepDb ->
+                NodeEncoder.EncodeThis givenRepDb ->
                     let
                         externalChanges =
                             RepDb.getInit givenRepDb
                     in
-                    soloOut <|
+                    NodeEncoder.soloOut <|
                         Change.changeObjectWithExternal
                             { target = RepDb.getPointer givenRepDb
                             , objectChanges = []
@@ -235,16 +248,16 @@ repDb memberCodec =
                             }
 
                 _ ->
-                    justInit (Change.newPointer { parent = parent, position = position, reducerID = RepDb.reducerID })
+                    NodeEncoder.justInit (Change.newPointer { parent = parent, position = position, reducerID = RepDb.reducerID })
 
-        initializer : InitializerInputs (Changer (RepDb memberType)) -> RepDb memberType
+        initializer : Initializer (Changer (RepDb memberType)) (RepDb memberType)
         initializer { parent, position, seed } =
             let
-                object =
+                collection =
                     Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], position = position, reducer = RepDb.reducerID, parent = parent }
 
                 repDbPointer =
-                    Object.getPointer object
+                    Collection.getPointer collection
 
                 repDbAsParent =
                     Change.becomeDelayedParent repDbPointer (childInstaller repDbPointer)
@@ -255,12 +268,12 @@ repDb memberCodec =
                 finalPayloadToMember =
                     memberRonDecoder { node = Node.testNode, asParent = repDbAsParent, cutoff = Nothing }
             in
-            RepDb.buildFromReplicaDb object finalPayloadToMember finalMemberChanger seed
+            RepDb.buildFromReplicaDb collection finalPayloadToMember finalMemberChanger seed
     in
     Codec
-        { bytesEncoder = \input -> listEncode (getBytesEncoder memberCodec) (RepDb.listValues input)
-        , bytesDecoder = BD.fail
-        , jsonEncoder = \input -> JE.list (getJsonEncoder memberCodec) (RepDb.listValues input)
+        { bytesEncoder = \input -> listEncodeHelper (Base.getBytesEncoder memberCodec) (RepDb.listValues input)
+        , bytesDecoder = BytesDecoder.fromRaw BD.fail
+        , jsonEncoder = \input -> JE.list (Base.getJsonEncoder memberCodec) (RepDb.listValues input)
         , jsonDecoder = JD.fail "no repdb"
         , nodeEncoder = repDbNodeEncoder
         , nodeDecoder = repDbNodeDecoder
@@ -273,36 +286,36 @@ repDict keyCodec valueCodec =
     let
         -- We use the json-encoded form as the dict key, since it's always comparable!
         keyToString key =
-            JE.encode 0 (getJsonEncoder keyCodec key)
+            JE.encode 0 (Base.getJsonEncoder keyCodec key)
 
         flatDictListCodec =
             list (pair keyCodec valueCodec)
 
         jsonEncoder : RepDict k v -> JE.Value
         jsonEncoder input =
-            getJsonEncoder flatDictListCodec (RepDict.list input)
+            Base.getJsonEncoder flatDictListCodec (RepDict.list input)
 
         bytesEncoder : RepDict k v -> BE.Encoder
         bytesEncoder input =
-            getBytesEncoder flatDictListCodec (RepDict.list input)
+            Base.getBytesEncoder flatDictListCodec (RepDict.list input)
 
-        entryRonEncoder : Node -> Maybe ChangesToGenerate -> Pointer -> Location -> RepDict.RepDictEntry k v -> Change.ComplexPayload
+        entryRonEncoder : Node -> Maybe NodeEncoder.ChangesToGenerate -> Pointer -> Location -> RepDict.RepDictEntry k v -> Change.ComplexPayload
         entryRonEncoder node encodeModeMaybe parent entryPosition newEntry =
             let
                 keyEncoder givenKey =
-                    getNodeEncoder keyCodec
-                        { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                    Base.getNodeEncoder keyCodec
+                        { mode = Maybe.withDefault NodeEncoder.defaultMode encodeModeMaybe
                         , node = node
-                        , thingToEncode = EncodeThis givenKey
+                        , thingToEncode = NodeEncoder.EncodeThis givenKey
                         , parent = Change.becomeInstantParent parent
                         , position = Location.nestSingle entryPosition ("repDictKey(" ++ keyToString givenKey ++ ")")
                         }
 
                 valueEncoder givenValue =
-                    getNodeEncoder valueCodec
-                        { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                    Base.getNodeEncoder valueCodec
+                        { mode = Maybe.withDefault NodeEncoder.defaultMode encodeModeMaybe
                         , node = node
-                        , thingToEncode = EncodeThis givenValue
+                        , thingToEncode = NodeEncoder.EncodeThis givenValue
                         , parent = Change.becomeInstantParent parent
                         , position = Location.nestSingle entryPosition "repDictVal"
                         }
@@ -317,14 +330,17 @@ repDict keyCodec valueCodec =
         entryChanger node encodeModeMaybe parent entryPosition newEntry =
             Change.NewPayload (entryRonEncoder node encodeModeMaybe parent entryPosition newEntry)
 
-        entryRonDecoder : Node -> Pointer -> Maybe Moment -> JE.Value -> Maybe (RepDictEntry k v)
-        entryRonDecoder node parent cutoff encodedEntry =
+        entryRonDecoder : Node -> Pointer -> Maybe Moment -> Payload.Payload -> Maybe (RepDictEntry k v)
+        entryRonDecoder node parent cutoff atoms =
             let
+                encodedEntry =
+                    Payload.toJsonValue (Nonempty.fromList atoms |> Maybe.withDefault (Nonempty (Atom.IntegerAtom 0) []))
+
                 decodeKey encodedKey =
-                    JD.decodeValue (getNodeDecoder keyCodec { node = node, position = Location.newSingle "repDictKey", parent = Change.becomeInstantParent parent, cutoff = cutoff }) encodedKey
+                    JD.decodeValue (RonPayloadDecoder.toJsonDecoder (Base.getNodeDecoder keyCodec { node = node, position = Location.newSingle "repDictKey", parent = Change.becomeInstantParent parent, cutoff = cutoff, oldMaybe = Nothing, changedObjectIDs = [] }).decoder) encodedKey
 
                 decodeValue key encodedValue =
-                    JD.decodeValue (getNodeDecoder valueCodec { node = node, position = Location.newSingle (keyToString key), parent = Change.becomeInstantParent parent, cutoff = cutoff }) encodedValue
+                    JD.decodeValue (RonPayloadDecoder.toJsonDecoder (Base.getNodeDecoder valueCodec { node = node, position = Location.newSingle (keyToString key), parent = Change.becomeInstantParent parent, cutoff = cutoff, oldMaybe = Nothing, changedObjectIDs = [] }).decoder) encodedValue
             in
             case JD.decodeValue (JD.list JD.value) encodedEntry of
                 Ok (keyEncoded :: [ valueEncoded ]) ->
@@ -351,8 +367,8 @@ repDict keyCodec valueCodec =
                 other ->
                     Log.crashInDev "entryRonDecoder : the dict entry wasn't in the expected shape" Nothing
 
-        repDictRonDecoder : NodeDecoder (RepDict k v)
-        repDictRonDecoder ({ node, parent, position, cutoff } as details) =
+        repDictNodeDecoder : NodeDecoder (RepDict k v)
+        repDictNodeDecoder ({ node, parent, position, cutoff } as details) =
             let
                 object foundObjectIDs =
                     Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepDict.reducerID, position = position }
@@ -363,21 +379,23 @@ repDict keyCodec valueCodec =
                             object foundObjects
 
                         repDictPointer =
-                            Object.getPointer repDictObject
+                            Collection.getPointer repDictObject
                     in
-                    Ok <| RepDict.buildFromReplicaDb repDictObject (entryRonDecoder node repDictPointer cutoff) (entryChanger node Nothing repDictPointer) keyToString (\_ -> [])
+                    Ok <| RepDict.buildFromReplicaDb keyToString (entryRonDecoder node repDictPointer cutoff) (entryChanger node Nothing repDictPointer) nonChanger repDictObject
             in
-            JD.map repDictBuilder concurrentObjectIDsDecoder
+            { decoder = RonPayloadDecoderLegacy (JD.map repDictBuilder NodeDecoder.concurrentObjectIDsDecoder)
+            , ancestors = AncestorDb.empty
+            }
 
-        repDictRonEncoder : NodeEncoder (RepDict k v) SoloObject
+        repDictRonEncoder : NodeEncoder (RepDict k v) NodeEncoder.SoloObject
         repDictRonEncoder ({ node, thingToEncode, mode, parent, position } as details) =
             case thingToEncode of
-                EncodeThis givenRepDict ->
+                NodeEncoder.EncodeThis givenRepDict ->
                     let
                         externalChanges =
                             RepDict.getInit givenRepDict
                     in
-                    soloOut <|
+                    NodeEncoder.soloOut <|
                         Change.changeObjectWithExternal
                             { target = RepDict.getPointer givenRepDict
                             , objectChanges = []
@@ -385,26 +403,26 @@ repDict keyCodec valueCodec =
                             }
 
                 _ ->
-                    justInit (Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID })
+                    NodeEncoder.justInit (Change.newPointer { parent = parent, position = position, reducerID = RepDict.reducerID })
 
-        initializer : InitializerInputs (Changer (RepDict k v)) -> RepDict k v
+        initializer : Initializer (Changer (RepDict k v)) (RepDict k v)
         initializer { parent, position, seed } =
             let
-                object =
-                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = RepDb.reducerID, position = position }
+                collection =
+                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], parent = parent, reducer = RepDict.reducerID, position = position }
 
-                repDbPointer =
-                    Object.getPointer object
+                repDictPointer =
+                    Collection.getPointer collection
             in
-            RepDict.buildFromReplicaDb object (entryRonDecoder Node.testNode repDbPointer Nothing) (entryChanger Node.testNode Nothing repDbPointer) keyToString seed
+            RepDict.buildFromReplicaDb keyToString (entryRonDecoder Node.testNode repDictPointer Nothing) (entryChanger Node.testNode Nothing repDictPointer) seed collection
     in
     Codec
         { bytesEncoder = bytesEncoder
-        , bytesDecoder = BD.fail
+        , bytesDecoder = BytesDecoder.fromRaw BD.fail
         , jsonEncoder = jsonEncoder
         , jsonDecoder = JD.fail "no repdict"
         , nodeEncoder = repDictRonEncoder
-        , nodeDecoder = repDictRonDecoder
+        , nodeDecoder = repDictNodeDecoder
         , nodePlaceholder = initializer
         }
 
@@ -415,27 +433,27 @@ repStore keyCodec valueCodec =
         keyToString : k -> String
         keyToString key =
             -- TODO parse same on decode
-            String.join "_" <| Nonempty.toList <| Nonempty.map Change.primitiveAtomToString (getPrimitiveNodeEncoder keyCodec key).primitive
+            String.join "_" <| Nonempty.toList <| Nonempty.map Primitive.toString (Base.getPrimitiveNodeEncoder keyCodec key).primitive
 
         flatDictListCodec =
             list (pair keyCodec valueCodec)
 
         jsonEncoder : RepStore k v -> JE.Value
         jsonEncoder input =
-            getJsonEncoder flatDictListCodec (RepStore.listModified input)
+            Base.getJsonEncoder flatDictListCodec (RepStore.listModified input)
 
         bytesEncoder : RepStore k v -> BE.Encoder
         bytesEncoder input =
-            getBytesEncoder flatDictListCodec (RepStore.listModified input)
+            Base.getBytesEncoder flatDictListCodec (RepStore.listModified input)
 
-        entryNodeEncodeWrapper : Node -> Maybe ChangesToGenerate -> Parent -> Location -> k -> Change.PendingID -> Change.ComplexPayload
+        entryNodeEncodeWrapper : Node -> Maybe NodeEncoder.ChangesToGenerate -> Parent -> Location -> k -> PendingID -> Change.ComplexPayload
         entryNodeEncodeWrapper node encodeModeMaybe parent entryPosition keyToSet childPendingID =
             let
                 keyEncoder givenKey =
-                    getNodeEncoder keyCodec
-                        { mode = Maybe.withDefault defaultEncodeMode encodeModeMaybe
+                    Base.getNodeEncoder keyCodec
+                        { mode = Maybe.withDefault NodeEncoder.defaultMode encodeModeMaybe
                         , node = node
-                        , thingToEncode = EncodeThis givenKey
+                        , thingToEncode = NodeEncoder.EncodeThis givenKey
                         , parent = parent
                         , position = Location.nestSingle entryPosition (keyToString keyToSet)
                         }
@@ -446,16 +464,20 @@ repStore keyCodec valueCodec =
         entryNodeDecoder node parent cutoff encodedEntry =
             let
                 decodeKey encodedKey =
-                    JD.decodeValue (getNodeDecoder keyCodec { node = node, position = Location.newSingle "key", parent = parent, cutoff = cutoff }) encodedKey
+                    JD.decodeValue (RonPayloadDecoder.toJsonDecoder (Base.getNodeDecoder keyCodec { node = node, position = Location.newSingle "key", parent = parent, cutoff = cutoff, oldMaybe = Nothing, changedObjectIDs = [] }).decoder) encodedKey
 
                 decodeValue key encodedValue =
                     JD.decodeValue
-                        (getNodeDecoder valueCodec
-                            { node = node
-                            , position = Location.newSingle (keyToString key)
-                            , parent = parent -- no need to wrap child changes as decoding entries means they already exist
-                            , cutoff = cutoff
-                            }
+                        (RonPayloadDecoder.toJsonDecoder
+                            (Base.getNodeDecoder valueCodec
+                                { node = node
+                                , position = Location.newSingle (keyToString key)
+                                , parent = parent -- no need to wrap child changes as decoding entries means they already exist
+                                , cutoff = cutoff
+                                , oldMaybe = Nothing
+                                , changedObjectIDs = []
+                                }
+                            ).decoder
                         )
                         encodedValue
             in
@@ -478,24 +500,32 @@ repStore keyCodec valueCodec =
 
         repStoreNodeDecoder : NodeDecoder (RepStore k v)
         repStoreNodeDecoder details =
-            JD.map (repStoreBuilder details nonChanger >> Ok) concurrentObjectIDsDecoder
+            { decoder = RonPayloadDecoderLegacy (JD.map (repStoreBuilder details nonChanger) NodeDecoder.concurrentObjectIDsDecoder)
+            , ancestors = AncestorDb.empty
+            }
 
         repStoreBuilder { node, parent, position, cutoff } changer foundObjects =
             let
                 object foundObjectIDs =
-                    Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepDict.reducerID, position = position }
+                    Node.initializeCollection { node = node, cutoff = cutoff, foundIDs = foundObjectIDs, parent = parent, reducer = RepStore.reducerID, position = position }
 
                 repStoreObject =
                     object foundObjects
 
                 repStorePointer =
-                    Object.getPointer repStoreObject
+                    Collection.getPointer repStoreObject
 
                 repStoreAsParent =
                     Change.becomeInstantParent repStorePointer
 
                 allEntries =
-                    List.filterMap (\event -> entryNodeDecoder node repStoreAsParent Nothing (Object.eventPayloadAsJson event)) (AnyDict.values (Object.getEvents repStoreObject))
+                    case repStoreObject of
+                        Collection.Saved saved ->
+                            AnyDict.values (Collection.getEvents repStoreObject)
+                                |> List.filterMap (\event -> entryNodeDecoder node repStoreAsParent Nothing (Collection.eventPayloadAsJson event))
+
+                        Collection.Unsaved _ ->
+                            []
 
                 entriesDict : AnyDict String k (List v)
                 entriesDict =
@@ -517,27 +547,31 @@ repStore keyCodec valueCodec =
                         Just prevEntries ->
                             Just (newVal :: prevEntries)
 
-                fetcher : k -> v
-                fetcher key =
+                repStoreFetcher fetchNode fetchCutoff key =
                     AnyDict.get key entriesDict
                         |> Maybe.andThen List.head
                         |> Maybe.withDefault (createObjectAt key)
 
                 createObjectAt key =
                     -- TODO FrameIndex needed?
-                    new valueCodec (Change.Context (Location.newSingle "repStoreNew") (Change.becomeDelayedParent repStorePointer (wrapNewPendingChild key)))
+                    Base.new valueCodec (Change.Context (Location.newSingle "repStoreNew") (Change.becomeDelayedParent repStorePointer (wrapNewPendingChild key)))
 
                 wrapNewPendingChild key pendingChild =
                     Change.delayedChangeObject repStorePointer
                         (Change.NewPayload (entryNodeEncodeWrapper node Nothing repStoreAsParent (Location.newSingle "repStoreVal") key pendingChild))
             in
-            RepStore.buildFromReplicaDb { object = repStoreObject, fetcher = fetcher, start = changer }
+            case repStoreObject of
+                Collection.Saved saved ->
+                    Ok <| RepStore.buildFromReplicaDb { object = saved, fetcher = repStoreFetcher node cutoff, start = changer }
 
-        repStoreNodeEncoder : NodeEncoder (RepStore k v) SoloObject
+                Collection.Unsaved _ ->
+                    Err (Custom "RepStore had no saved data")
+
+        repStoreNodeEncoder : NodeEncoder (RepStore k v) NodeEncoder.SoloObject
         repStoreNodeEncoder { thingToEncode, parent, position } =
             case thingToEncode of
-                EncodeThis givenRepStore ->
-                    soloOut <|
+                NodeEncoder.EncodeThis givenRepStore ->
+                    NodeEncoder.soloOut <|
                         Change.changeObjectWithExternal
                             { target = RepStore.getPointer givenRepStore
                             , objectChanges = []
@@ -545,15 +579,32 @@ repStore keyCodec valueCodec =
                             }
 
                 _ ->
-                    justInit (Change.newPointer { parent = parent, position = position, reducerID = RepStore.reducerID })
+                    NodeEncoder.justInit (Change.newPointer { parent = parent, position = position, reducerID = RepStore.reducerID })
 
-        initializer : InitializerInputs (Changer (RepStore k v)) -> RepStore k v
+        initializer : Initializer (Changer (RepStore k v)) (RepStore k v)
         initializer { parent, position, seed } =
-            repStoreBuilder { node = Node.testNode, parent = parent, position = position, cutoff = Nothing } seed []
+            let
+                collection =
+                    Node.initializeCollection { node = Node.testNode, cutoff = Nothing, foundIDs = [], position = position, reducer = RepStore.reducerID, parent = parent }
+
+                repStorePointer =
+                    Collection.getPointer collection
+
+                repStoreAsParent_ =
+                    Change.becomeInstantParent repStorePointer
+
+                initWrapNewPendingChild key pendingChild =
+                    Change.delayedChangeObject repStorePointer
+                        (Change.NewPayload (entryNodeEncodeWrapper Node.testNode Nothing repStoreAsParent_ (Location.newSingle "repStoreVal") key pendingChild))
+
+                repStoreFetcher_ key =
+                    Base.new valueCodec (Change.Context (Location.newSingle "repStoreNew") (Change.becomeDelayedParent repStorePointer (initWrapNewPendingChild key)))
+            in
+            RepStore.buildNew { pointer = repStorePointer, fetcher = repStoreFetcher_, start = seed }
     in
     Codec
         { bytesEncoder = bytesEncoder
-        , bytesDecoder = BD.fail
+        , bytesDecoder = BytesDecoder.fromRaw BD.fail
         , jsonEncoder = jsonEncoder
         , jsonDecoder = JD.fail "no repstore"
         , nodeEncoder = repStoreNodeEncoder
@@ -561,10 +612,3 @@ repStore keyCodec valueCodec =
         , nodePlaceholder = initializer
         }
 
-
-seedlessPair : WrappedOrSkelCodec s1 a -> WrappedOrSkelCodec s2 b -> SkelCodec ( a, b )
-seedlessPair codecFirst codecSecond =
-    record Tuple.pair
-        |> fieldReg ( 1, "first" ) Tuple.first codecFirst
-        |> fieldReg ( 2, "second" ) Tuple.second codecSecond
-        |> finishRecord

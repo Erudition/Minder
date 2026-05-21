@@ -29,7 +29,7 @@ import Log
 import NativeScript.Notification as Notif
 import Profile exposing (Profile)
 import Replicated.Change as Change exposing (Change, Parent)
-import Replicated.Codec as Codec exposing (Codec, SkelCodec, WrappedOrSkelCodec)
+import Replicated.Codec as Codec exposing (SkelCodec, WrappedOrSkelCodec)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Reducer.Register as Reg exposing (Reg)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
@@ -65,6 +65,7 @@ type alias Flags =
     { darkTheme : Bool
     , launchTime : Moment
     , notifPermission : Notif.PermissionStatus
+    , storedRonMaybe : Maybe String
     }
 
 
@@ -72,10 +73,11 @@ type alias Flags =
 -}
 decoder : Json.Decode.Decoder Flags
 decoder =
-    Json.Decode.map3 Flags
+    Json.Decode.map4 Flags
         (Json.Decode.field "darkTheme" Json.Decode.bool)
         (Json.Decode.field "launchTime" (Json.Decode.map Moment.fromElmInt Json.Decode.int))
         (Json.Decode.field "notifPermission" Notif.permissonStatusDecoder)
+        (Json.Decode.field "storedRonMaybe" (Json.Decode.nullable Json.Decode.string))
 
 
 
@@ -100,6 +102,7 @@ init flagsResult route =
                         { darkTheme = True
                         , launchTime = zero
                         , notifPermission = Notif.Prompt
+                        , storedRonMaybe = Nothing
                         }
 
         ( replicator, replica ) =
@@ -107,6 +110,7 @@ init flagsResult route =
                 { launchTime = Just flags.launchTime
                 , replicaCodec = Profile.codec
                 , outPort = Effect.setStorage
+                , storedRon = flags.storedRonMaybe
 
                 --, outPort = \stuffToWrite -> Effect.sendMsg (OddUpdate <| Odd.WriteFileContents stuffToWrite)
                 }

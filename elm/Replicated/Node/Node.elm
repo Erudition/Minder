@@ -297,7 +297,8 @@ updateNodeWithChunk chunk old =
                                     Ok foundObject
 
                                 Nothing ->
-                                    Err (UnknownReference firstOpenOp.opID)
+                                    -- Object doesn't exist yet — this IS the creation op
+                                    Ok { operationID = firstOpenOp.opID, reducer = reducerID }
 
                         ( _, _, RonParser.UnresolvedOpReference referencedOpID ) ->
                             case lookupObject old.node referencedOpID of
@@ -307,19 +308,25 @@ updateNodeWithChunk chunk old =
                                 Nothing ->
                                     Err (UnknownReference referencedOpID)
 
-        resolveReference : OpenOp -> Maybe Reference
-        resolveReference openTextOp =
+        resolveReference : AnyDict OpID.OpIDString OpID Op -> OpenOp -> Maybe Reference
+        resolveReference closedSoFar openTextOp =
             case openTextOp.reference of
                 RonParser.UnresolvedReducerReference reducer ->
                     Just (ReducerReference reducer)
 
                 RonParser.UnresolvedOpReference opIDToFind ->
-                    AnyDict.get opIDToFind old.node.ops
-                        |> Maybe.map OpReference
+                    -- Check ops closed earlier in this same chunk first, then the node
+                    case AnyDict.get opIDToFind closedSoFar of
+                        Just foundOp ->
+                            Just (OpReference foundOp)
 
-        closeOp : ObjectHeader -> OpenOp -> Maybe Op
-        closeOp deducedObject openOp =
-            case resolveReference openOp of
+                        Nothing ->
+                            AnyDict.get opIDToFind old.node.ops
+                                |> Maybe.map OpReference
+
+        closeOp : AnyDict OpID.OpIDString OpID Op -> ObjectHeader -> OpenOp -> Maybe Op
+        closeOp closedSoFar deducedObject openOp =
+            case resolveReference closedSoFar openOp of
                 Just foundRef ->
                     case
                         Op.create
@@ -338,11 +345,27 @@ updateNodeWithChunk chunk old =
                 Nothing ->
                     Nothing
 
+        closeOpsSequentially : ObjectHeader -> List OpenOp -> List Op
+        closeOpsSequentially objectHeader openOps =
+            let
+                step openOp ( closedSoFar, acc ) =
+                    case closeOp closedSoFar objectHeader openOp of
+                        Just closedOp ->
+                            ( AnyDict.insert (Op.id closedOp) closedOp closedSoFar
+                            , acc ++ [ closedOp ]
+                            )
+
+                        Nothing ->
+                            ( closedSoFar, acc )
+            in
+            List.foldl step ( AnyDict.empty OpID.toString, [] ) openOps
+                |> Tuple.second
+
         closedOpListResult =
             case deduceChunkReducerAndObject of
                 Ok foundObject ->
                     -- TODO propogate errors instead of Nothing
-                    Ok <| List.filterMap (closeOp foundObject) chunk.ops
+                    Ok <| closeOpsSequentially foundObject chunk.ops
 
                 Err newErrs ->
                     Err newErrs
@@ -759,23 +782,45 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
                 |> Maybe.withDefault objectID
 
         -- Step 3. Stamp all ops with an incremental ID
-        ( ( counterAfterObjectChanges3, newLastOpSeen ), objectChangeOps ) =
-            List.mapAccuml stampChunkOps ( postInitCounter, objectLastOpIDSeen ) allUnstampedChunkOps
+        ( ( counterAfterObjectChanges3, finalPreviousOp ), objectChangeOps ) =
+            let
+                -- find the actual Op for the header/creation
+                initialRefOp =
+                    case initOps of
+                        [ headerOp ] ->
+                            headerOp
 
-        stampChunkOps : ( InCounter, OpID ) -> UnstampedChunkOp -> ( ( OutCounter, OpID ), Op )
-        stampChunkOps ( stampInCounter, opIDToReference ) givenUCO =
+                        _ ->
+                            -- must be an existing object, look it up
+                            case getLastSeenOp node objectID of
+                                Just found ->
+                                    found
+
+                                Nothing ->
+                                    -- fallback to dummy if somehow completely missing
+                                    Op.dummy
+            in
+            List.mapAccuml stampChunkOps ( postInitCounter, initialRefOp ) allUnstampedChunkOps
+
+        stampChunkOps : ( InCounter, Op ) -> UnstampedChunkOp -> ( ( OutCounter, Op ), Op )
+        stampChunkOps ( stampInCounter, opToReference ) givenUCO =
             let
                 ( newID, stampOutCounter ) =
                     OpID.generate stampInCounter node.identity givenUCO.deletion
 
-                stampedOp =
-                    Op.create reducerID objectID newID (Op.OpReference <| Maybe.withDefault opIDToReference givenUCO.reference) givenUCO.payload
+                stampedOpResult =
+                    Op.create reducerID objectID newID (Op.OpReference opToReference) givenUCO.payload
             in
-            ( ( stampOutCounter, newID ), stampedOp )
+            case stampedOpResult of
+                Ok good ->
+                    ( ( stampOutCounter, good ), good )
+
+                Err bad ->
+                    Log.crashInDev bad ( ( stampOutCounter, Op.dummy ), Op.dummy )
 
         -- ObjectsCreated Mapping: be sure to update the lastOpSeen for this object
         finalMapping =
-            { postInitMapping | lastSeen = AnyDict.insert objectID newLastOpSeen postInitMapping.lastSeen }
+            { postInitMapping | lastSeen = AnyDict.insert objectID (Op.id finalPreviousOp) postInitMapping.lastSeen }
 
         -- logOps prefix ops =
         --     String.concat (List.intersperse "\n" (List.map (\op -> prefix ++ ":\t" ++ RonOutput.opToString op ++ "\t") ops))
@@ -972,7 +1017,7 @@ initializeCollection :
     , reducer : ReducerID
     , position : Location
     }
-    -> Collection event
+    -> Collection Payload
 initializeCollection { node, cutoff, foundIDs, parent, reducer, position } =
     let
         uninitializedObject =

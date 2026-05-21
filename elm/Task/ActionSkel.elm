@@ -8,7 +8,7 @@ import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode exposing (..)
 import Json.Encode.Extra exposing (..)
 import Replicated.Change exposing (Changer, Context)
-import Replicated.Codec as Codec exposing (Codec, NullCodec, SkelCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
+import Replicated.Codec as Codec exposing (NullCodec, SkelCodec, WrappedCodec, coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
 import Replicated.Reducer.Register exposing (RW, RWMaybe, Reg)
 import Replicated.Reducer.RepDict exposing (RepDict)
 import Replicated.Reducer.RepList exposing (RepList)
@@ -57,7 +57,7 @@ newActionSkel c title changer =
     Codec.newWithSeedAndChanges codec c title changer
 
 
-codec : Codec String ( String, Changer (Reg ActionSkel) ) Codec.SoloObject (Reg ActionSkel)
+codec : Codec.WrappedSeededCodec String (Reg ActionSkel)
 codec =
     Codec.record ActionSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity

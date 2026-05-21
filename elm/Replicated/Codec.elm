@@ -5,7 +5,7 @@ module Replicated.Codec exposing
     , CustomTypeCodec, customType, variant0, variant1, variant2, variant3, variant4, variant5, variant6, variant7, variant8, finishCustomType
     , map, mapValid, mapError
     , lazy
-    , FieldIdentifier, FieldName, FieldSlot, FieldValue, NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, VariantTag, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, char, coreR, coreRW, decodeFromNode, fieldDb, fieldDict, fieldList, fieldRW, fieldRWM, fieldRec, fieldReg, fieldStore, finishRegister, finishSeededRecord, finishSeededRegister, id, list, makeOpaque, maybeR, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges, nonempty, obsolete, quickEnum, repDb, repDict, repList, repStore, seededR, seededRW, seedlessPair, todo, startNodeFromRoot, encodeToJsonString
+    , FieldIdentifier, FieldName, FieldSlot, FieldValue, NullCodec, PrimitiveCodec, SeededRecordCodec, SelfSeededCodec, SkelCodec, VariantTag, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, char, coreR, coreRW, decodeFromNode, fieldDb, fieldDict, fieldList, fieldRW, fieldRWM, fieldRec, fieldReg, fieldStore, finishRegister, finishSeededRecord, finishSeededRegister, id, list, makeOpaque, maybeR, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges, nonempty, obsolete, quickEnum, repDb, repDict, repList, repStore, seededR, seededRW, seedlessPair, todo, startNodeFromRoot, encodeToJsonString
     )
 
 {-|
@@ -80,10 +80,11 @@ import Log
 import Maybe.Extra
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Codec.Base as Base
+import Replicated.Codec.Base as Base exposing (Codec(..))
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
-import Replicated.Codec.Bytes.Encoder exposing (BytesEncoder)
-import Replicated.Codec.CustomType
+import Replicated.Codec.Bytes.Encoder as BytesEncoder exposing (BytesEncoder)
+import Replicated.Codec.CustomType exposing (CustomTypeCodec, VariantEncoder)
+import Replicated.Codec.Primitives
 import Replicated.Codec.DataStructures.Immutable.SyncSafe
 import Replicated.Codec.DataStructures.Immutable.SyncUnsafe
 import Replicated.Codec.DataStructures.Mutable
@@ -92,11 +93,12 @@ import Replicated.Codec.Json.Decoder as JsonDecoder exposing (JsonDecoder)
 import Replicated.Codec.Node.Decoder as NodeDecoder exposing (Inputs, NodeDecoder)
 import Replicated.Codec.Node.Encoder as NodeEncoder exposing (NodeEncoder)
 import Replicated.Codec.Primitives as Primitives
-import Replicated.Codec.Register
+import Replicated.Codec.Register exposing (PartialRegister)
 import Replicated.Codec.RegisterField.Shared
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Node.Node as Node exposing (Node)
+import Replicated.Op.Atom as Atom
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
 import Replicated.Reducer.Register as Reg exposing (..)
@@ -154,6 +156,13 @@ type alias WrappedCodec thing =
 -}
 type alias WrappedSeededCodec seed thing =
     Base.WrappedSeededCodec seed thing
+
+
+{-| Codec for naked (unwrapped) records that need an initial seed.
+The record cannot be initialized with changes, only with the seed value.
+-}
+type alias SeededRecordCodec seed thing =
+    Base.SeededRecordCodec seed thing
 
 
 
@@ -225,14 +234,14 @@ decodeFromNode rootCodec node existingRootMaybe =
                 Nothing ->
                     new rootCodec (Change.startContext "fDFN")
 
-        { decoder, obSubs } =
-            getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "dFN", cutoff = Nothing, position = Location.none, oldMaybe = existingRootMaybe, changedObjectIDs = [] }
+        { decoder, ancestors } =
+            Base.getNodeDecoder rootCodec { node = node, parent = Change.genesisParent "dFN", cutoff = Nothing, position = Location.none, oldMaybe = existingRootMaybe, changedObjectIDs = [] }
 
         decodedRoot =
             case decoder of
                 RonPayloadDecoderLegacy jdDecoder ->
                     -- run legacy JD Decoder on the artificial json string containing only the root ID
-                    case JD.decodeString jdDecoder (prepRonAtomForLegacyDecoder rootIDAsJsonString) of
+                    case JD.decodeString jdDecoder (JsonDecoder.prepRonAtomForLegacyDecoder rootIDAsJsonString) of
                         Ok unwrappedResult ->
                             unwrappedResult
 
@@ -242,7 +251,7 @@ decodeFromNode rootCodec node existingRootMaybe =
 
                 RonPayloadDecoderNew ronPayloadDecoder ->
                     -- turn the root object ID into a fake ron payload with zero or one OpID atoms
-                    ronPayloadDecoder (Maybe.Extra.toList (Maybe.map Op.IDPointerAtom node.root))
+                    ronPayloadDecoder (Maybe.Extra.toList (Maybe.map (.operationID >> Atom.IDPointerAtom) node.root))
     in
     case decodedRoot of
         Ok success ->
@@ -264,7 +273,7 @@ decodeFromBytes codec bytes_ =
         --                 if value <= 0 then
         --                     Err (BadVersionNumber value) |> BD.succeed
         --                 else if value == version then
-        --                     getBytesDecoder codec
+        --                     Base.getBytesDecoder codec
         --                 else
         --                     Err SerializerOutOfDate |> BD.succeed
         --             )
@@ -272,7 +281,7 @@ decodeFromBytes codec bytes_ =
             BD.unsignedInt8
                 |> BD.andThen
                     (\value ->
-                        getBytesDecoder codec
+                        BytesDecoder.toRaw (Base.getBytesDecoder codec)
                     )
     in
     case BD.decode decoder bytes_ of
@@ -307,7 +316,7 @@ decodeFromJson codec json =
     --                     if value <= 0 then
     --                         Err (BadVersionNumber value) |> JD.succeed
     --                     else if value == version then
-    --                         JD.index 1 (getJsonDecoder codec)
+    --                         JD.index 1 (Base.getJsonDecoder codec)
     --                     else
     --                         Err SerializerOutOfDate |> JD.succeed
     --                 )
@@ -317,7 +326,12 @@ decodeFromJson codec json =
     --         value
     --     Err jdError ->
     --         Err (JDError jdError)
-    JD.decodeValue (getJsonDecoder codec) json
+    case JD.decodeValue (Base.getJsonDecoder codec) json of
+        Ok innerResult ->
+            innerResult
+
+        Err jdError ->
+            Err (JDError jdError)
 
 
 decodeStringToBytes : String -> Maybe Bytes.Bytes
@@ -338,7 +352,7 @@ encodeToBytes codec value =
     --     , value |> getBytesEncoder codec
     --     ]
     --     |> BE.encode
-    BE.encode
+    BE.encode (Base.getBytesEncoder codec value)
 
 
 {-| Convert an Elm value into a string. This string contains only url safe characters, so you can do the following:
@@ -360,7 +374,7 @@ encodeToURLSafeByteString codec =
 -}
 encodeToJsonString : Codec s o a -> a -> String
 encodeToJsonString codec value =
-    JE.encode 0 (getJsonEncoder codec value)
+    JE.encode 0 (Base.getJsonEncoder codec value)
 
 
 {-| Convert an Elm value into json data.
@@ -370,9 +384,9 @@ encodeToJson codec value =
     -- JE.list
     --     identity
     --     [ JE.int version
-    --     , value |> getJsonEncoder codec
+    --     , value |> Base.getJsonEncoder codec
     --     ]
-    getJsonEncoder codec value
+    Base.getJsonEncoder codec value
 
 
 replaceBase64Chars : Bytes.Bytes -> String
@@ -385,11 +399,14 @@ replaceBase64Chars =
 startNodeFromRoot : Maybe Moment -> WrappedOrSkelCodec s a -> ( Node, List Op.ClosedChunk )
 startNodeFromRoot maybeMoment rootCodec =
     let
+        defaultMode =
+            NodeEncoder.defaultMode
+
         rootEncoderOutput =
-            getSoloNodeEncoder rootCodec
+            Base.getSoloNodeEncoder rootCodec
                 { node = Node.testNode
-                , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
-                , thingToEncode = EncodeThis <| new rootCodec (Change.startContext "eD")
+                , mode = { defaultMode | setDefaultsExplicitly = True }
+                , thingToEncode = NodeEncoder.EncodeThis <| new rootCodec (Change.startContext "eD")
                 , parent = Change.genesisParent "eD"
                 , position = Location.none
                 }
@@ -404,7 +421,7 @@ startNodeFromRoot maybeMoment rootCodec =
         case rootPointer of
             Change.ExistingObjectPointer existingID ->
                 -- weird. why would it be existing already?
-                ( { startNode | root = Just existingID.object }, [] )
+                ( { startNode | root = Just existingID }, [] )
 
             Change.PlaceholderPointer pendingID _ ->
                 let
@@ -417,7 +434,7 @@ startNodeFromRoot maybeMoment rootCodec =
                     nodeWithRoot =
                         Node.updateWithClosedOps startNode [ rootInitOp ]
                 in
-                ( { nodeWithRoot | root = Just rootOpID }, [ [ rootInitOp ] ] )
+                ( { nodeWithRoot | root = Just { operationID = rootOpID, reducer = pendingID.reducer } }, [ [ rootInitOp ] ] )
 
     else
         ( startNode, [] )
@@ -429,11 +446,14 @@ Useful for spitting out test data, and seeing the whole heirarchy of your types.
 encodeDefaults : Node -> WrappedOrSkelCodec s a -> ChangeSet
 encodeDefaults node rootCodec =
     let
+        defaultMode =
+            NodeEncoder.defaultMode
+
         rootEncoderOutput =
-            getSoloNodeEncoder rootCodec
+            Base.getSoloNodeEncoder rootCodec
                 { node = node
-                , mode = { defaultEncodeMode | setDefaultsExplicitly = True }
-                , thingToEncode = EncodeThis <| new rootCodec (Change.startContext "eD")
+                , mode = { defaultMode | setDefaultsExplicitly = True }
+                , thingToEncode = NodeEncoder.EncodeThis <| new rootCodec (Change.startContext "eD")
                 , parent = Change.genesisParent "eD"
                 , position = Location.none
                 }
@@ -448,13 +468,13 @@ encodeDefaultsForTesting rootCodec =
     encodeDefaults Node.testNode rootCodec
 
 
-getEncodedPrimitive : ThingToEncode a -> a
+getEncodedPrimitive : NodeEncoder.ThingToEncode a -> a
 getEncodedPrimitive thingToEncode =
     case thingToEncode of
-        EncodeThis thing ->
+        NodeEncoder.EncodeThis thing ->
             thing
 
-        EncodeObjectOrThis _ thing ->
+        NodeEncoder.EncodeObjectOrThis _ thing ->
             Log.crashInDev "primitive encoder was passed an objectID to encode?" thing
 
 
@@ -508,7 +528,7 @@ char =
 -}
 unit : PrimitiveCodec ()
 unit =
-    Replicated.Codec.DataStructures.Immutable.SyncSafe.unit
+    Replicated.Codec.Primitives.unit
 
 
 {-| Codec for serializing [`Bytes`](https://package.elm-lang.org/packages/elm/bytes/latest/).
@@ -524,7 +544,7 @@ This is useful in combination with `mapValid` for encoding and decoding data usi
 -}
 bytes : PrimitiveCodec Bytes.Bytes
 bytes =
-    Replicated.Codec.DataStructures.Immutable.SyncSafe.bytes
+    Replicated.Codec.Primitives.bytes
 
 
 {-| Codec for serializing an integer ranging from 0 to 255.
@@ -550,7 +570,7 @@ So if you encode -1 you'll get back 255 and if you encode 257 you'll get back 2.
 -}
 byte : PrimitiveCodec Int
 byte =
-    Replicated.Codec.DataStructures.Immutable.SyncSafe.byte
+    Replicated.Codec.Primitives.byte
 
 
 
@@ -629,7 +649,7 @@ daysOfWeekCodec =
 -}
 quickEnum : a -> List a -> PrimitiveCodec a
 quickEnum defaultItem items =
-    Replicated.Codec.DataStructures.Immutable.SyncSafe.quickEnum defaultItem items
+    Replicated.Codec.Primitives.quickEnum defaultItem items
 
 
 
@@ -645,7 +665,7 @@ repList memberCodec =
 
 {-| A replicated set specifically for reptype members, with dictionary features such as getting a member by ID.
 -}
-repDb : Codec s SoloObject memberType -> WrappedCodec (RepDb memberType)
+repDb : Codec s NodeEncoder.SoloObject memberType -> WrappedCodec (RepDb memberType)
 repDb memberCodec =
     Replicated.Codec.DataStructures.Mutable.repDb memberCodec
 
@@ -675,7 +695,7 @@ Doesn't support seeded reptypes.
 -}
 seedlessPair : WrappedOrSkelCodec s1 a -> WrappedOrSkelCodec s2 b -> SkelCodec ( a, b )
 seedlessPair codecFirst codecSecond =
-    Replicated.Codec.DataStructures.Mutable.seedlessPair codecFirst codecSecond
+    Replicated.Codec.Register.seedlessPair codecFirst codecSecond
 
 
 
@@ -848,7 +868,7 @@ fieldStore fieldID fieldGetter ( keyCodec, valueCodec ) recordBuilt =
   - If your field is not a `RepDb` but a type that wraps one (or more), you will need to use `field` or `fieldRW` with the `repDb` codec instead.
 
 -}
-fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec memberSeed SoloObject memberType -> PartialRegister i full (RepDb memberType -> remaining) -> PartialRegister i full remaining
+fieldDb : FieldIdentifier -> (full -> RepDb memberType) -> Codec memberSeed NodeEncoder.SoloObject memberType -> PartialRegister i full (RepDb memberType -> remaining) -> PartialRegister i full remaining
 fieldDb fieldID fieldGetter fieldCodec recordBuilt =
     Replicated.Codec.Register.fieldDb fieldID fieldGetter fieldCodec recordBuilt
 
@@ -947,7 +967,7 @@ finishRecord partialRegister =
 {-| Finish creating a codec for a naked Register.
 This is a Register, stripped of its wrapper.
 -}
-finishSeededRecord : PartialRegister s full full -> Codec s SoloObject full
+finishSeededRecord : PartialRegister s full full -> Codec s NodeEncoder.SoloObject full
 finishSeededRecord partialRegister =
     Replicated.Codec.Register.finishSeededRecord partialRegister
 
@@ -1031,7 +1051,7 @@ Note that there's nothing preventing you from encoding Elm values that will prod
 I recommend writing tests for Codecs that use `mapValid` to make sure you get back the same Elm value you put in.
 
 -}
-mapValid : (a -> Result e b) -> (b -> a) -> SelfSeededCodec o a -> SelfSeededCodec o b
+mapValid : (a -> Result Error.CustomError b) -> (b -> a) -> SelfSeededCodec o a -> SelfSeededCodec o b
 mapValid fromBytes_ toBytes_ codec =
     Base.mapValid fromBytes_ toBytes_ codec
 
@@ -1039,8 +1059,8 @@ mapValid fromBytes_ toBytes_ codec =
 {-| Map errors generated by `mapValid`.
 -}
 mapError : (e1 -> e2) -> PrimitiveCodec a -> PrimitiveCodec a
-mapError mapFunc codec =
-    Base.mapError mapFunc codec
+mapError _ codec =
+    codec
 
 
 
@@ -1080,7 +1100,7 @@ lazy f =
 -}
 todo : a -> PrimitiveCodec a
 todo bogusValue =
-    Replicated.Codec.Primitives.todo bogusValue
+    Primitives.todo bogusValue
 
 
 

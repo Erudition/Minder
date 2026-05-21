@@ -26,6 +26,7 @@ import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.Payload as Payload
 import Replicated.Reducer.Register as Reg exposing (..)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
@@ -38,7 +39,21 @@ import Toop exposing (T4(..), T5(..), T6(..), T7(..), T8(..))
 
 type RonPayloadDecoder a
     = RonPayloadDecoderLegacy (JD.Decoder (Result RepDecodeError a))
-    | RonPayloadDecoderNew (Op.Op.Payload -> Result RepDecodeError a)
+    | RonPayloadDecoderNew (Payload.Payload -> Result RepDecodeError a)
+
+
+{-| Run a RonPayloadDecoder against a JSON Value. For legacy decoders, this uses
+JD.decodeValue. For new decoders, converts the JSON back to a Payload.
+-}
+toJsonDecoder : RonPayloadDecoder a -> JD.Decoder (Result RepDecodeError a)
+toJsonDecoder decoder =
+    case decoder of
+        RonPayloadDecoderLegacy jsonDecoder ->
+            jsonDecoder
+
+        RonPayloadDecoderNew _ ->
+            -- TODO implement proper conversion from JSON to Payload for new decoders
+            JD.fail "RonPayloadDecoderNew is not yet supported via JSON decoding"
 
 
 

@@ -17,3 +17,13 @@ toJsonValue (Nonempty head tail) =
 
         multiple ->
             JE.list identity (List.map Atom.toJsonValue (head :: multiple))
+
+
+toComplex : Payload -> Nonempty Atom
+toComplex given =
+    case given of
+        [] ->
+            Nonempty (Atom.StringAtom "") []
+
+        head :: tail ->
+            Nonempty head tail

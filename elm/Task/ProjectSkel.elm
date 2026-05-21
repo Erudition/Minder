@@ -35,7 +35,7 @@ type alias ProjectID =
     ID (Reg ProjectSkel)
 
 
-projectCodec : WrappedCodec String (Reg ProjectSkel)
+projectCodec : WrappedCodec (Reg ProjectSkel)
 projectCodec =
     Codec.record ProjectSkel
         |> Codec.fieldRWM ( 3, "title" ) .title Codec.string
@@ -48,7 +48,7 @@ type NestedOrAssignable
     | AssignableIsHere (Reg AssignableSkel)
 
 
-nestedOrAssignableCodec : Codec.NullCodec String NestedOrAssignable
+nestedOrAssignableCodec : Codec.NullCodec NestedOrAssignable
 nestedOrAssignableCodec =
     Codec.customType
         (\leaderIsDeeper leaderIsHere value ->

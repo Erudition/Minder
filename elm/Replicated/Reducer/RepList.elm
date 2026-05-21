@@ -16,6 +16,8 @@ import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID, OpIDString)
 import Replicated.Op.Op as Op
+import Replicated.Op.Payload as Payload exposing (Payload)
+import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -25,7 +27,7 @@ type RepList memberType
     = RepList
         { pointer : Pointer
         , members : List (Item memberType)
-        , included : Object.InclusionInfo
+        , included : Collection.InclusionInfo
         , memberAdder : Location -> memberType -> Maybe OpID -> Change.ObjectChange
         , startWith : Changer (RepList memberType)
         }
@@ -74,19 +76,20 @@ type Handle
     = Handle OpID
 
 
-reducerID : Op.ReducerID
+reducerID : ReducerID
 reducerID =
-    "replist"
+    ReducerID.RepListReducer
+
 
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (Location -> memberType -> Maybe OpID -> Change.ObjectChange) -> Changer (RepList memberType) -> Maybe (RepList memberType) -> RepList memberType
+buildFromReplicaDb : Collection Payload -> (JE.Value -> Maybe memberType) -> (Location -> memberType -> Maybe OpID -> Change.ObjectChange) -> Changer (RepList memberType) -> Maybe (RepList memberType) -> RepList memberType
 buildFromReplicaDb targetObject payloadToMember memberAdder init oldRepListMaybe =
     let
-        compareEvents : ( OpID, Object.Event ) -> ( OpID, Object.Event ) -> Order
+        compareEvents : ( OpID, Collection.Event Payload ) -> ( OpID, Collection.Event Payload ) -> Order
         compareEvents ( eventIDA, eventA ) ( eventIDB, eventB ) =
-            case compare (OpID.toSortablePrimitives (Object.eventReference eventA)) (OpID.toSortablePrimitives (Object.eventReference eventB)) of
+            case compare (OpID.toSortablePrimitives (Collection.eventReference eventA)) (OpID.toSortablePrimitives (Collection.eventReference eventB)) of
                 GT ->
                     GT
 
@@ -109,13 +112,13 @@ buildFromReplicaDb targetObject payloadToMember memberAdder init oldRepListMaybe
         sortedEventsAsItems =
             let
                 sortedEvents =
-                    AnyDict.toList (Object.getEvents targetObject)
+                    AnyDict.toList (Collection.getEvents targetObject)
                         |> List.sortWith compareEvents
             in
             List.filterMap eventToItem sortedEvents
 
         eventToItem ( eventID, event ) =
-            case payloadToMember (Object.eventPayloadAsJson event) of
+            case payloadToMember (Collection.eventPayloadAsJson event) of
                 Just item ->
                     Just
                         { handle = Handle eventID
@@ -129,19 +132,19 @@ buildFromReplicaDb targetObject payloadToMember memberAdder init oldRepListMaybe
         Just (RepList existing) ->
             --TODO
             RepList
-                { pointer = Object.getPointer targetObject
+                { pointer = Collection.getPointer targetObject
                 , members = sortedEventsAsItems
                 , memberAdder = memberAdder
-                , included = Object.getIncluded targetObject
+                , included = Collection.getIncluded targetObject
                 , startWith = init
                 }
 
         Nothing ->
             RepList
-                { pointer = Object.getPointer targetObject
+                { pointer = Collection.getPointer targetObject
                 , members = sortedEventsAsItems
                 , memberAdder = memberAdder
-                , included = Object.getIncluded targetObject
+                , included = Collection.getIncluded targetObject
                 , startWith = init
                 }
 

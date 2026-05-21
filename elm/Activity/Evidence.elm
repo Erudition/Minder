@@ -35,7 +35,7 @@ type alias AppDescriptor =
     }
 
 
-appDescriptorCodec : Codec.WrappedSeededCodec ( String, String ) AppDescriptor
+appDescriptorCodec : Codec.SeededRecordCodec ( String, String ) AppDescriptor
 appDescriptorCodec =
     Codec.record AppDescriptor
         |> Codec.coreR ( 1, "package" ) .package Codec.string (\( p, n ) -> p)

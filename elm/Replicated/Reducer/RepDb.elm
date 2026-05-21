@@ -12,12 +12,14 @@ import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
 import Maybe.Extra
 import Replicated.Change as Change exposing (Change, ChangeSet, Changer, Creator, Parent(..))
-import Replicated.Change.Location as Location exposing (Location)
-import Replicated.Node.Node as Node exposing (Node)
-import Replicated.Node.NodeID as NodeID exposing (NodeID)
 import Replicated.Collection as Collection exposing (Collection)
-import Replicated.Op.ID as OpID exposing (ObjectID, OpID, OpIDString)
-import Replicated.Op.Op as Op
+import Replicated.Op.Atom exposing (Atom)
+import Replicated.Op.ID as OpID exposing (ObjectID, OpID, OpIDSortable)
+import Replicated.Op.ObjectHeader as ObjectHeader exposing (ObjectHeader)
+import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
+import Replicated.Op.Payload as Payload exposing (Payload)
+import Replicated.Change.Location as Location exposing (Location)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -27,7 +29,7 @@ type RepDb memberType
     = RepDb
         { pointer : Change.Pointer
         , members : AnyDict OpID.OpIDSortable ObjectID (Member memberType)
-        , included : Object.InclusionInfo
+        , included : Collection.InclusionInfo
         , memberAdder : memberType -> Change.ObjectChange
         , startWith : Changer (RepDb memberType)
         }
@@ -35,8 +37,8 @@ type RepDb memberType
 
 {-| Internal reminder that the ID of the inclusion Op is not the same as the member object's ID.
 -}
-type alias InclusionOpID =
-    OpID
+type alias FieldPayload =
+    Nonempty Atom
 
 
 type alias Member memberType =
@@ -51,9 +53,9 @@ getPointer (RepDb repSet) =
     repSet.pointer
 
 
-reducerID : Op.ReducerID
+reducerID : ReducerID
 reducerID =
-    "replist"
+    ReducerID.RepListReducer
 
 
 {-| Want to use a repdb with Html.Keyed?
@@ -66,23 +68,23 @@ idString { id } =
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe memberType) -> (memberType -> Change.ObjectChange) -> Changer (RepDb memberType) -> RepDb memberType
+buildFromReplicaDb : Collection Payload -> (Collection.Event Payload -> Maybe memberType) -> (memberType -> Change.ObjectChange) -> Changer (RepDb memberType) -> RepDb memberType
 buildFromReplicaDb object payloadToMember memberAdder init =
     let
         memberDict : AnyDict OpID.OpIDSortable ObjectID (Member memberType)
         memberDict =
-            case Object.getCreationID object of
+            case Collection.getCreationID object of
                 Just objectID ->
-                    AnyDict.foldl (addMemberFromEvent (Change.Op.ObjectHeader reducerID objectID)) (AnyDict.empty OpID.toSortablePrimitives) (Object.getEvents object)
+                    AnyDict.foldl (addMemberFromEvent { reducer = reducerID, operationID = objectID }) (AnyDict.empty OpID.toSortablePrimitives) (Collection.getEvents object)
 
                 Nothing ->
                     AnyDict.empty OpID.toSortablePrimitives
 
-        addMemberFromEvent : Change.Op.ObjectHeader -> InclusionOpID -> Object.Event -> AnyDict OpID.OpIDSortable ObjectID (Member memberType) -> AnyDict OpID.OpIDSortable ObjectID (Member memberType)
+        addMemberFromEvent : ObjectHeader -> OpID -> Collection.Event Payload -> AnyDict OpID.OpIDSortable ObjectID (Member memberType) -> AnyDict OpID.OpIDSortable ObjectID (Member memberType)
         addMemberFromEvent containerExistingID inclusionEventID event accumulatedDict =
             case
-                ( Object.extractOpIDFromEventPayload event
-                , payloadToMember (Object.eventPayloadAsJson event)
+                ( Collection.extractOpIDFromEventPayload event
+                , payloadToMember event
                 )
             of
                 ( Just memberObjectID, Just memberValue ) ->
@@ -104,10 +106,10 @@ buildFromReplicaDb object payloadToMember memberAdder init =
                 |> .changeSet
     in
     RepDb
-        { pointer = Object.getPointer object
+        { pointer = Collection.getPointer object
         , members = memberDict
         , memberAdder = memberAdder
-        , included = Object.getIncluded object
+        , included = Collection.getIncluded object
         , startWith = init
         }
 

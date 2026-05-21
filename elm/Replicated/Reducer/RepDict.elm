@@ -4,7 +4,6 @@ import Array exposing (Array)
 import Console
 import Dict
 import Dict.Any as AnyDict exposing (AnyDict)
-import Json.Encode as JE
 import List.Extra as List
 import List.Nonempty as Nonempty exposing (Nonempty(..))
 import Log
@@ -13,8 +12,11 @@ import Replicated.Change.Location as Location exposing (Location)
 import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Node.Node as Node exposing (Node)
 import Replicated.Node.NodeID as NodeID exposing (NodeID)
+import Replicated.Op.Atom exposing (Atom)
 import Replicated.Op.ID as OpID exposing (ObjectID, OpID, OpIDString)
-import Replicated.Op.Op as Op
+import Replicated.Op.ObjectHeader as ObjectHeader exposing (ObjectHeader)
+import Replicated.Op.Payload as Payload exposing (Payload)
+import Replicated.Op.ReducerID as ReducerID exposing (ReducerID)
 import SmartTime.Moment as Moment exposing (Moment)
 
 
@@ -24,7 +26,7 @@ type RepDict k v
     = RepDict
         { pointer : Change.Pointer
         , members : AnyDict KeyAsString k (Member v)
-        , included : Object.InclusionInfo
+        , included : Collection.InclusionInfo
         , memberAdder : Location -> RepDictEntry k v -> Change.ObjectChange
         , startWith : Changer (RepDict k v)
         }
@@ -39,6 +41,10 @@ type alias KeyAsString =
 type RepDictEntry k v
     = Present k v
     | Cleared k
+
+
+type alias FieldPayload =
+    Nonempty Atom
 
 
 type alias Member v =
@@ -56,28 +62,33 @@ type alias Handle =
     OpIDString
 
 
-reducerID : Op.ReducerID
+reducerID : ReducerID
 reducerID =
-    "replist"
+    ReducerID.RepDictReducer
 
 
 {-| Only run in codec
 -}
-buildFromReplicaDb : Object -> (JE.Value -> Maybe (RepDictEntry k v)) -> (Location -> RepDictEntry k v -> Change.ObjectChange) -> (k -> String) -> Changer (RepDict k v) -> RepDict k v
-buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChanger =
+buildFromReplicaDb :
+    (k -> String)
+    -> (Payload -> Maybe (RepDictEntry k v))
+    -> (Location -> RepDictEntry k v -> Change.ObjectChange)
+    -> Changer (RepDict k v)
+    -> Collection Payload
+    -> RepDict k v
+buildFromReplicaDb keyToString payloadToEntry memberAdder initChanger targetObject =
     let
-        eventsAsMemberPairs : List ( k, Member v )
         eventsAsMemberPairs =
-            case Object.getCreationID targetObject of
+            case Collection.getCreationID targetObject of
                 Just objectID ->
-                    List.filterMap (eventToMemberPair (Change.Op.ObjectHeader reducerID objectID)) (AnyDict.toList (Object.getEvents targetObject))
+                    List.filterMap (eventToMemberPair { reducer = reducerID, operationID = objectID }) (AnyDict.toList (Collection.getEvents targetObject))
 
                 Nothing ->
                     []
 
-        eventToMemberPair : Change.Op.ObjectHeader -> ( OpID, Object.Event ) -> Maybe ( k, Member v )
+        eventToMemberPair : ObjectHeader -> ( OpID, Collection.Event Payload ) -> Maybe ( k, Member v )
         eventToMemberPair containerExistingID ( eventID, event ) =
-            case payloadToEntry (Object.eventPayloadAsJson event) of
+            case payloadToEntry (Collection.eventPayload event) of
                 Just (Present key val) ->
                     Just
                         ( key
@@ -97,10 +108,10 @@ buildFromReplicaDb targetObject payloadToEntry memberAdder keyToString initChang
                 |> .changeSet
     in
     RepDict
-        { pointer = Object.getPointer targetObject
+        { pointer = Collection.getPointer targetObject
         , members = AnyDict.fromList keyToString eventsAsMemberPairs
         , memberAdder = memberAdder
-        , included = Object.getIncluded targetObject
+        , included = Collection.getIncluded targetObject
         , startWith = initChanger
         }
 

@@ -58,9 +58,11 @@ async function startElmApp() {
 
     updateLoadInfo("Installing TaskPorts");
     await installTaskPorts();
+    updateLoadInfo("Loading stored data");
+    const storedRon = await Preferences.get({ key: 'appData' });
     updateLoadInfo("Starting Elm app");
     let app = Elm.Main.init({ flags: 
-        { storedRonMaybe : (null) 
+        { storedRonMaybe : storedRon.value
         , darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches
         , notifPermission : await LocalNotifications.checkPermissions()
         , launchTime : Date.now()
@@ -90,6 +92,14 @@ function elmStarted(app) {
         console.log("No Capacitor splash screen to hide.");
     });
 
+    // SET STORAGE — persist RON frames to Capacitor Preferences
+    if (app.ports.setStorage) app.ports.setStorage.subscribe(async function(data) {
+        const existing = await Preferences.get({ key: 'appData' });
+        await Preferences.set({
+            key: 'appData',
+            value: (existing.value || '') + data
+        });
+    });
 
     // Try to make storage persistent
     if (navigator.storage && navigator.storage.persist)
@@ -188,63 +198,19 @@ async function getPassphrase(shouldReset) {
 }
 
 async function attachOrbit(elmApp) {
-    const orbit = await import( './scripts/orbit')
-    const storedPassphrase : string | null = await  getPassphrase(false);
-    const db = await orbit.startOrbit(storedPassphrase);
-    globalThis["minderLog"] = db;
-    const dbEntries = db.iterator({ limit: -1 }).collect();
-    console.log("Loaded inital database entries", dbEntries);
-    let oldFrames = dbEntries.map((e) => e.payload.value).join('\n');
-
-    elmApp.ports.incomingRon.send(oldFrames);
-
-    // SET STORAGE
-    elmApp.ports.setStorage.subscribe(async function(state) {
-        if (state.trim() != "")
-        {
-          // TODO elm may call this before it's ready. make taskport, hoist to top and use await db.load? or onReady?
-          console.log("Adding state to database", state);
-          const hash = db.add(state); //async?
-        }
-    });
-
-    // Notify elm of new frame from peers
-    db.events.on("replicate.progress", (address, hash, entry, progress, have) => {
-      const newFrame = entry.payload.value;
-      elmApp.ports.incomingRon.send(newFrame);
-      console.log("New frames from peer @", address, "Progress is ", progress)
-    })
+    // OrbitDB/IPFS integration is defunct — stubbed out
+    console.log("OrbitDB: skipped (defunct)")
 }
 
 
 async function attachODDManual(elmApp) {
-  const oddIntegration = await import('./scripts/odd')
-  //const program = oddIntegration.init();
-
-
-  // let retrievedRon = await oddIntegration.readData(program, program!.session);
-  // if (retrievedRon) {
-  //   elmApp.ports.incomingRon.send(retrievedRon)
-  // } else {
-  //   console.error("Couldn't retrieve RON from WNFS", retrievedRon)
-  // }
-  //   // SET STORAGE
-  // elmApp.ports.setStorage.subscribe(async function(state) {
-  //     if (state.trim() != "")
-  //     {
-  //       console.log("Adding state to WNFS", state);
-  //       const hash = oddIntegration.saveData(state); 
-  //     } else {
-  //       console.error("Tried to save empty RON data...")
-  //     }
-  // });
+  // ODD SDK (Fission) is defunct — stubbed out
+  console.log("ODD SDK: skipped (Fission is defunct)")
 }
 
 async function attachODDElmLibrary() {
-  // Elm library (currently broken)
-  const webnativeElm = await import("webnative-elm")
-  await webnativeElm.init({ TaskPort }) // await so it will be ready before elm initializes
-  console.log("webnative initialized", webnativeElm)
+  // Fission/webnative is defunct — stubbed out
+  console.log("webnative-elm: skipped (Fission is defunct)")
 }
 
 // FLIP ANIMATIONS

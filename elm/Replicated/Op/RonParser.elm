@@ -439,7 +439,7 @@ opLineParser prevOpIDMaybe =
             -- Parser.getChompedString (Parser.chompWhile Char.isAlpha)
             --     |> Parser.andThen (\reducerID -> succeed reducerID)
             Parser.oneOf
-                [ succeed ReducerID.LWWReducer
+                [ succeed ReducerID.RegisterReducer
                     |. Parser.keyword lwwName
                 , succeed ReducerID.RepListReducer
                     |. Parser.keyword repListName

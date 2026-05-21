@@ -9,7 +9,7 @@ import Json.Decode.Exploration.Pipeline exposing (..)
 import Json.Encode as Encode exposing (..)
 import Json.Encode.Extra exposing (..)
 import Replicated.Change exposing (Changer, Context, Creator)
-import Replicated.Codec as Codec exposing (Codec, coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
+import Replicated.Codec as Codec exposing (coreRW, fieldDict, fieldList, fieldRW, fieldRWM)
 import Replicated.Reducer.Register exposing (RW, Reg)
 import Replicated.Reducer.RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict exposing (RepDict)
@@ -63,7 +63,7 @@ create title changer c =
     Codec.newWithSeedAndChanges codec c title changer
 
 
-codec : Codec String ( String, Changer (Reg AssignableSkel) ) Codec.SoloObject (Reg AssignableSkel)
+codec : Codec.WrappedSeededCodec String (Reg AssignableSkel)
 codec =
     Codec.record AssignableSkel
         |> coreRW ( 1, "title" ) .title Codec.string identity

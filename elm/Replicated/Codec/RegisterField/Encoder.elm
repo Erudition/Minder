@@ -1,4 +1,4 @@
-module Replicated.Codec.RegisterField.Encoder exposing (Inputs, Output, RegisterFieldEncoder, SmartJsonFieldEncoder, newRegisterFieldEncoderEntry)
+module Replicated.Codec.RegisterField.Encoder exposing (Inputs, Output(..), RegisterFieldEncoder, SmartJsonFieldEncoder, encodeFieldPayloadAsObjectPayload, getFieldLatestOnly, newRegisterFieldEncoderEntry, updateRegisterPostChildInit)
 
 import Array exposing (Array)
 import Base64
@@ -20,6 +20,8 @@ import Maybe.Extra
 import Regex exposing (Regex)
 import Replicated.Change as Change exposing (Change, ChangeSet(..), Changer, ComplexAtom(..), Context, ObjectChange, Parent(..), Pointer(..))
 import Replicated.Change.Location as Location exposing (Location)
+import Replicated.Change.PendingID as PendingID exposing (PendingID)
+import Replicated.Change.Primitive as Primitive
 import Replicated.Codec.Base as Base exposing (Codec(..))
 import Replicated.Codec.Bytes.Decoder as BytesDecoder exposing (BytesDecoder)
 import Replicated.Codec.Error as Error exposing (RepDecodeError(..))
@@ -30,8 +32,10 @@ import Replicated.Codec.RegisterField.Shared exposing (..)
 import Replicated.Codec.RonPayloadDecoder as RonPayloadDecoder exposing (RonPayloadDecoder(..))
 import Replicated.Collection as Collection exposing (Collection)
 import Replicated.Node.Node as Node exposing (Node)
+import Replicated.Op.Atom as Atom
 import Replicated.Op.ID as OpID exposing (InCounter, ObjectID, OpID, OutCounter)
 import Replicated.Op.Op as Op exposing (Op)
+import Replicated.Op.Payload as Payload
 import Replicated.Reducer.Register as Reg exposing (..)
 import Replicated.Reducer.RepDb as RepDb exposing (RepDb)
 import Replicated.Reducer.RepDict as RepDict exposing (RepDict, RepDictEntry(..))
@@ -81,7 +85,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
             Change.becomeDelayedParent regPointer (updateRegisterPostChildInit regPointer ( fieldSlot, fieldName ))
 
         runFieldNodeEncoder valueToEncode =
-            getNodeEncoder fieldCodec
+            Base.getNodeEncoder fieldCodec
                 { mode = mode
                 , node = node
                 , thingToEncode = valueToEncode
@@ -92,25 +96,33 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
         getPayloadIfSet =
             getFieldLatestOnly history ( fieldSlot, fieldName )
 
-        fieldDecodedMaybe payload =
+        fieldDecodedMaybe rawPayload =
             -- even though we're in an encoder, we must run the decoder to get the value out of the register's memory. This is borrowed from registerReadOnlyFieldDecoder
             let
+                payloadAtoms =
+                    Payload.toComplex rawPayload
+
+                nodeDecoderOutput =
+                    Base.getNodeDecoder fieldCodec
+                        { node = node
+                        , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
+                        , parent = regAsParent
+                        , cutoff = Nothing
+                        , oldMaybe = Nothing
+                        , changedObjectIDs = []
+                        }
+
+                jsonDecoder =
+                    RonPayloadDecoder.toJsonDecoder nodeDecoderOutput.decoder
+
                 run =
-                    JD.decodeValue
-                        (getNodeDecoder fieldCodec
-                            { node = node
-                            , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
-                            , parent = regAsParent
-                            , cutoff = Nothing
-                            }
-                        )
-                        (Op.payloadToJsonValue payload)
+                    JD.decodeValue jsonDecoder (Payload.toJsonValue payloadAtoms)
             in
             case run of
-                Ok (Ok fieldValue) ->
-                    Just fieldValue
+                Ok goodValue ->
+                    Just goodValue
 
-                problem ->
+                Err problem ->
                     Log.crashInDev ("fieldDecodedMaybe: Failed to decode from register memory, got " ++ Log.dump problem) Nothing
 
         explicitDefaultIfNeeded val =
@@ -145,9 +157,14 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
 
         isExistingSameAsDefault =
             case ( fieldDefaultMaybe fieldFallback, Maybe.andThen fieldDecodedMaybe getPayloadIfSet ) of
-                ( Just fieldDefault, Just existingValue ) ->
+                ( Just fieldDefault, Just existingResult ) ->
                     -- is the calculated default the same as the existing/placeholder value?
-                    fieldDefault == existingValue
+                    case existingResult of
+                        Ok existingValue ->
+                            fieldDefault == existingValue
+
+                        Err _ ->
+                            False
 
                 ( Just _, Nothing ) ->
                     -- no existing val in memory, so equal to default unless it's seeded
@@ -170,7 +187,7 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
         encodeDefaultVal : fieldType -> Change.ComplexPayload
         encodeDefaultVal defaultVal =
             -- EncodeThis because this only gets used on default value
-            (runFieldNodeEncoder (EncodeThis defaultVal)).complex
+            (runFieldNodeEncoder (NodeEncoder.EncodeThis defaultVal)).complex
 
         encodedDefaultAsPayload : fieldType -> Change.ComplexPayload
         encodedDefaultAsPayload val =
@@ -185,10 +202,26 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                     -- never been set before, encode default if requested by mode, or just skip
                     explicitDefaultIfNeeded valToEncode
 
-                Just foundPreviousValue ->
+                Just foundPreviousPayload ->
                     -- it's been set before. even if set to default (e.g. Nothing) we will honor this
-                    -- EncodeThisField <| Change.NewPayload <| encodeVal foundPreviousValue
-                    Debug.todo "what to do here?"
+                    case extractQuotedObjects foundPreviousPayload of
+                        [] ->
+                            -- no nested objects, re-encode the value directly
+                            EncodeThisField <| Change.NewPayload <| encodedDefaultAsPayload valToEncode
+
+                        firstFoundObjectID :: moreFoundObjectIDs ->
+                            -- nested objects found, pass objectID info to sub-encoders
+                            let
+                                runNestedEncoder =
+                                    Base.getNodeEncoder fieldCodec
+                                        { mode = mode
+                                        , node = node
+                                        , thingToEncode = NodeEncoder.EncodeObjectOrThis (Nonempty firstFoundObjectID moreFoundObjectIDs) valToEncode
+                                        , parent = regAsParent
+                                        , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
+                                        }
+                            in
+                            EncodeThisField <| Change.NewPayload runNestedEncoder.complex
 
         Nothing ->
             -- we have no default to fall back to, this is for SEEDED nested objects only
@@ -205,36 +238,43 @@ newRegisterFieldEncoderEntry index ( fieldSlot, fieldName ) fieldFallback fieldC
                             -- EncodeThisField <| Change.NewPayload <| Nonempty.map Change.FromPrimitiveAtom latestPayload
                             Log.logSeparate "WARNING newRegisterFieldEncoderEntry: failed to decode latest payload from reg, can't encode it." latestPayload SkipThisField
 
-                        Just fieldValue ->
-                            -- object acquired! make sure we don't miss the opportunity to pass objectID info to naked subcodecs
-                            case extractQuotedObjects (Nonempty.toList latestPayload) of
-                                [] ->
-                                    -- -- give up! spit back out what we already had in the register.
-                                    -- EncodeThisField <| Change.NewPayload <| Nonempty.map Change.FromPrimitiveAtom latestPayload
-                                    Log.logSeparate "WARNING newRegisterFieldEncoderEntry: failed to extract ObjectIDs from latest payload from reg, can't encode it." latestPayload SkipThisField
+                        Just fieldResult ->
+                            case fieldResult of
+                                Err _ ->
+                                    Log.logSeparate "WARNING newRegisterFieldEncoderEntry: decoded payload had error" latestPayload SkipThisField
 
-                                firstFoundObjectID :: moreFoundObjectIDs ->
-                                    let
-                                        runNestedEncoder =
-                                            EncodeObjectOrThis (Nonempty firstFoundObjectID moreFoundObjectIDs) fieldValue
-                                                |> runFieldNodeEncoder
-                                    in
-                                    -- encode not only this field (set to this object), but also grab any encoder output from that object
-                                    EncodeThisField <| Change.NewPayload runNestedEncoder.complex
+                                Ok fieldValue ->
+                                    -- object acquired! make sure we don't miss the opportunity to pass objectID info to naked subcodecs
+                                    case extractQuotedObjects latestPayload of
+                                        [] ->
+                                            -- -- give up! spit back out what we already had in the register.
+                                            -- EncodeThisField <| Change.NewPayload <| Nonempty.map Change.FromPrimitiveAtom latestPayload
+                                            Log.logSeparate "WARNING newRegisterFieldEncoderEntry: failed to extract ObjectIDs from latest payload from reg, can't encode it." latestPayload SkipThisField
 
+                                        firstFoundObjectID :: moreFoundObjectIDs ->
+                                            let
+                                                runNestedEncoder =
+                                                    Base.getNodeEncoder fieldCodec
+                                                        { mode = mode
+                                                        , node = node
+                                                        , thingToEncode = NodeEncoder.EncodeObjectOrThis (Nonempty firstFoundObjectID moreFoundObjectIDs) fieldValue
+                                                        , parent = regAsParent
+                                                        , position = Location.new (fieldLocationLabel fieldName fieldSlot) index
+                                                        }
+                                            in
+                                            -- encode not only this field (set to this object), but also grab any encoder output from that object
+                                            EncodeThisField <| Change.NewPayload runNestedEncoder.complex
 
-
--- HELPERS
 
 
 {-| For getting the list of pointers out of the stored ops - perhaps even a bunch of ops, whose atoms can be concatenated (to merge all concurrent inits)
 -}
-extractQuotedObjects : List Op.Op.Payload.Atom -> List ObjectID
+extractQuotedObjects : List Atom.Atom -> List ObjectID
 extractQuotedObjects atomList =
     let
         keepUUIDs atom =
             case atom of
-                Op.IDPointerAtom opID ->
+                Atom.IDPointerAtom opID ->
                     Just opID
 
                 _ ->
@@ -246,8 +286,26 @@ extractQuotedObjects atomList =
 encodeFieldPayloadAsObjectPayload : FieldIdentifier -> Change.ComplexPayload -> Change.ComplexPayload
 encodeFieldPayloadAsObjectPayload ( fieldSlot, fieldName ) fieldPayload =
     Nonempty.append
-        (Nonempty (Change.FromPrimitiveAtom (Change.IntegerAtom fieldSlot)) [ Change.FromPrimitiveAtom (Change.NakedStringAtom fieldName) ])
+        (Nonempty (Change.FromPrimitiveAtom (Primitive.IntegerAtom fieldSlot)) [ Change.FromPrimitiveAtom (Primitive.NakedStringAtom fieldName) ])
         fieldPayload
+
+
+fieldLocationLabel : FieldName -> FieldSlot -> String
+fieldLocationLabel fieldName fieldSlot =
+    fieldName ++ "_" ++ String.fromInt fieldSlot
+
+
+fieldDefaultMaybe : Fallback p s f -> Maybe f
+fieldDefaultMaybe fallback =
+    case fallback of
+        HardcodedDefault val ->
+            Just val
+
+        DefaultAndInitWithParentSeed val _ ->
+            Just val
+
+        _ ->
+            Nothing
 
 
 {-| Register field fetch - will combine nested objectIDs if found
@@ -258,11 +316,11 @@ getFieldLatestOnly fields ( fieldSlot, name ) =
         Nothing ->
             Nothing
 
-        Just ((Nonempty ( firstOpID, Nonempty (Op.IDPointerAtom objectID) anyMoreAtoms ) anyMoreOps) as history) ->
+        Just ((Nonempty ( firstOpID, (Atom.IDPointerAtom objectID) :: anyMoreAtoms ) anyMoreOps) as history) ->
             -- nested object will be in this specific form, an objectID as its first (usually only) atom
             -- can't just detect objectIDs present because it could be a custom type wrapping one
             -- stick together all objectIDs found ever
-            Just <| Nonempty.concatMap Tuple.second history
+            Just <| List.concatMap Tuple.second (Nonempty.toList history)
 
         Just historyNonempty ->
             -- first one didn't begin with an ObjectID atom, go back to normal
@@ -279,3 +337,11 @@ getFieldHistory fields ( desiredFieldSlot, name ) =
 getFieldHistoryValues : FieldHistoryDict -> FieldIdentifier -> List FieldPayload
 getFieldHistoryValues fields givenField =
     List.map Tuple.second (getFieldHistory fields givenField)
+
+
+{-| Internal helper to wrap child changes in parent changes when the parent is still a placeholder.
+-}
+updateRegisterPostChildInit : Pointer -> FieldIdentifier -> PendingID -> Change.DelayedChange
+updateRegisterPostChildInit parentPointer fieldIdentifier pendingChildToWrap =
+    Change.delayedChangeObject parentPointer
+        (Change.NewPayload (encodeFieldPayloadAsObjectPayload fieldIdentifier (Nonempty.singleton <| PendingObjectReferenceAtom pendingChildToWrap)))

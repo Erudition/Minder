@@ -1,4 +1,4 @@
-module Replicated.Op.Op exposing (ClosedChunk, Op(..), Reference(..), create, id, initObject, objectHeader, objectID, opIDFromReference, payload, reducerID, reference, referenceToString)
+module Replicated.Op.Op exposing (ClosedChunk, Op(..), Reference(..), create, dummy, id, initObject, objectHeader, objectID, opIDFromReference, payload, reducerID, reference, referenceToString)
 
 {-| Just Ops - already-happened events and such. Ignore Frames for now, they are "write batches" so once they're written they will slef-concatenate in the list of Ops.
 -}
@@ -235,3 +235,7 @@ objectHeader op =
 objectID : Op -> OpID
 objectID op =
     (objectHeader op).operationID
+
+dummy : Op
+dummy =
+    CreationOp { reducer = ReducerID.RegisterReducer, operationID = OpID.genesis }

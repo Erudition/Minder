@@ -1,4 +1,4 @@
-module Replicated.Codec.Base exposing (Codec(..), NullCodec, PrimitiveCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, lazy, makeOpaque, map, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
+module Replicated.Codec.Base exposing (Codec(..), NullCodec, PrimitiveCodec, SeededRecordCodec, SelfSeededCodec, SkelCodec, WrappedCodec, WrappedOrSkelCodec, WrappedSeededCodec, getBytesDecoder, getBytesEncoder, getInitializer, getJsonDecoder, getJsonEncoder, getNodeDecoder, getNodeEncoder, getPrimitiveNodeEncoder, getSoloNodeEncoder, lazy, makeOpaque, map, mapValid, new, newUnique, newWithChanges, newWithSeed, newWithSeedAndChanges)
 
 {-| Internal-only module defining the base of a Codec.
 Only the aliases are exposed.
@@ -118,6 +118,14 @@ type alias WrappedCodec thing =
 -}
 type alias WrappedSeededCodec seed thing =
     Codec ( seed, Changer thing ) NodeEncoder.SoloObject thing
+
+
+{-| Codec for naked (unwrapped) records that need an initial seed.
+Unlike WrappedSeededCodec, there is no changer paired with the seed —
+the record cannot be initialized with changes, only with the seed value.
+-}
+type alias SeededRecordCodec seed thing =
+    Codec seed NodeEncoder.SoloObject thing
 
 
 
@@ -265,7 +273,7 @@ lazy : (() -> Codec s o a) -> Codec s o a
 lazy f =
     Codec
         { bytesEncoder = \value -> getBytesEncoder (f ()) value
-        , bytesDecoder = BytesDecoder.lazy (getBytesDecoder (f ()))
+        , bytesDecoder = BytesDecoder.lazy (\() -> getBytesDecoder (f ()))
         , jsonEncoder = \value -> getJsonEncoder (f ()) value
         , jsonDecoder = JsonDecoder.lazy (\v -> getJsonDecoder (f v))
         , nodeEncoder = \value -> getNodeEncoder (f ()) value

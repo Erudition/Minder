@@ -37,7 +37,7 @@ type Unit
     | CustomUnit ( String, String ) Int
 
 
-unitCodec : Codec.NullCodec String Unit
+unitCodec : Codec.NullCodec Unit
 unitCodec =
     Codec.customType
         (\percent permille word minute customUnit value ->
