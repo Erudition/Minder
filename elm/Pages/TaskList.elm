@@ -634,14 +634,13 @@ view shared model =
                --card-width: 14rem !important;
                --card-gap: 0.8rem !important;
                --card-start: 0.4rem !important;
-               --stack-step: 0.8rem !important;
+               --stack-step: calc(1rem / var(--total-count, 1)) !important;
              }
              
              @media (max-width: 600px) {
                :root, ion-app {
                  --card-width: calc(100vw - 2.4rem) !important;
                  --card-gap: 0.8rem !important;
-                 --stack-step: 0.5rem !important;
                }
              }
              
@@ -858,6 +857,9 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
         assignments =
             Assignment.fromAssignable Assignment.AllSaved assignable
 
+        totalCount =
+            List.length assignments + 1
+
         snapTargets =
             let
                 makeSnapTarget i =
@@ -965,6 +967,7 @@ viewAssignable profile ( time, timeZone ) trackedTaskMaybe assignable =
                 ]
             , style "scroll-snap-type" "x mandatory"
             , style "scroll-padding" "0.4rem"
+            , attribute "style" ("--total-count: " ++ String.fromInt totalCount)
             ]
             viewAssignments
         , presentActionSheet
