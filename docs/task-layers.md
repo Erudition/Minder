@@ -36,7 +36,7 @@ In Minder's vocabulary:
 
 An **Assignable** is a durable definition: "take out the trash." It carries metadata about what the task involves — how long it typically takes, what activity category it belongs to, how important it is, what its subtasks are. It persists in your library indefinitely, whether or not you're currently doing it or planning to do it.
 
-An **Assignment** is an ephemeral instantiation: "I'm taking out the trash this Tuesday." It carries instance-specific data — this particular deadline, this particular completion status. When it's done, it's done. But the Assignable remains, ready for the next time.
+An **Assignment** is an ephemeral instantiation: "I need to take out the trash." That's it — no time required. An Assignment means something is *to-do*, not that it's *scheduled*. You might add a deadline ("before the truck comes tomorrow"), or schedule it precisely ("6 PM tonight"), or leave it completely open ("someday"). All that is necessary for an Assignment to exist is that the work is, well, assigned to you. It carries instance-specific data — this particular deadline (if any), this particular completion status. When it's done, it's done. But the Assignable remains, ready for the next time.
 
 This means:
 - **17 completions of "take out the trash" give you n=17 for duration learning**, not 17 disconnected data points with n=1 each.
@@ -76,9 +76,13 @@ Let's walk through each layer.
 **What it is *not*:** A project does not carry scheduling information, recurrence rules, effort estimates, or any behavioral semantics. It is the answer to *"where does this live in my hierarchy?"*, not *"what is this work?"*
 
 **Examples:**
-- "Home" (containing Assignables like "take out trash," "mow the lawn")
-- "Work → Q3 Goals → Backend Migration" (nested three levels deep)
-- "Health → Dental" (containing "brush teeth," "floss," "dentist checkup")
+- "2025 Tax Return" (containing Assignables like "gather W-2s," "calculate deductions," "file federal return")
+- "Kitchen Renovation → Phase 2: Cabinets" (nested two levels deep)
+- "Spanish Exam Prep" (containing "vocabulary drills," "practice conjugations," "mock exam")
+
+**The mega-project trap:** Broad life categories like "Home," "Health," or "Work" are *not* good projects — they're more like tags. If a task could plausibly live under multiple such categories ("bring home the treadmill I won at the work party" — is that Home or Work?), the categories aren't mutually exclusive, and that's a sign they belong in Minder's separate *Cares* system rather than the project hierarchy. Good projects are concrete, bounded, and obviously distinct from one another.
+
+In practice, this means project trees tend to be shallow. That's fine! Infinite nesting is supported so that the system is exhaustive and never needs to be expanded to fit edge cases (the 0-1-infinity rule), not because deeply nested folder hierarchies are expected or encouraged.
 
 **Nesting:** Infinite. A Project can contain other Projects, which can contain other Projects, and so on. At some point in the nesting, you reach an Assignable — that's where the "just folders" layer ends and the "real task definition" layer begins.
 
@@ -106,9 +110,9 @@ type NestedOrAssignable
 - Children (SubAssignables and/or Actions — the internal structure of the task)
 - A database of Assignments (the instances — past, present, and future)
 
-**Key design rule:** Assignables are the *only* layer that can have Assignments. Projects above cannot be instantiated. Actions below cannot be independently instantiated. If you want to track "I'm doing this particular thing at this particular time," you do it through the Assignable.
+**Key design rule:** Assignables are the *only* layer that can have Assignments. Projects above cannot be instantiated. Actions below cannot be independently instantiated. If you want to commit to doing a particular thing, you do it through the Assignable — by creating an Assignment.
 
-**An Assignable with no Assignments is perfectly valid.** It means the task is defined in your library but you haven't committed to doing it at any particular time. Maybe you defined "replace brake pads" for your car, but you might sell the car before the brakes wear out. The definition exists; it costs nothing to keep; it'll be ready if you need it.
+**An Assignable with no Assignments is perfectly valid.** It means the task is defined in your library but you haven't committed to doing it. Maybe you defined "replace brake pads" for your car, but you might sell the car before the brakes wear out. The definition exists; it costs nothing to keep; it'll be ready if you need it. Note that "no Assignments" is not the same as "unscheduled" — an Assignable with an Assignment but no timing information is an assigned-but-unscheduled task, which is also perfectly valid. The absence of Assignments means the task isn't even on your to-do list yet; it's purely a library entry.
 
 **An Assignable with no children (no Actions) is also valid.** It means you've captured the task but haven't yet broken it down into atomic steps. This is a deliberate "needs enrichment" signal — the system (or an LLM) can decompose it later. But it's already in your library, already findable via autocomplete, already accumulating whatever metadata you've provided.
 
@@ -153,20 +157,29 @@ You'll notice these fields overlap heavily with Assignable. This is intentional 
 
 ### Layer 5: Assignment (Instance Side)
 
-**What it is:** A particular occurrence of doing an Assignable. "I'm taking out the trash on Tuesday" is an Assignment. "I took out the trash last Thursday" is a completed Assignment.
+**What it is:** A commitment to do an Assignable. "I need to take out the trash" is an Assignment. "I took out the trash last Thursday" is a completed Assignment. "I need to take out the trash before the truck comes tomorrow at 7 AM" is an Assignment with a deadline. All three are valid — the only thing that makes something an Assignment is that it's *to-do* (or was to-do, and now it's done).
+
+**Assignments are timing-agnostic.** Nothing in the task layer model is inherently about scheduling. An Assignment may carry deadline or relevance information, but it doesn't have to. Many assignments will be completely open-ended — "buy a copy of War and Peace" might sit on your list for years. Others might be precisely timed, or triggered by location ("when I get home"), or scheduled automatically by Minder's planning engine based on your priorities, energy levels, and constraints. The task layers define *what needs doing*; scheduling is a separate concern.
 
 **What it carries:**
 - Completion progress
-- Instance-specific deadline overrides (absolute moments, not relative rules)
-- Relevance windows (when does this particular instance start/stop mattering?)
+- Instance-specific deadline overrides (absolute moments, not relative rules) — all optional
+- Relevance windows (when does this particular instance start/stop mattering?) — also optional
 - Per-action completion data (via `AssignedAction` — see below)
 - Extra metadata (key-value pairs)
+
+**Multiple assignments of the same Assignable are valid.** This goes beyond simple recurrence. If an Assignable's configuration permits it, you can have multiple concurrent, unscheduled assignments — accruing a backlog. Examples:
+- Three years of unfiled taxes → three Assignments of "File taxes"
+- Found six boxes in the attic → six Assignments of "Go through one box of memories"
+- Want to visit the museum twice to activate a benefit → two Assignments of "Visit the museum," neither with a specific date
+
+For Assignables where this doesn't make sense ("take a shower" — doing it twice simultaneously is meaningless), multiple concurrent assignments can be disabled. But the system supports the general case.
 
 **Where it lives:** Inside the Assignable's `manualAssignments` database. Assignments don't float freely — they are always owned by exactly one Assignable. The `AssignmentID` encodes both the owning `AssignableID` and the assignment's own identity, so you can always navigate from an Assignment back to its class.
 
 **Two flavors:**
-- **Manual Assignments:** Explicitly created by the user ("I need to do this on Tuesday"). Stored in a `RepDb`.
-- **Series Assignments:** Generated from recurrence rules ("Do this every Tuesday"). Identified by a `SeriesMemberID` (series ID + index). The series mechanism is not yet fully implemented, but the ID structure is in place.
+- **Manual Assignments:** Explicitly created by the user ("I need to do this"). Stored in a `RepDb`.
+- **Series Assignments:** Generated from recurrence rules ("Do this every week"). Identified by a `SeriesMemberID` (series ID + index). The series mechanism is not yet fully implemented, but the ID structure is in place.
 
 **The "completed but not deleted" philosophy:** When an Assignment is completed, it stays. It's in the past. It won't show up in your active task list. But it remains connected to its Assignable, contributing to duration learning, completion statistics, and historical context. The Assignable's library of Assignments is its memory.
 
@@ -184,35 +197,32 @@ You'll notice these fields overlap heavily with Assignable. This is intentional 
 
 ## How Layers Compose: A Concrete Example
 
-Suppose you're modeling home maintenance:
+Suppose you're preparing your taxes:
 
 ```
-Project: "Home"
-  Project: "Kitchen"
-    Assignable: "Deep clean the kitchen"          ← the task class
-      SubAssignable: "Surfaces"
-        Action: "Wipe down counters"              ← atomic, Activity: Cleaning
-        Action: "Clean stovetop"                  ← atomic, Activity: Cleaning
-      SubAssignable: "Appliances"
-        Action: "Clean out fridge"                ← atomic, Activity: Cleaning
-        Action: "Descale coffee maker"            ← atomic, Activity: Cleaning
-      Action: "Mop floor"                         ← atomic, Activity: Cleaning
+Project: "2025 Tax Return"
+  Assignable: "File federal return"                ← the task class
+    SubAssignable: "Gather documents"
+      Action: "Download W-2 from employer"         ← atomic, Activity: Paperwork
+      Action: "Request 1099 from bank"             ← atomic, Activity: Paperwork
+    SubAssignable: "Calculate deductions"
+      Action: "Tally charitable donations"         ← atomic, Activity: Accounting
+      Action: "Compile home office expenses"       ← atomic, Activity: Accounting
+    Action: "Submit via TurboTax"                   ← atomic, Activity: Paperwork
 ```
 
-When you decide to deep clean the kitchen this Saturday:
+When you commit to doing your taxes (no specific date in mind yet — just "I need to do this"):
 
 ```
-Assignment #1 of "Deep clean the kitchen"         ← this Saturday's instance
-  AssignedAction for "Wipe down counters"          ← completion: 100%
-  AssignedAction for "Clean stovetop"              ← completion: 100%
-  AssignedAction for "Clean out fridge"            ← completion: 50% (ran out of time)
-  (no AssignedAction for "Descale coffee maker")   ← defaults apply, not started
-  (no AssignedAction for "Mop floor")              ← defaults apply, not started
+Assignment #1 of "File federal return"             ← to-do (no specific time required)
+  AssignedAction for "Download W-2 from employer"   ← completion: 100%
+  AssignedAction for "Request 1099 from bank"       ← completion: 100%
+  AssignedAction for "Tally charitable donations"   ← completion: 50% (still gathering receipts)
+  (no AssignedAction for "Compile home office...")   ← defaults apply, not started
+  (no AssignedAction for "Submit via TurboTax")     ← defaults apply, not started
 ```
 
-Three months later, you deep clean again. A new Assignment is created against the same Assignable. The system now has two data points for how long "deep clean the kitchen" takes. The Assignable itself hasn't changed — the same Actions, the same SubAssignable groupings. But if in the meantime you realized the stovetop cleaning should really be under "Appliances" instead of "Surfaces," you restructure the template. Both past and future Assignments reflect the new structure, because *the thing you do didn't change in reality* — you just organized it better.
-
-If the task fundamentally changes — you remodel the kitchen and now have different appliances — that's a *new Assignable*. The old one stays in your library with its historical data; the new one starts fresh. The class changed; make a new class.
+If you've been procrastinating and have three years of unfiled taxes, you might have three separate Assignments of this same Assignable — each independently tracking its own completion progress. The Assignable doesn't care how many times it's been instantiated.
 
 ---
 
@@ -250,11 +260,11 @@ This separation keeps serialization concerns out of the business logic and vice 
 
 ## Summary of Design Principles
 
-1. **Template and instance are separate concerns.** The Assignable defines *what*; the Assignment tracks *when*. Neither is disposable.
+1. **Template and instance are separate concerns.** The Assignable defines *what*; the Assignment represents a commitment to *do it*. Neither is disposable.
 
 2. **The Assignable is the instantiation boundary.** Everything above it (Projects) is organizational. Everything below it (SubAssignables, Actions) is structural. Only the Assignable itself can be instantiated into Assignments.
 
-3. **Zero instances is a valid state.** An Assignable with no Assignments is a library entry, not a bug. An Assignable with no Actions is a captured-but-not-yet-decomposed task.
+3. **Zero instances is a valid state.** An Assignable with no Assignments is a library entry, not a bug. An Assignable with no Actions is a captured-but-not-yet-decomposed task. Multiple concurrent Assignments of the same Assignable is also valid — for accruing backlogs, expressing repeated intent, or any case where you need to do the same thing more than once.
 
 4. **Actions are atomic.** They represent a single indivisible step, tagged with exactly one Activity. They cannot be independently instantiated. This guarantees the system can always find natural stopping points.
 
@@ -262,4 +272,8 @@ This separation keeps serialization concerns out of the business logic and vice 
 
 6. **Template changes are retroactive by design.** If you reorganize an Assignable's internal structure, the change applies to past Assignments too — because the thing you did didn't change in reality; you just described it better. If the thing itself changed, that's a new Assignable.
 
-7. **Nesting is infinite in both directions.** Projects nest infinitely above the boundary. SubAssignables nest infinitely below it. The system is as shallow or as deep as your work requires.
+7. **Nesting is infinite in both directions.** Projects nest infinitely above the boundary. SubAssignables nest infinitely below it. The system is as shallow or as deep as your work requires. In practice, trees tend to be shallow — infinite depth is an exhaustiveness guarantee, not an invitation to build deeply nested folder hierarchies.
+
+8. **Timing is not a layer concern.** Assignments are commitments to do work, not calendar entries. Scheduling — when and where a task actually happens — is a separate system that consumes the task layers as input. An assigned-but-unscheduled task is the normal, expected state.
+
+9. **Projects are concrete, not categorical.** Broad life categories ("Home," "Work," "Health") are an antipattern for projects because they aren't mutually exclusive. Projects should be bounded and obviously distinct. Cross-cutting categories belong in the Cares system.
