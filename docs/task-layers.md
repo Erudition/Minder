@@ -71,22 +71,17 @@ Let's walk through each layer.
 
 ### Layer 1: Project
 
-**What it is:** An organizational folder. Projects exist purely for human convenience — they group related Assignables together and can nest infinitely within each other.
+**What it is:** A static organizational container above the instantiation boundary. Projects group related Assignables together. They can nest infinitely within each other, but they are never themselves instantiated — you can't "do" a Project, you can't schedule it, it has no notion of start or end dates, no effort estimate, no completion status. It's a folder. When all its Assignables are done (or have no active Assignments), the Project simply sits there, ready to be revived whenever new work arises.
 
-**What it is *not*:** A project does not carry scheduling information, recurrence rules, effort estimates, or any behavioral semantics. It is the answer to *"where does this live in my hierarchy?"*, not *"what is this work?"*
+**How to find the boundary:** When breaking down work, every layer could be described as answering "what is this work?" — so that question can't delineate layers. Instead, the question is: **"What is the highest level at which you would do it all in one instance?"** or equivalently, **"What group, if repeated, repeats together?"** That level is the Assignable. Everything above it is Project.
 
-**Examples:**
-- "2025 Tax Return" (containing Assignables like "gather W-2s," "calculate deductions," "file federal return")
-- "Kitchen Renovation → Phase 2: Cabinets" (nested two levels deep)
-- "Spanish Exam Prep" (containing "vocabulary drills," "practice conjugations," "mock exam")
+**Honest status:** The Project layer may be partially redundant with Minder's *Cares* system (see below). Many real-world groupings that seem like Projects turn out to be Cares — entities or concerns you "take care of" (your car, your job, your Spanish skills), where the tasks are maintenance of that entity. The Project layer is retained because (a) the type system already supports it cleanly, (b) there may be legitimate groupings that are about coordinated effort rather than entity maintenance, and (c) removing a layer prematurely is riskier than leaving a rarely-used one in place.
 
-**The mega-project trap:** Broad life categories like "Home," "Health," or "Work" are *not* good projects — they're more like tags. If a task could plausibly live under multiple such categories ("bring home the treadmill I won at the work party" — is that Home or Work?), the categories aren't mutually exclusive, and that's a sign they belong in Minder's separate *Cares* system rather than the project hierarchy. Good projects are concrete, bounded, and obviously distinct from one another.
+**The mega-project trap:** Broad life categories like "Home," "Health," or "Work" are *not* good projects — they're Cares. If a task could plausibly live under multiple such categories ("bring home the fitness treadmill I won at the work party" — is that Home, Work, or Health?), the categories aren't mutually exclusive, and that's a sign they belong in the Cares system rather than the project hierarchy. If a Project exists, it should be concrete, bounded, and obviously distinct from all other projects — both present and hypothetical.
 
-In practice, this means project trees tend to be shallow. That's fine! Infinite nesting is supported so that the system is exhaustive and never needs to be expanded to fit edge cases (the 0-1-infinity rule), not because deeply nested folder hierarchies are expected or encouraged.
+**Nesting:** Infinite, but shallow in practice. Infinite nesting is supported so that the system is exhaustive and never needs to be expanded to fit edge cases (the 0-1-infinity rule), not because deeply nested folder hierarchies are expected or encouraged. Many Assignables will have no Project wrapper at all — the Assignable *is* the top level.
 
-**Nesting:** Infinite. A Project can contain other Projects, which can contain other Projects, and so on. At some point in the nesting, you reach an Assignable — that's where the "just folders" layer ends and the "real task definition" layer begins.
-
-In the code, this boundary is expressed as a union type:
+In the code, the boundary between Projects and Assignables is expressed as a union type:
 
 ```
 type NestedOrAssignable
@@ -98,7 +93,7 @@ type NestedOrAssignable
 
 ### Layer 2: Assignable
 
-**What it is:** The definition of a specific task, in the abstract, independent of any particular time you do it. This is the most important layer in the system — it is the **instantiation boundary**, the point at which "class" meets "instance."
+**What it is:** The definition of a specific task, in the abstract, independent of any particular time you do it. This is the most important layer in the system — it is the **instantiation boundary**, the point at which "class" meets "instance." It answers: "what is the thing that, when repeated, repeats as a unit?" Everything inside it (SubAssignables, Actions) comes along for the ride when you create an instance.
 
 **What it carries:**
 - A title (e.g., "Take out the trash")
@@ -157,7 +152,7 @@ You'll notice these fields overlap heavily with Assignable. This is intentional 
 
 ### Layer 5: Assignment (Instance Side)
 
-**What it is:** A commitment to do an Assignable. "I need to take out the trash" is an Assignment. "I took out the trash last Thursday" is a completed Assignment. "I need to take out the trash before the truck comes tomorrow at 7 AM" is an Assignment with a deadline. All three are valid — the only thing that makes something an Assignment is that it's *to-do* (or was to-do, and now it's done).
+**What it is:** An intention to do an Assignable. "I need to take out the trash" is an Assignment. "I took out the trash last Thursday" is a completed Assignment. "I need to take out the trash before the truck comes tomorrow at 7 AM" is an Assignment with a deadline. All three are valid — the only thing that makes something an Assignment is that it's *to-do* (or was to-do, and now it's done).
 
 **Assignments are timing-agnostic.** Nothing in the task layer model is inherently about scheduling. An Assignment may carry deadline or relevance information, but it doesn't have to. Many assignments will be completely open-ended — "buy a copy of War and Peace" might sit on your list for years. Others might be precisely timed, or triggered by location ("when I get home"), or scheduled automatically by Minder's planning engine based on your priorities, energy levels, and constraints. The task layers define *what needs doing*; scheduling is a separate concern.
 
@@ -197,32 +192,35 @@ For Assignables where this doesn't make sense ("take a shower" — doing it twic
 
 ## How Layers Compose: A Concrete Example
 
-Suppose you're preparing your taxes:
+Suppose you need to file your taxes. The Assignable is "File tax return" — that's the thing that, when repeated yearly, repeats as a unit. It recurs via a yearly Series. The 2024 and 2025 tax filings are Assignments (instances) of the same Assignable.
 
 ```
-Project: "2025 Tax Return"
-  Assignable: "File federal return"                ← the task class
-    SubAssignable: "Gather documents"
-      Action: "Download W-2 from employer"         ← atomic, Activity: Paperwork
-      Action: "Request 1099 from bank"             ← atomic, Activity: Paperwork
-    SubAssignable: "Calculate deductions"
-      Action: "Tally charitable donations"         ← atomic, Activity: Accounting
-      Action: "Compile home office expenses"       ← atomic, Activity: Accounting
-    Action: "Submit via TurboTax"                   ← atomic, Activity: Paperwork
+Assignable: "File tax return"                       ← the task class (yearly recurrence)
+  SubAssignable: "Gather documents"
+    Action: "Download W-2 from employer"            ← atomic, Activity: Paperwork
+    Action: "Request 1099 from bank"                ← atomic, Activity: Paperwork
+  SubAssignable: "Calculate deductions"
+    Action: "Tally charitable donations"            ← atomic, Activity: Accounting
+    Action: "Compile home office expenses"          ← atomic, Activity: Accounting
+  Action: "Submit via TurboTax"                      ← atomic, Activity: Paperwork
 ```
 
-When you commit to doing your taxes (no specific date in mind yet — just "I need to do this"):
+Note there's no Project wrapper here — the Assignable is the top level. "File tax return" is the highest level at which you do it all in one instance; there's nothing above it that needs to be a static organizational folder.
+
+When tax season arrives, a new Assignment is created (no specific date required — just "I need to do this"):
 
 ```
-Assignment #1 of "File federal return"             ← to-do (no specific time required)
-  AssignedAction for "Download W-2 from employer"   ← completion: 100%
-  AssignedAction for "Request 1099 from bank"       ← completion: 100%
-  AssignedAction for "Tally charitable donations"   ← completion: 50% (still gathering receipts)
-  (no AssignedAction for "Compile home office...")   ← defaults apply, not started
-  (no AssignedAction for "Submit via TurboTax")     ← defaults apply, not started
+Assignment (2025) of "File tax return"              ← to-do (timing TBD)
+  AssignedAction for "Download W-2 from employer"    ← completion: 100%
+  AssignedAction for "Request 1099 from bank"        ← completion: 100%
+  AssignedAction for "Tally charitable donations"    ← completion: 50% (still gathering receipts)
+  (no AssignedAction for "Compile home office...")    ← defaults apply, not started
+  (no AssignedAction for "Submit via TurboTax")      ← defaults apply, not started
 ```
 
-If you've been procrastinating and have three years of unfiled taxes, you might have three separate Assignments of this same Assignable — each independently tracking its own completion progress. The Assignable doesn't care how many times it's been instantiated.
+If you've been procrastinating and have three years of unfiled taxes, you have three separate Assignments of this same Assignable — each independently tracking its own completion progress. The system now has historical data on how long tax filing takes, and it gets more accurate every year.
+
+If you later realize you should have broken "Submit via TurboTax" into separate federal and state actions, you restructure the Assignable's template. Both past and future Assignments reflect the new structure, because *the thing you do didn't change in reality* — you just described it better. If the tax process fundamentally changes (new country, different tax system), that's a *new Assignable*.
 
 ---
 
@@ -260,7 +258,7 @@ This separation keeps serialization concerns out of the business logic and vice 
 
 ## Summary of Design Principles
 
-1. **Template and instance are separate concerns.** The Assignable defines *what*; the Assignment represents a commitment to *do it*. Neither is disposable.
+1. **Template and instance are separate concerns.** The Assignable defines *what*; the Assignment represents an intention to *do it*. Neither is disposable.
 
 2. **The Assignable is the instantiation boundary.** Everything above it (Projects) is organizational. Everything below it (SubAssignables, Actions) is structural. Only the Assignable itself can be instantiated into Assignments.
 
@@ -274,6 +272,6 @@ This separation keeps serialization concerns out of the business logic and vice 
 
 7. **Nesting is infinite in both directions.** Projects nest infinitely above the boundary. SubAssignables nest infinitely below it. The system is as shallow or as deep as your work requires. In practice, trees tend to be shallow — infinite depth is an exhaustiveness guarantee, not an invitation to build deeply nested folder hierarchies.
 
-8. **Timing is not a layer concern.** Assignments are commitments to do work, not calendar entries. Scheduling — when and where a task actually happens — is a separate system that consumes the task layers as input. An assigned-but-unscheduled task is the normal, expected state.
+8. **Timing is not a layer concern.** Assignments are intentions to do work, not calendar entries. Scheduling — when and where a task actually happens — is a separate system that consumes the task layers as input. An assigned-but-unscheduled task is the normal, expected state.
 
-9. **Projects are concrete, not categorical.** Broad life categories ("Home," "Work," "Health") are an antipattern for projects because they aren't mutually exclusive. Projects should be bounded and obviously distinct. Cross-cutting categories belong in the Cares system.
+9. **Projects are concrete, not categorical.** Broad life categories ("Home," "Work," "Health") are an antipattern for projects because they aren't mutually exclusive. Projects should be bounded and obviously distinct. Cross-cutting categories belong in the Cares system. Many Assignables will have no Project at all — the Assignable is its own top level.
