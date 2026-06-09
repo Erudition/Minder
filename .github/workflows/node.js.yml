@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18.x]
+        node-version: [22.x]
         # Can be all lts like: [14.x, 16.x, 18.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
     env:
@@ -52,15 +52,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ github.event.action != 'closed' }}
-        run: |
-          pnpm install --no-frozen-lockfile > pnpm-log.txt 2>&1 || (
-            git config --global user.name "GitHub Action"
-            git config --global user.email "action@github.com"
-            git add pnpm-log.txt
-            git commit -m "ci: pnpm log"
-            git push origin HEAD:master
-            exit 1
-          )
+        run: pnpm install
 
       # This will calculate the base URL for the website, based on the event that triggered the workflow.
       # Leave this step as it is, unless you know what you're doing.
