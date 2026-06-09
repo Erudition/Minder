@@ -143,22 +143,53 @@ None of these is individually required, but at least one is. The scheduler doesn
 
 ---
 
-## Conditions: How Well a Care Is Doing
+## Attributes and Conditions
 
-The VISION.md document outlines a condition model for Cares — a way to express how well-maintained something is. Conditions apply primarily to Cares whose Needs are **maintenance tasks**: recurring work with no external deadline, where neglect causes gradual degradation.
+Each Care has measurable **Attributes** — objective dimensions that describe its state. Each Attribute has a **Condition** — the subjective interpretation of its current value.
+
+**Attribute** = an objective, measurable dimension. Hair has `length` and `cleanliness`. A car's engine has `miles since last oil change`. Your lawn has `grass height`. The value is a number (or at least orderable), and its trajectory over time is something Minder can observe, record, and eventually predict.
+
+**Condition** = the subjective interpretation of an attribute's value. This is where the user maps their personal standards onto the measurement: "10 inches → overgrown," "just washed → fresh," "7 days since wash → poor."
+
+### Gradients, Not Thresholds
+
+Critically, the condition mapping is **not a set of hard thresholds**. The user doesn't define "below 4 inches = ideal, 4-6 inches = okay, above 6 inches = poor." Instead, they adjust handles on a **smooth gradient** — more like defining the control points of a bezier curve than drawing boundaries between zones. The labels (Fresh, Ideal, Okay, Poor, Critical) are signposts along a continuum, not discrete states with sharp transitions.
+
+This matters because:
+1. **There is no "overdue" moment.** The condition doesn't flip from "fine" to "bad" — it smoothly degrades. The scoring engine (see [scheduling.md](scheduling.md)) uses the continuous curve directly, so tasks become gradually more valuable to schedule as conditions drift, rather than suddenly urgent at an arbitrary cutoff.
+2. **Users aren't forced to define arbitrary lines.** "When exactly does my hair go from 'fine' to 'too long'?" is a question most people can't answer precisely, and forcing them to produces false confidence. The fuzzy gradient embraces the fuzziness.
+3. **Ideals can shift without invalidating data.** If you decide to grow your hair longer, you drag the gradient handles. The raw measurements stay; only the interpretation shifts. Short-hair you and long-hair you have different condition curves but the same underlying attribute history.
+
+### Multi-Attribute Cares
+
+A single Care can have multiple attributes that degrade independently:
 
 ```
-Conditions (of a Care):
-  Acceptable
-    Fresh       ← recently tended, too soon to refresh
-    Ideal       ← in great shape
-    Okay        ← fine, but will need attention eventually
-  Unacceptable
-    Poor        ← noticeably degraded
-    Critical    ← urgent attention needed
+My hair (Care)
+  Attribute: length         → reset by: haircut
+  Attribute: cleanliness    → reset by: shower/wash
+  Attribute: condition/health → reset by: deep conditioning treatment
 ```
 
-The properties that make a task a "maintenance task" (as distinct from a deadline-driven or one-shot task):
+Each attribute has its own condition gradient, its own measurement history, and its own projected trajectory. A task resets (or improves) specific attributes — a shower resets cleanliness but doesn't touch length.
+
+### Non-Time Deterioration Axes
+
+Not all attributes degrade as a function of time. A car's oil condition degrades with **miles driven**, not hours elapsed. Hair length grows with time, but cleanliness degrades faster on active days than sedentary ones.
+
+Minder handles this by allowing attributes to progress in relation to **any trackable dimension**, not just clock time. If the dimension is derivable from the schedule itself (e.g., driving miles accumulated from scheduled trips), Minder can compute the progression without manual measurement. On a month-long meditation retreat, the car's oil condition flatlines (zero miles driven). During a two-week road trip, it accumulates rapidly. The scheduler accounts for these second-order effects — scheduling a road trip advances the oil change condition, which might pull the oil change task forward in the schedule.
+
+When the dimension is *not* derivable from the schedule (e.g., a truly external sensor), occasional manual measurements calibrate the model. The system interpolates between measurements and refines its projection as more data points arrive.
+
+### Binary and Event-Driven Conditions
+
+Not all conditions degrade smoothly. A car's "check engine light" is binary — either on or off. This is modeled as a degenerate condition curve: the attribute sits at "fine" for a long time, then flips to "not fine" in a single measurement update.
+
+The timing prediction model can still work: if Minder has seen the check engine light come on three times over four years, it can project the rough interval and pre-allocate flexibility. But when prediction isn't possible (first occurrence, truly random events), the Need simply appears when triggered — this is a "repair" type Need, added ad hoc when the condition flips. The key insight: **Needs can exist independent of condition projections.** A condition-tracked Need is the ideal case; an ad hoc Need is the fallback.
+
+### Maintenance Task Properties
+
+The condition model applies specifically to **maintenance tasks** — recurring work where neglect causes gradual degradation. The hallmarks of a maintenance task (from VISION.md):
 
 - **No external deadline.** Waiting longer just means conditions get gradually worse. (Mow the lawn: the longer you wait, the taller and more uneven it gets.)
 - **No expiration.** You can neglect it indefinitely, yet at any point it's still doable. (Wax your skis: always relevant.)
@@ -166,23 +197,55 @@ The properties that make a task a "maintenance task" (as distinct from a deadlin
 - **Importance increases with neglect.** More-neglected tasks are strictly prioritized over recently refreshed ones. (Take a shower: 8 hours since the last one? Low priority. A week? High priority.)
 - **Ideals may change.** What counts as "acceptable" is subjective and can shift over time. (Haircuts: short-hair you and long-hair you have different maintenance windows.)
 
-This condition model lets Minder automatically prioritize maintenance work: if your teeth haven't been flossed in three days and your car was washed last week, the flossing gets priority — not because you manually set it, but because the system understands the degradation curve.
-
 ---
 
-## Goals, Needs, and Wants
+## Needs, Wishes, and Goals
 
-The MODEL.md notes explore an open question: what's the right vocabulary for what a Care requires?
+A Care's relationship to the task system flows through three concepts:
 
-- A **Need** is something the Care requires to stay in acceptable condition. Neglecting it causes degradation. Examples: oil changes for a car, brushing for teeth, regular contact for a relationship.
-- A **Want** is something that would improve the Care beyond its current baseline, but isn't required for maintenance. Examples: whitening your teeth, upgrading your car's sound system, learning a new recipe for date night.
-- A **Goal** might be the umbrella term that covers both — or it might be a more specific concept with its own structure.
+### Needs
 
-The MODEL.md prototype suggests goals have additional properties:
-- **Exemptions**: temporary statuses (illness, vacation) that disable the goal without it counting as failure. This is distinct from an "excuse" — exemptions are pre-approved and structurally recognized.
-- **A game plan**: a WOOP-derived strategy for meeting obstacles (inner obstacles) and blockers (outer obstacles). A complete game plan is one where every branch has a solution; no path ends in "give up." Rare, low-probability obstacle branches can be marked as UNPLANNED ("wing it") to avoid over-engineering.
+A **Need** is a maintenance requirement — something the Care requires to stay in acceptable condition. Needs have condition curves. They degrade when neglected. They're the thing where "importance increases with neglect" applies.
 
-This area of the design is still evolving. The important invariant is: **Needs belong to Cares, and tasks satisfy Needs.** Whether the vocabulary distinguishes needs from wants, or unifies them under "goals," is an open question.
+- Your hair *needs* cutting. Your teeth *need* brushing. Your car *needs* oil changes.
+- Each Need is linked to one or more Attributes of the Care — satisfying the Need resets or improves those Attributes.
+- A Need can be satisfied by **multiple alternative tasks** (implementation plans). Going for a run, playing basketball, and doing Beat Saber all satisfy the "exercise" Need. None is individually required, but one of them is.
+
+### Wishes
+
+A **Wish** is an aspirational improvement — something that would enhance the Care beyond its current baseline, but isn't required for maintenance. Wishes don't have condition curves. Neglecting a Wish doesn't degrade anything — you just don't get the nice thing.
+
+- "I wish I could play guitar" (Self → Skills)
+- "I wish we could visit Italy together" (Person → Partner)
+- "I wish my car had a better sound system" (Object → Car)
+
+Wishes are attached to a Care because they're *motivated by* it, but they exist independently of the condition model. They're essentially Assignables (or Projects, if complex) that are tagged to a Care. "Wish" is deliberately softer than "need" — no guilt for having an unfulfilled wish sitting in the system for years.
+
+### Goals
+
+A **Goal** operationalizes a Need (or a Wish that's been promoted to active pursuit) by pairing it with:
+
+1. **A measurable condition target** — "keep hair below six inches," "run at least three times per week," "floss daily"
+2. **An implementation strategy** — which specific task satisfies it: "go to Andy's Salon for $18 men's haircut," "jog the 5K loop near the park"
+3. **An intention of frequency** — how often the condition should be maintained, not as a rigid schedule but as a scoring input
+
+Goals are where the WOOP framework lives:
+- **Exemptions**: temporary statuses (illness, vacation, travel) that disable the goal without it counting as failure. If an exemption applies, the scheduler stops factoring this goal into the plan. This is distinct from an excuse — exemptions are pre-approved and structurally recognized.
+- **Obstacles and Blockers**: inner obstacles (motivation, habit, energy) and outer obstacles (logistics, dependencies, weather) with planned responses. A complete game plan is one where every branch has a solution — no path ends in "give up." Rare, low-probability obstacles can be marked as UNPLANNED ("wing it") to avoid over-engineering contingencies.
+
+### The Information Flow
+
+```
+Care (noun: my hair)
+  → Attribute (objective: length in inches)
+    → Condition (subjective: 10" = overgrown, gradient not threshold)
+  → Need (maintenance: haircut)
+    → Goal (operationalized: keep below 6", via Andy's Salon, ~6 weeks)
+      → Assignable (the task: "Get haircut at Andy's Salon")
+        → Assignment (a particular trip to the salon)
+```
+
+The Goal is the binding layer between the noun world (Cares/Needs) and the verb world (Tasks/Assignments). Without a Goal, a Need still exists — you know your car needs oil changes even if you haven't chosen a specific shop and interval. And a Wish exists without any pretense of being required.
 
 ---
 
@@ -197,11 +260,7 @@ As discussed in [task-layers.md](task-layers.md), the Project layer and the Care
 | "Learning Spanish" → practice, classes, apps... | It's a skill you're developing (Self). |
 | "My Home" → cleaning, repairs, bills... | It's a place you maintain. |
 
-The key difference is ownership semantics:
-- **Projects provide exclusive hierarchical grouping.** A task lives in exactly one Project. The Project's lifecycle governs its tasks.
-- **Cares provide non-exclusive, many-to-many tagging.** A task can serve multiple Cares. Cares don't "own" tasks — they motivate them.
-
-Whether the Project layer has a non-redundant purpose (grouping coordinated efforts that aren't about maintaining an entity) remains an open design question. The type system supports both, and they're kept separate pending further real-world usage evidence.
+Whether the Project layer has a non-redundant purpose (grouping coordinated efforts that aren't about maintaining an entity) remains an open design question. The type system supports both, and they're kept separate pending further real-world usage evidence. One concrete use for the Project layer: **migration staging** — when importing data from other apps (e.g. Todoist), the imported tree structure can be parked as Projects while the system (or the user, or an LLM) determines where the Assignable boundary belongs and which branches are really Cares.
 
 ---
 
@@ -226,10 +285,14 @@ You might do the Activity "Cleaning" for multiple Cares (cleaning the kitchen �
 
 4. **Multi-Care tasks are prioritized.** A task that serves three Cares at once is more efficient than one that serves only one. The scheduler rewards this.
 
-5. **Needs bridge Cares and tasks.** Each Care has Needs. Tasks satisfy Needs. A Need can be satisfied by alternative tasks — the system cares that the Need is met, not how.
+5. **Needs maintain; Wishes aspire; Goals operationalize.** Needs are maintenance requirements with condition curves. Wishes are aspirational improvements without them. Goals bind either to measurable targets, implementation plans, and frequency intentions.
 
-6. **Conditions drive automatic prioritization.** Cares with maintenance-type Needs have a condition model (Fresh → Ideal → Okay → Poor → Critical). The scheduler prioritizes neglected Cares over recently-tended ones.
+6. **Attributes are objective; Conditions are subjective.** The measurement (hair length in inches) is stored separately from the interpretation (10 inches = overgrown). This means ideals can shift without invalidating history.
 
-7. **Cares are hierarchical.** They nest (your teeth are part of your head, which is part of your body). Satisfying a child Care implicitly contributes to its ancestors.
+7. **Conditions are gradients, not thresholds.** The user defines smooth bezier-like curves, not hard cutoffs. There is no "overdue" moment — just a continuous scoring function that makes tasks gradually more valuable as conditions drift.
 
-8. **Cares may subsume Projects.** Many real-world "projects" are actually Cares — entities you maintain. Whether there exists a class of groupings that are genuinely about coordinated effort (not entity maintenance) remains an open question.
+8. **Conditions can track non-time dimensions.** Oil degrades with miles, not hours. If the dimension is derivable from the schedule (driving trips = miles), Minder computes the progression automatically.
+
+9. **Cares are hierarchical.** They nest (your teeth are part of your head, which is part of your body). Satisfying a child Care implicitly contributes to its ancestors.
+
+10. **Cares may subsume Projects.** Many real-world "projects" are actually Cares — entities you maintain. The Project layer is retained for migration staging and as a structural possibility, pending real-world evidence of non-redundant use cases.
