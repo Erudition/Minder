@@ -47,8 +47,8 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Install pnpm
-        run: npm install -g pnpm@11.1.1
+      - name: Install pnpm and elm
+        run: npm install -g pnpm@11.1.1 elm@0.19.1-5
 
       - name: Install dependencies
         if: ${{ github.event.action != 'closed' }}
@@ -74,15 +74,7 @@ jobs:
       # This example assumes you're using React, and that you're using the PUBLIC_URL env variable
       - name: Build
         if: ${{ github.event.action != 'closed' }}
-        run: |
-          pnpm run build-ci --base=${{ steps.baseurl.outputs.relative }} > build-log.txt 2>&1 || (
-            git config --global user.name "GitHub Action"
-            git config --global user.email "action@github.com"
-            git add build-log.txt
-            git commit -m "ci: build log"
-            git push origin HEAD:master
-            exit 1
-          )
+        run: pnpm run build-ci --base=${{ steps.baseurl.outputs.relative }}
         env:
           PUBLIC_URL: ${{ steps.baseurl.outputs.relative }}
 
