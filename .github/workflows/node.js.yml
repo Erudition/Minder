@@ -52,7 +52,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ github.event.action != 'closed' }}
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       # This will calculate the base URL for the website, based on the event that triggered the workflow.
       # Leave this step as it is, unless you know what you're doing.
