@@ -808,8 +808,29 @@ objectChangeChunkToOps node pointer objectChanges ( inCounter, inMapping, inChun
                 ( newID, stampOutCounter ) =
                     OpID.generate stampInCounter node.identity givenUCO.deletion
 
+                -- Use the specific reference if provided (e.g. for RevertOp targeting a
+                -- specific event, or NewPayloadWithRef targeting a specific predecessor).
+                -- Otherwise, default to the sequential chain reference.
+                actualRefOp =
+                    case givenUCO.reference of
+                        Just specificOpID ->
+                            case AnyDict.get specificOpID node.ops of
+                                Just foundOp ->
+                                    foundOp
+
+                                Nothing ->
+                                    Log.crashInDev
+                                        ("stampChunkOps: Could not find specifically-referenced op "
+                                            ++ OpID.toString specificOpID
+                                            ++ " in node. Falling back to chain reference."
+                                        )
+                                        opToReference
+
+                        Nothing ->
+                            opToReference
+
                 stampedOpResult =
-                    Op.create reducerID objectID newID (Op.OpReference opToReference) givenUCO.payload
+                    Op.create reducerID objectID newID (Op.OpReference actualRefOp) givenUCO.payload
             in
             case stampedOpResult of
                 Ok good ->

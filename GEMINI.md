@@ -84,3 +84,36 @@ The `finish*` functions determine which alias the resulting codec matches:
 - **WrappedSeededCodec annotations**: Often wrong after refactoring because `finishSeededRecord` returns `Codec seed SoloObject thing` where seed is the raw seed, but `WrappedSeededCodec` wraps it as `(seed, Changer thing)`. Drop these annotations when they cause mismatches.
 - **BytesDecoder/JsonDecoder wrapping**: All raw `BD.Decoder`/`JD.Decoder` values must be wrapped with `BytesDecoder.fromRaw`/`toRaw` when crossing the opaque type boundary.
 - **NodeDecoder.Output**: Returns `{ decoder, ancestors }` — older code may destructure as `{ decoder, obSubs }`.
+
+## Elm-CSS Namespace & Styling Constraints
+- **Ambiguous property**: All custom/vendor CSS properties (e.g., `--padding-start`, `--background`, `-webkit-background-clip`) must be explicitly qualified as `Css.property` to avoid namespace conflicts with `Html.Styled.Attributes.property`.
+- **Ambiguous int**: Font weight levels or grid dimensions must be qualified as `Css.int` to avoid conflicts with `Json.Encode.int` or `Url.Parser.int`.
+- **Gap property**: The standard `gap` layout helper is unsupported in our `elm-css` library. Use `Css.property "gap" "Xrem"` (or similar dimensions) instead.
+- **Scroll snap alignment**: Do not mix `Html.Styled.Attributes.style` directly inside `css [ ... ]` blocks. Standardize scroll-snap configurations using `Css.property "scroll-snap-align" "start"` inside `css` style lists.
+
+## Task List Stepped Deck & Underlay Layout Constraints
+- **Self-Contained Cards with See-Through Holes**: Each assignment card must be completely self-contained in its DOM element representation. The top-left region of the card must remain fully transparent and see-through to display the underlay header underneath.
+- **Normal Flow Header Underlay with Negative Margin**: The assignable's title header row must remain relatively positioned in the normal DOM flow rather than absolutely positioned. The scroll container must be pulled up to overlap the header by assigning the header a matching height and a negative bottom margin (e.g. `margin-bottom: -3.5rem; height: 3.5rem;`).
+- **Interactive Click Pass-Through**: The scroll container must be assigned `pointer-events: none` and the cards `pointer-events: auto` to allow interactive clicks to pass through transparent sections directly to the underlying assignable header title.
+- **Dashed Uniform Add Card**: The "New Assignment" card-button must match standard cards exactly in height (`180px`), margins, and sticky offsets, rendering a dashed outline backing at `top: 3.5rem` to remain visually uniform and aligned in the stack.
+- **Tag Element Formatting**: Display the card's `#Number` followed by the `Identicon` (`[#Number] [Identicon]`) inside the top-right tag backing.
+- **Mathematical Stack Snapping**: Sticky card decks that stack on the left must have their `.absolute-snap-target` offsets mathematically aligned leftwards to match the stacking offset: `left: calc(var(--card-start) + var(--index) * (var(--card-width) + var(--card-gap)) - var(--index) * var(--stack-step))`.
+
+## Task Architecture Semantic Constraints
+- **Assignments are timing-agnostic**: Assigning ≠ scheduling. An Assignment is an intention to do something, not a calendar entry. Timing fields (deadlines, relevance windows) are all optional. An assigned-but-unscheduled task is the normal, expected state. Scheduling is a separate system that consumes task layers as input.
+- **Multiple concurrent Assignments are valid**: An Assignable may have multiple active Assignments simultaneously (e.g. backlog accrual: three years of unfiled taxes = three Assignments). This is configurable per-Assignable for idempotent tasks where multiples don't make sense.
+- **Projects must be concrete, not categorical**: Broad life categories ("Home", "Work", "Health") are an antipattern for Projects because they aren't mutually exclusive. Projects should be bounded and obviously distinct from all other projects, present and hypothetical. Cross-cutting categories belong in the Cares system instead.
+- **Project nesting tends to be shallow in practice**: Infinite nesting is supported as an exhaustiveness guarantee (0-1-infinity rule), not because deep folder hierarchies are expected. Don't design features or UI that assume or encourage deep project nesting.
+- **Deadlines must be external**: The deadline field is called "external deadline" even in code. Self-imposed deadlines are an antipattern — use condition scoring, Need importance, and the scheduling engine instead. Urgency that fake deadlines create should be achieved by other means.
+- **Deadline ≠ Expiration**: Expiration (when the task has zero remaining value) is distinct from deadline (when it should ideally be done). Expiration ≥ deadline. Most tasks have value even after their deadline. The grace period between them prevents premature abandonment.
+- **"Priority" is not a Minder concept**: Urgency (time-sensitive) and importance (value-weighted) are orthogonal dimensions. The scoring engine computes their interaction. A single "priority" number is a stopgap for the scoring engine and will be removed. It exists only temporarily for Todoist import compatibility.
+- **Delegation is just another project**: There is no "delegated" task state. Delegating work is a multi-step Assignable with Actions (contact, wait, confirm, verify). The condition tracks reality (the plant's water level), not agreements (the neighbor said yes).
+
+## Cares & Scoring Semantic Constraints
+- **Needs maintain; Wishes aspire; Goals operationalize**: Needs are maintenance requirements with condition curves. Wishes are aspirational improvements without them. Goals bind either to measurable targets, implementation plans, and frequency intentions. These three terms are distinct and should not be conflated.
+- **Attributes are objective; Conditions are subjective**: Measurement (hair length in inches) is stored separately from interpretation (10 inches = overgrown). Ideals can shift without invalidating measurement history.
+- **Conditions are gradients, not thresholds**: The user defines smooth bezier-like curves, not hard cutoffs. There is no "overdue" moment — just a continuous scoring function that makes tasks gradually more valuable as conditions drift.
+- **Scoring is per-Need, not per-task**: The scheduler evaluates which task satisfies a Need best in context, not which task is "due." Multiple implementation plans for a Need compete naturally.
+- **No overdue, no guilt**: Nothing in Minder is ever "overdue." The system never creates a binary flip from "fine" to "failed." This is a foundational ADHD-first design constraint, not a cosmetic choice.
+- **Duration estimates start overcautious**: New tasks use 80th percentile estimates, not averages. The system asymptotically approaches true values from the high side, ensuring early user success.
+
