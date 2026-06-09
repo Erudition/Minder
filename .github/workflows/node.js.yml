@@ -52,7 +52,15 @@ jobs:
 
       - name: Install dependencies
         if: ${{ github.event.action != 'closed' }}
-        run: pnpm install --no-frozen-lockfile
+        run: |
+          pnpm install --no-frozen-lockfile > pnpm-log.txt 2>&1 || (
+            git config --global user.name "GitHub Action"
+            git config --global user.email "action@github.com"
+            git add pnpm-log.txt
+            git commit -m "ci: pnpm log"
+            git push origin HEAD:master
+            exit 1
+          )
 
       # This will calculate the base URL for the website, based on the event that triggered the workflow.
       # Leave this step as it is, unless you know what you're doing.
