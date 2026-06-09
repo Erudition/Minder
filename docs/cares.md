@@ -6,7 +6,7 @@
 
 ## The Problem Cares Solve
 
-Traditional task management systems organize work by **what the work is**: projects, folders, labels, priorities. But when you ask a person *why* they're doing something, the answer is almost never about the task itself — it's about something they care about:
+Traditional task management systems organize work by **what the work is**: projects, folders, labels, priorities. But when you ask a person *why* they're doing something when they could be doing something else, it can always be boiled down to the consequences for something they _care_ about:
 
 - "I'm changing the oil because I need my car to keep running."
 - "I'm practicing Spanish because I want to be fluent."
@@ -15,7 +15,7 @@ Traditional task management systems organize work by **what the work is**: proje
 
 Each of these answers points to a **noun** — a thing, a person, a relationship, a skill, an obligation — whose wellbeing motivates the work. In most systems, this motivation is invisible. You might tag tasks with "Health" or "Work," but those tags don't carry any semantics — the system doesn't know *why* you tagged something, what it means for the tag to be "neglected" or "satisfied," or how to prioritize across tags.
 
-Cares make this motivation explicit and structured.
+Cares make this motivation explicit and structured. Minder can then derive priorities for otherwise equal tasks, such as preferring to take care of the most neglected entity.
 
 ---
 
@@ -24,9 +24,11 @@ Cares make this motivation explicit and structured.
 A Care is simply a **thing you care about** — an entity or concept that you want to take care of. A noun.
 
 The word "Care" is chosen deliberately to avoid the implications of other candidates:
-- "Thing" implies objectification, which is uncomfortable when the Care is a person (your child, your partner, your aging parent) or a living creature (your dog, your garden).
+- "Thing" implies "it", which is probably not how you want to refer to your friends, family, pets, or deities.
+- "Possession" is often simply not true.
 - "Asset" is too transactional.
-- "Responsibility" is too narrow — you care about your health not because you're obligated to, but because it's *yours*.
+- "Project" can make relationships sound like labor with an end goal.
+- "Responsibility" is too narrow — you care about your health not because you're obligated to, but because it's *yours*. A rich and loving life involves taking care of things and people that are not necessarily your "responsibility".
 
 For people specifically, the Care isn't the person themselves (they're a peer, not your possession) — it's the **relationship** with that person, or your role as their caretaker if they're a dependent.
 
@@ -124,7 +126,7 @@ Consider: "Practice Spanish with my daughter." This single activity serves:
 
 In a traditional system with exclusive folders, you'd have to pick one: is this a Language task? A Parenting task? A Relationship task? The answer is all three, and forcing a choice loses information.
 
-In Minder, this isn't just tolerated — it's **actively rewarded**. The scheduling engine can prioritize tasks that satisfy multiple Cares at once, because they're more efficient: you're getting three things done in the time it takes to do one. This is the multi-Care efficiency principle — finding tasks that tackle multiple needs is as if you had more time in the day.
+In Minder, this isn't just tolerated — it's **actively rewarded**. The scheduling engine can prioritize tasks that satisfy multiple Cares at once, because they're more efficient: you're "getting three things done" (or at least, _taking care_ of three things) in the time it takes to do one. This is the multi-Care efficiency principle — finding tasks that tackle multiple needs is as if you had more time in the day.
 
 Similarly, a Need can be satisfied by **multiple alternative tasks**:
 
@@ -158,7 +160,7 @@ Conditions (of a Care):
 
 The properties that make a task a "maintenance task" (as distinct from a deadline-driven or one-shot task):
 
-- **No external deadline.** Waiting longer just means conditions get gradually worse. (Practice Spanish: the longer you wait, the rustier you get.)
+- **No external deadline.** Waiting longer just means conditions get gradually worse. (Mow the lawn: the longer you wait, the taller and more uneven it gets.)
 - **No expiration.** You can neglect it indefinitely, yet at any point it's still doable. (Wax your skis: always relevant.)
 - **It may be "too soon."** There's a cooldown period where repeating the task is ineffective. (Mow the lawn: cutting it again an hour later won't help.)
 - **Importance increases with neglect.** More-neglected tasks are strictly prioritized over recently refreshed ones. (Take a shower: 8 hours since the last one? Low priority. A week? High priority.)
