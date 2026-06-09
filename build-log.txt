@@ -1,0 +1,33 @@
+$ pnpm run elm-land-generate && vite build --base=/minder-preview/Erudition/Minder/branch/master
+
+> minder@0.1.2 elm-land-generate /home/runner/work/Minder/Minder
+> elm-land generate && cp elm-patches/HashRouting.elm .elm-land/src/
+
+
+🌈  Elm Land [2m(v0.19.5)[0m generated files successfully.
+[32m    ⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺⎺[0m
+[36mvite v4.5.14 [32mbuilding for production...[36m[39m
+transforming...
+Running elm make /home/runner/work/Minder/Minder/.elm-land/src/Main.elm --output /tmp/202659-3490-14mt2xf.65kn.js
+/home/runner/work/Minder/Minder/node_modules/.pnpm/node-elm-compiler@5.0.6/node_modules/node-elm-compiler/dist/index.js:85
+            .on('error', function (err) { throw (err); });
+                                          ^
+
+Error: spawn elm ENOENT
+    at ChildProcess._handle.onexit (node:internal/child_process:285:19)
+    at onErrorNT (node:internal/child_process:483:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'spawn elm',
+  path: 'elm',
+  spawnargs: [
+    'make',
+    '/home/runner/work/Minder/Minder/.elm-land/src/Main.elm',
+    '--output',
+    '/tmp/202659-3490-14mt2xf.65kn.js'
+  ]
+}
+
+Node.js v22.22.3
+[ELIFECYCLE] Command failed with exit code 1.
