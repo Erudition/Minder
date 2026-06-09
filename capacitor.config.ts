@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   appId: 'io.github.erudition.Minder',
   appName: 'Minder',
   webDir: 'dist',
-  server: { 
+  server: {
     allowNavigation: ["erudition.github.io"], // don't add "localhost" here
     // url: "https://localhost/", // default is https://localhost, but setting this to ANYTHING prevents navigation to localhost...
     //url: "https://erudition.github.io/minder-preview/Erudition/Minder/branch/master/",
@@ -39,7 +39,7 @@ const config: CapacitorConfig = {
     },
     App: {},
     Clipboard: {},
-    Storage: {},
+    Preferences: {},
     CapacitorCookies: {
       enabled: true
     }
