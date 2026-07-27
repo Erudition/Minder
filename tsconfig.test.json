@@ -1,0 +1,20 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"outDir": "dist-test",
+		"rootDir": ".",
+		"module": "ESNext",
+		"moduleResolution": "Node",
+		"target": "ES2022",
+		"strict": true,
+		"strictPropertyInitialization": false,
+		"types": ["vite/client", "node"],
+		"experimentalDecorators": false,
+		"emitDecoratorMetadata": false,
+		"useDefineForClassFields": false,
+		"noEmitHelpers": false,
+		"importHelpers": true
+	},
+	"include": ["www/peerbit-host.ts", "www/peerbit-host.test.ts"]
+}
