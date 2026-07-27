@@ -16,5 +16,9 @@
 		"noEmitHelpers": false,
 		"importHelpers": true
 	},
-	"include": ["www/peerbit-host.ts", "www/peerbit-host.test.ts"]
+	"include": [
+		"www/peerbit-host.ts",
+		"www/peerbit-host.test.ts",
+		"www/peerbit-host.smoke.test.ts"
+	]
 }

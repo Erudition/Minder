@@ -13,6 +13,7 @@
     "compile-peerbit-host": "tsc -p tsconfig.peerbit-host.json",
     "build-ci": "pnpm run elm-land-generate && pnpm run copy-peerbit-assets && pnpm run compile-peerbit-host && vite build",
     "test:peerbit-host": "tsc -p tsconfig.test.json && node dist-test/www/peerbit-host.test.js",
+    "test:peerbit-smoke": "tsc -p tsconfig.test.json && node dist-test/www/peerbit-host.smoke.test.js",
     "build-sync": "pnpm run elm-land-generate && vite build && cap sync",
     "patch-elm": "sh elm-patches/patch-elm-libraries.sh",
     "capacitor:copy:after": "if [ $CAPACITOR_PLATFORM_NAME == 'web' ]; then echo leaving index in place for web. ; else echo replacing index with go-online... && mv android/app/src/main/assets/public/index.html android/app/src/main/assets/public/fallback.html && mv android/app/src/main/assets/public/go-online.html android/app/src/main/assets/public/index.html; fi"

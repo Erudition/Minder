@@ -1,9 +1,17 @@
 import { field, variant } from "@dao-xyz/borsh";
-import { Program } from "@peerbit/program";
+import { Program, type Address } from "@peerbit/program";
 import { SharedLog, type ReplicationOptions } from "@peerbit/shared-log";
 import { Peerbit } from "peerbit";
 
+export type CreatePeerbitHostOptions = {
+	client?: Peerbit;
+	directory?: string;
+	programAddress?: Address;
+};
+
 export type PeerbitHost = {
+	client: Peerbit;
+	programAddress: Address;
 	appendOp(ronOpString: string): Promise<void>;
 	getAllOps(): Promise<string[]>;
 	close(): Promise<void>;
@@ -14,7 +22,7 @@ type MinderLogArgs = {
 };
 
 @variant("minder-log")
-class MinderLog extends Program<MinderLogArgs> {
+export class MinderLog extends Program<MinderLogArgs> {
 	@field({ type: SharedLog })
 	log: SharedLog<Uint8Array>;
 
@@ -33,13 +41,32 @@ class MinderLog extends Program<MinderLogArgs> {
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-export async function createPeerbitHost(): Promise<PeerbitHost> {
-	const client = await Peerbit.create();
-	const program = await client.open(new MinderLog(), {
-		args: { replicate: true },
-	});
+export async function createPeerbitHost(
+	options: CreatePeerbitHostOptions = {},
+): Promise<PeerbitHost> {
+	const client =
+		options.client ??
+		(await Peerbit.create({
+			directory: options.directory,
+		}));
+
+	let program: MinderLog;
+	if (options.programAddress) {
+		program = await client.open<MinderLog>(options.programAddress, {
+			args: { replicate: true },
+			timeout: 30_000,
+		});
+	} else {
+		program = await client.open(new MinderLog(), {
+			args: { replicate: true },
+		});
+		await program.save();
+	}
 
 	return {
+		client,
+		programAddress: program.address,
+
 		async appendOp(ronOpString: string): Promise<void> {
 			const bytes = encoder.encode(ronOpString);
 			await program.log.append(bytes);
