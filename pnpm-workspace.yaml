@@ -1,6 +1,8 @@
 allowBuilds:
   '@nativescript/core': true
   '@parcel/watcher': true
+  better-sqlite3: true
+  classic-level: true
   core-js: true
   core-js-pure: true
   elm: true
@@ -11,6 +13,8 @@ allowBuilds:
   esbuild: true
   lamdera: true
   nativescript: true
+  node-datachannel: true
+  protobufjs: true
   rescript: true
   sharp: true
   spawn-sync: true

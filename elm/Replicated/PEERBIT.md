@@ -22,9 +22,6 @@ To manage complexity and validate the core mechanics, the integration is split i
 *   **Storage Primitive**: Use the stock Peerbit `SharedLog<Uint8Array>` (or string). Each RON Op is serialized and appended as a separate entry.
 *   **Encryption**: None. Plaintext sync to establish baseline performance and simplify debugging.
 *   **Elm Bridge**: Implement a backend-agnostic port contract (`replicatorOut` and `replicatorIn`) to replace the hardcoded `setStorage` logic in `Components/Replicator.elm`.
-*   **Loading**: 
-    *   Cache the "root/profile" Ops in `localStorage` for instant UI render.
-    *   On startup, request the full log from Peerbit and feed it to `Node.updateWithRon`.
 
 ### Phase 2: The Custom `RONLog` Program
 

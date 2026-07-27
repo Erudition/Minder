@@ -59,7 +59,8 @@
     "@ionic/cli": "^7.1.1",
     "@ionic/core": "^7.0.6",
     "@ionic/pwa-elements": "^3.1.1",
-    "@multiformats/multiaddr": "^12.1.3",
+    "@multiformats/multiaddr": "^13.0.1",
+    "@peerbit/shared-log": "13.2.15",
     "@nativescript-community/perms": "^2.3.0",
     "@nativescript-community/ui-webview": "^1.4.4",
     "@nativescript/core": "^8.5.3",
@@ -81,6 +82,7 @@
     "native-run": "^1.7.2",
     "nativescript": "^8.5.3",
     "nativescript-theme-core": "^1.0.6",
+    "peerbit": "5.3.12",
     "pnpm": "^8.5.0"
   },
   "devDependencies": {
@@ -105,10 +107,13 @@
   },
   "gitHead": "42f2a6a9c94eaf9c68d2a41e0daaa1a2544bc28f",
   "readme": "Minder",
-  "volta": {
-    "node": "18.17.0"
+  "engines": {
+    "node": ">=22"
   },
   "pnpm": {
+    "overrides": {
+      "@dao-xyz/borsh": "6.0.1"
+    },
     "patchedDependencies": {
       "@ionic/pwa-elements@3.1.1": "patches/@ionic__pwa-elements@3.1.1.patch"
     }
