@@ -177,3 +177,4 @@ gradle-app.setting
 elm/Scratchpad.elm
 .gource/
 .aider*
+.omo/
