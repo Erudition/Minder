@@ -1,4 +1,7 @@
 import assert from "node:assert";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { Peerbit } from "peerbit";
 import { createPeerbitHost } from "./peerbit-host.js";
 
@@ -91,12 +94,50 @@ async function testTwoClientSync(): Promise<void> {
 	}
 }
 
+async function testRestartPersistence(): Promise<void> {
+	const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "minder-smoke-restart-"));
+	const op = "*lww#restart@time!:key'restart-value'";
+
+	const host1 = await createPeerbitHost({ directory: tempDir });
+	let programAddress: string;
+	try {
+		await host1.appendOp(op);
+		const ops1 = await host1.getAllOps();
+		assert.deepStrictEqual(
+			ops1,
+			[op],
+			"first host should read back its own op",
+		);
+		programAddress = host1.programAddress;
+	} finally {
+		await host1.close();
+	}
+
+	const host2 = await createPeerbitHost({
+		directory: tempDir,
+		programAddress,
+	});
+	try {
+		const ops2 = await host2.getAllOps();
+		assert.deepStrictEqual(
+			ops2,
+			[op],
+			"second host should recover the op from the same directory",
+		);
+	} finally {
+		await host2.close();
+	}
+}
+
 async function main() {
 	await testOfflineAppendAndReadBack();
 	console.log("OFFLINE PASS");
 
 	await testTwoClientSync();
 	console.log("SYNC PASS");
+
+	await testRestartPersistence();
+	console.log("RESTART PERSISTENCE PASS");
 
 	console.log("ALL PASS");
 }

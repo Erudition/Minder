@@ -61,11 +61,26 @@ async function startElmApp() {
     await installTaskPorts();
     updateLoadInfo("Loading stored data");
     const storedRon = await Preferences.get({ key: 'appData' });
+    updateLoadInfo("Loading program address");
+    let storedProgramAddress: string | undefined;
+    try {
+        const storedProgramAddressResult = await Preferences.get({ key: 'minder-peerbit-program-address' });
+        storedProgramAddress = storedProgramAddressResult.value ?? undefined;
+    } catch (error) {
+        console.error("Failed to read stored program address; continuing without one.", error);
+    }
     updateLoadInfo("Creating Peerbit host");
-    const host = await createPeerbitHost().catch(error => {
+    const host = await createPeerbitHost(storedProgramAddress ? { programAddress: storedProgramAddress } : {}).catch(error => {
         console.error("Peerbit host creation failed; continuing without replication.", error);
         return null;
     });
+    if (host && !storedProgramAddress) {
+        try {
+            await Preferences.set({ key: 'minder-peerbit-program-address', value: host.programAddress });
+        } catch (error) {
+            console.error("Failed to persist program address; continuing.", error);
+        }
+    }
     updateLoadInfo("Starting Elm app");
     let app = Elm.Main.init({ flags: 
         { storedRonMaybe : null // Phase 1: do not migrate old Preferences data; Peerbit is the source of truth
