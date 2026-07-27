@@ -88,12 +88,17 @@ export default defineConfig({
     exclude: [
         '@ionic/core/loader', //fix weird Vite error "outdated optimize dep"
         '@ionic/pwa-elements/loader', // same
-        '@ionic/pwa-elements/dist/esm-es5/pwa-toast.entry.js'
+        '@ionic/pwa-elements/dist/esm-es5/pwa-toast.entry.js',
+        '@peerbit/shared-log-rust' // keep WASM relative import pointing at the package's dist/wasm directory
     ],
     force: true
   },
   server: {
-    strictPort: true
+    strictPort: true,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp'
+    }
   },
   publicDir: "vite-extra-assets"
 })

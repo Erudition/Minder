@@ -18,6 +18,7 @@ import {registerNotificationTaskPorts, scheduleNotifications} from './scripts/ca
 import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
 import { native } from '@nativescript/capacitor';
 import { minderAsciiLogo } from './scripts/asciiArt';
+import { createPeerbitHost } from '../dist-test/www/peerbit-host.js';
 
 
 
@@ -60,14 +61,39 @@ async function startElmApp() {
     await installTaskPorts();
     updateLoadInfo("Loading stored data");
     const storedRon = await Preferences.get({ key: 'appData' });
+    updateLoadInfo("Creating Peerbit host");
+    const host = await createPeerbitHost().catch(error => {
+        console.error("Peerbit host creation failed; continuing without replication.", error);
+        return null;
+    });
     updateLoadInfo("Starting Elm app");
     let app = Elm.Main.init({ flags: 
-        { storedRonMaybe : storedRon.value
+        { storedRonMaybe : null // Phase 1: do not migrate old Preferences data; Peerbit is the source of truth
         , darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches
         , notifPermission : await LocalNotifications.checkPermissions()
         , launchTime : Date.now()
         }
     });
+
+    if (host) {
+        const allOps = await host.getAllOps();
+        console.log('Peerbit host ready. Initial op count:', allOps.length);
+        const allOpsText = allOps.join("❃");
+        if (allOpsText && app.ports.replicatorIn) {
+            app.ports.replicatorIn.send(allOpsText);
+        }
+
+        if (app.ports.replicatorOut) {
+            app.ports.replicatorOut.subscribe(async function(data : string) {
+                const ops = data.split("❃").filter(op => op.length > 0);
+                for (const op of ops) {
+                    await host.appendOp(op);
+                    console.log('Appended op to Peerbit. New op count:', (await host.getAllOps()).length);
+                }
+            });
+        }
+    }
+
     elmStarted(app);
 
 }
@@ -90,15 +116,6 @@ function elmStarted(app) {
     // hide the splash screen
     SplashScreen.hide().catch((err) => {
         console.log("No Capacitor splash screen to hide.");
-    });
-
-    // SET STORAGE — persist RON frames to Capacitor Preferences
-    if (app.ports.setStorage) app.ports.setStorage.subscribe(async function(data) {
-        const existing = await Preferences.get({ key: 'appData' });
-        await Preferences.set({
-            key: 'appData',
-            value: (existing.value || '') + data
-        });
     });
 
     // Try to make storage persistent

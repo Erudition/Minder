@@ -43,6 +43,7 @@ www/elm-browserless.js
 elmjutsu-config.json
 dist/
 dist-test/
+www/vite-extra-assets/peerbit/
 /.elm-land
 src
 
