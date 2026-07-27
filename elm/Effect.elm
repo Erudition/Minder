@@ -4,7 +4,7 @@ port module Effect exposing
     , sendCmd, sendMsg
     , pushRoute, replaceRoute, loadExternalUrl
     , map, toCmd
-    , PromptOptions, cancelNotification, clearPreferences, closePopup, dialogPrompt, incomingRon, mlPredict, requestNotificationPermission, saveFrame, saveFrames, saveSystemChanges, saveUserChanges, sendNotifications, sendSharedMsg, setStorage, syncMarvin, syncTodoist, toast, updateTime, userChangeNow
+    , PromptOptions, cancelNotification, clearPreferences, closePopup, dialogPrompt, mlPredict, replicatorIn, replicatorOut, requestNotificationPermission, saveFrame, saveFrames, saveSystemChanges, saveUserChanges, sendNotifications, sendSharedMsg, syncMarvin, syncTodoist, toast, updateTime, userChangeNow
     )
 
 {-|
@@ -455,9 +455,6 @@ toCmd options effect =
 -- PORTS --------------------------------------------------------
 
 
-port incomingRon : (String -> msg) -> Sub msg
-
-
 port ns_notify : JE.Value -> Cmd msg
 
 
@@ -470,7 +467,10 @@ port ns_toast : JE.Value -> Cmd msg
 port toastPort : String -> Cmd msg
 
 
-port setStorage : String -> Cmd msg
+port replicatorIn : (String -> msg) -> Sub msg
+
+
+port replicatorOut : String -> Cmd msg
 
 
 

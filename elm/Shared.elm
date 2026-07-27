@@ -18,7 +18,7 @@ import Browser.Events
 import Browser.Navigation as Nav exposing (..)
 import Components.Odd as Odd
 import Components.Replicator
-import Effect exposing (Effect, incomingRon)
+import Effect exposing (Effect, replicatorIn, replicatorOut)
 import Element exposing (..)
 import Html exposing (Html)
 import Integrations.Marvin as Marvin
@@ -109,7 +109,8 @@ init flagsResult route =
             Components.Replicator.init
                 { launchTime = Just flags.launchTime
                 , replicaCodec = Profile.codec
-                , outPort = Effect.setStorage
+                , outPort = replicatorOut
+                , inPort = replicatorIn
                 , storedRon = flags.storedRonMaybe
 
                 --, outPort = \stuffToWrite -> Effect.sendMsg (OddUpdate <| Odd.WriteFileContents stuffToWrite)
@@ -350,5 +351,5 @@ subscriptions route shared =
             [ Just <| Browser.Events.onVisibilityChange VisibilityChanged
             , Just <| Browser.Events.onResize (\width height -> ViewportResized width height)
             , tickSubscriptionMaybe
-            , Just <| Sub.map ReplicatorUpdate (Components.Replicator.subscriptions incomingRon)
+            , Just <| Sub.map ReplicatorUpdate (Components.Replicator.subscriptions shared.replicator)
             ]

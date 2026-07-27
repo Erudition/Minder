@@ -23,6 +23,7 @@ type Replicator replica frameDesc
         , replicaCodec : WrappedOrSkelCodecWithoutSeed replica
         , replica : replica
         , outPort : String -> Cmd (Msg frameDesc)
+        , inPort : IncomingFramesPort frameDesc
         }
 
 {-| Internal reminder what this is: We want to allow replicas created from skels and wrapped types, but not force everyone to have another type variable in their Replicator (for the seed).
@@ -38,12 +39,13 @@ type alias ReplicatorConfig replica yourFrameDesc =
     { launchTime : Maybe Moment
     , replicaCodec : WrappedOrSkelCodecWithoutSeed replica
     , outPort : String -> Cmd (Msg yourFrameDesc)
+    , inPort : IncomingFramesPort yourFrameDesc
     , storedRon : Maybe String
     }
 
 
 init : ReplicatorConfig replica desc -> ( Replicator replica desc, replica )
-init { launchTime, replicaCodec, outPort, storedRon } =
+init { launchTime, replicaCodec, outPort, inPort, storedRon } =
     let
         ( startNode, initChanges ) =
             Codec.startNodeFromRoot launchTime replicaCodec
@@ -80,6 +82,7 @@ init { launchTime, replicaCodec, outPort, storedRon } =
         , replicaCodec = replicaCodec
         , replica = startReplica
         , outPort = outPort
+        , inPort = inPort
         }
     , startReplica
     )
@@ -183,14 +186,14 @@ type alias IncomingFramesPort desc =
     subscriptions =
         Sub.batch
             [   ...
-            ,   Sub.map ReplicatorUpdate (Components.Replicator.subscriptions incomingRon)
+            ,   Sub.map ReplicatorUpdate (Components.Replicator.subscriptions shared.replicator)
             ]
 
-`incomingRon` is a port you create (you can put it in the `Effect` module if you like) that receives a String, and has the type `IncomingFramesPort`.
+The incoming port is provided through the `ReplicatorConfig` passed to `init` (usually `Effect.replicatorIn`).
 
 -}
-subscriptions : IncomingFramesPort desc -> Sub (Msg desc)
-subscriptions incomingFramesPort =
+subscriptions : Replicator replica desc -> Sub (Msg desc)
+subscriptions (ReplicatorModel replicator) =
     let
         splitIncomingFrames inRon =
             let
@@ -199,7 +202,7 @@ subscriptions incomingFramesPort =
             in
             LoadRon (List.length frames) frames
     in
-    incomingFramesPort splitIncomingFrames
+    replicator.inPort splitIncomingFrames
 
 
 saveEffect : List (Change.Frame desc) -> Cmd (Msg desc)
