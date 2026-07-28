@@ -32,3 +32,9 @@ const ribltSource = path.join(ribltDir, '@peerbit', 'riblt', 'dist', 'assets', '
 const ribltTarget = path.join('www', 'vite-extra-assets', 'peerbit', 'riblt');
 const ribltCount = copyAssetDir(ribltSource, ribltTarget);
 console.log(`Copied ${ribltCount} Peerbit riblt assets to`, ribltTarget);
+
+const opfsDir = findPnpmDir('@peerbit+any-store-opfs@');
+const opfsSource = path.join(opfsDir, '@peerbit', 'any-store-opfs', 'dist', 'assets', 'opfs');
+const opfsTarget = path.join('www', 'vite-extra-assets', 'peerbit', 'opfs');
+const opfsCount = copyAssetDir(opfsSource, opfsTarget);
+console.log(`Copied ${opfsCount} Peerbit OPFS assets to`, opfsTarget);
