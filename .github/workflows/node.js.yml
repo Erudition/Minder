@@ -3,6 +3,7 @@ permissions:
   contents: write
   pull-requests: write
   deployments: write
+  actions: write
 on:
   push:
     branches:
@@ -29,6 +30,7 @@ jobs:
         # Can be all lts like: [14.x, 16.x, 18.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
     env:
+      PREVIEW_REPO: Erudition/Minder
       PAGES_BASE: https://erudition.github.io/Minder
       NODE_OPTIONS: --max-old-space-size=32768
 
@@ -95,5 +97,5 @@ jobs:
         with:
           build_dir: dist
           preview_base_url: ${{ env.PAGES_BASE }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          preview_repo: ${{ env.PREVIEW_REPO }}
+          preview_token: ${{ secrets.GITHUB_TOKEN }}
