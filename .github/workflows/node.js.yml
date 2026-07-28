@@ -2,6 +2,7 @@ name: Deploy
 permissions:
   contents: write
   pull-requests: write
+  deployments: write
 on:
   push:
     branches:
