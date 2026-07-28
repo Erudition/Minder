@@ -1,0 +1,16 @@
+name: Preview Placeholder
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Ref'
+        required: false
+      version:
+        description: 'Version'
+        required: false
+
+jobs:
+  dummy:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Preview dispatched successfully (this is a placeholder for EndBug/pages-preview)"
