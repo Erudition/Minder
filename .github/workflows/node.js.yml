@@ -47,6 +47,15 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      - name: Cache Elm dependencies
+        if: ${{ github.event.action != 'closed' }}
+        uses: actions/cache@v3
+        with:
+          path: ~/.elm
+          key: ${{ runner.os }}-elm-${{ hashFiles('**/elm.json') }}
+          restore-keys: |
+            ${{ runner.os }}-elm-
+
       - name: Install pnpm and elm
         run: npm install -g pnpm@11.1.1 elm@0.19.1-5
 
