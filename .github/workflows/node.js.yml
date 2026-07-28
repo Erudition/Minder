@@ -1,4 +1,7 @@
 name: Deploy
+permissions:
+  contents: write
+  pull-requests: write
 on:
   push:
     branches:
@@ -93,4 +96,4 @@ jobs:
           build_dir: dist
           preview_base_url: ${{ env.PAGES_BASE }}
           preview_repo: ${{ env.PREVIEW_REPO }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          preview_token: ${{ secrets.GITHUB_TOKEN }}
