@@ -92,10 +92,10 @@ jobs:
         env:
           PUBLIC_URL: ${{ steps.baseurl.outputs.relative }}
 
-      # This will trigger the action. Make sure to change the build_dir input to the correct directory
-      - uses: EndBug/pages-preview@v1
+      # Deploy to GitHub Pages and post PR comments for previews
+      - uses: rossjrw/pr-preview-action@v1
         with:
-          build_dir: dist
-          preview_base_url: ${{ env.PAGES_BASE }}
-          preview_repo: ${{ env.PREVIEW_REPO }}
-          preview_token: ${{ secrets.GITHUB_TOKEN }}
+          source-dir: dist
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          action: auto
