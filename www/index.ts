@@ -54,6 +54,82 @@ function updateLoadInfo(message : string) : void {
   document.getElementById("load-info")!.innerText = message;
 }
 updateLoadInfo("Starting JS");
+
+const PEERBIT_DIRECTORY = "minder-peerbit";
+const PROGRAM_ADDRESS_KEY = "minder-peerbit-program-address";
+
+async function createPeerbitHostWithRecovery(
+    storedProgramAddress: string | undefined,
+): Promise<Awaited<ReturnType<typeof createPeerbitHost>> | null> {
+    async function tryCreate(programAddress?: string) {
+        return createPeerbitHost(
+            programAddress
+                ? { directory: PEERBIT_DIRECTORY, programAddress }
+                : { directory: PEERBIT_DIRECTORY },
+        );
+    }
+
+    let host: Awaited<ReturnType<typeof createPeerbitHost>> | null = null;
+    try {
+        host = await tryCreate(storedProgramAddress);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (
+            storedProgramAddress &&
+            message.includes("Failed to resolve program with address")
+        ) {
+            console.warn(
+                "Stored program address is stale; clearing it and creating a new program.",
+                error,
+            );
+            try {
+                await Preferences.remove({ key: PROGRAM_ADDRESS_KEY });
+            } catch (removeError) {
+                console.error(
+                    "Failed to remove stale program address; clearing to empty string instead.",
+                    removeError,
+                );
+                try {
+                    await Preferences.set({ key: PROGRAM_ADDRESS_KEY, value: "" });
+                } catch (setError) {
+                    console.error(
+                        "Failed to clear stale program address; continuing anyway.",
+                        setError,
+                    );
+                }
+            }
+            try {
+                host = await tryCreate();
+            } catch (retryError) {
+                console.error(
+                    "Peerbit host creation failed after clearing stale address; continuing without replication.",
+                    retryError,
+                );
+                return null;
+            }
+        } else {
+            console.error(
+                "Peerbit host creation failed; continuing without replication.",
+                error,
+            );
+            return null;
+        }
+    }
+
+    if (host) {
+        try {
+            await Preferences.set({
+                key: PROGRAM_ADDRESS_KEY,
+                value: host.programAddress,
+            });
+        } catch (error) {
+            console.error("Failed to persist program address; continuing.", error);
+        }
+    }
+
+    return host;
+}
+
 // START ELM
 async function startElmApp() {
 
@@ -64,22 +140,23 @@ async function startElmApp() {
     updateLoadInfo("Loading program address");
     let storedProgramAddress: string | undefined;
     try {
-        const storedProgramAddressResult = await Preferences.get({ key: 'minder-peerbit-program-address' });
+        const storedProgramAddressResult = await Preferences.get({ key: PROGRAM_ADDRESS_KEY });
         storedProgramAddress = storedProgramAddressResult.value ?? undefined;
+        if (storedProgramAddress === "") {
+            storedProgramAddress = undefined;
+        }
     } catch (error) {
         console.error("Failed to read stored program address; continuing without one.", error);
     }
     updateLoadInfo("Creating Peerbit host");
-    const host = await createPeerbitHost(storedProgramAddress ? { programAddress: storedProgramAddress } : {}).catch(error => {
-        console.error("Peerbit host creation failed; continuing without replication.", error);
-        return null;
-    });
-    if (host && !storedProgramAddress) {
-        try {
-            await Preferences.set({ key: 'minder-peerbit-program-address', value: host.programAddress });
-        } catch (error) {
-            console.error("Failed to persist program address; continuing.", error);
-        }
+    const host = await createPeerbitHostWithRecovery(storedProgramAddress);
+    let allOpsText: string | undefined;
+    if (host) {
+        updateLoadInfo("Opening MinderLog");
+        const allOps = await host.getAllOps();
+        console.log('Peerbit host ready. Initial op count:', allOps.length);
+        allOpsText = allOps.join("❃");
+        updateLoadInfo("Peerbit host ready");
     }
     updateLoadInfo("Starting Elm app");
     let app = Elm.Main.init({ flags: 
@@ -91,9 +168,6 @@ async function startElmApp() {
     });
 
     if (host) {
-        const allOps = await host.getAllOps();
-        console.log('Peerbit host ready. Initial op count:', allOps.length);
-        const allOpsText = allOps.join("❃");
         if (allOpsText && app.ports.replicatorIn) {
             app.ports.replicatorIn.send(allOpsText);
         }
