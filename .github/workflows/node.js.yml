@@ -84,4 +84,4 @@ jobs:
           build_dir: dist
           preview_base_url: ${{ env.PAGES_BASE }}
           preview_repo: ${{ env.PREVIEW_REPO }}
-          preview_token: ${{ secrets.PREVIEW_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
