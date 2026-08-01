@@ -1,1 +1,0 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/Minder/Erudition/Minder/branch/master/sw.js', { scope: '/Minder/Erudition/Minder/branch/master/' })})}
