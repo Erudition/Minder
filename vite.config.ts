@@ -8,17 +8,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   // identify what plugins we want to use
   plugins: [ // PWA plugin causing capacitor errors
-    VitePWA({ registerType: 'autoUpdate',
-        // After messing with service worker you may need to rm -rf android/app/src/main/assets/* before sync. https://github.com/ionic-team/capacitor/issues/5430#issuecomment-1042990925
-        //devOptions: {enabled: true},
-        //filename: 'sw2.js', // useful if cache is sticky
+    VitePWA({ 
+        strategies: 'injectManifest',
+        srcDir: '.',
+        filename: 'sw.ts',
+        injectRegister: false,
+        registerType: 'autoUpdate',
+        devOptions: { enabled: true, type: 'module' },
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
-        workbox: {  
-          //additionalManifestEntries: ["fallback.html"], // TODO test if this works
-          navigateFallback: "error.html",
-          navigateFallbackDenylist: [new RegExp("sw\\.js"), new RegExp("sw\.js"), new RegExp("sw.js"), new RegExp("sw2.js")],
-          globPatterns: ['**/*'], // was **/*.{js,html,css,ico,png,svg}
-          globIgnores: ['**/*.js.map'] // don't precache map files
+        injectManifest: {
+          globPatterns: ['**/*'],
+          globIgnores: ['**/*.js.map']
         },
         outDir: "../dist", // weird it's not default, it looks for webapp files to cache here
         manifest: {

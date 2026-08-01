@@ -68,6 +68,9 @@ importers:
       '@dao-xyz/borsh':
         specifier: 6.0.1
         version: 6.0.1
+      '@dao-xyz/borsh-rpc':
+        specifier: ^2.0.5
+        version: 2.0.5
       '@ionic/cli':
         specifier: ^7.1.1
         version: 7.2.1
@@ -95,12 +98,24 @@ importers:
       '@nativescript/local-notifications':
         specifier: link:../nativescript-plugins/packages/local-notifications
         version: link:../nativescript-plugins/packages/local-notifications
+      '@peerbit/canonical-client':
+        specifier: ^1.1.43
+        version: 1.1.43
+      '@peerbit/canonical-host':
+        specifier: ^1.0.53
+        version: 1.0.53(react-native@0.86.0(@babel/core@7.29.0)(react@19.2.8))
+      '@peerbit/canonical-transport':
+        specifier: ^1.0.0
+        version: 1.0.0
       '@peerbit/program':
         specifier: 6.0.40
         version: 6.0.40
       '@peerbit/shared-log':
         specifier: 13.2.15
         version: 13.2.15
+      '@peerbit/shared-log-proxy':
+        specifier: ^2.0.59
+        version: 2.0.59(react-native@0.86.0(@babel/core@7.29.0)(react@19.2.8))
       '@triniwiz/nativescript-toasty':
         specifier: ^4.1.3
         version: 4.1.3
@@ -168,6 +183,9 @@ importers:
       '@esbuild-plugins/node-modules-polyfill':
         specifier: ^0.2.2
         version: 0.2.2(esbuild@0.17.19)
+      '@libp2p/interface':
+        specifier: 3.2.5
+        version: 3.2.5
       '@nativescript/android':
         specifier: ^8.5.0
         version: 8.9.2
@@ -195,6 +213,9 @@ importers:
       next-update:
         specifier: ^3.6.0
         version: 3.6.0
+      playwright:
+        specifier: ^1.62.1
+        version: 1.62.1
       rollup-plugin-polyfill-node:
         specifier: ^0.12.0
         version: 0.12.0(rollup@4.62.2)
@@ -216,6 +237,12 @@ importers:
       vite-plugin-pwa:
         specifier: ^0.14.7
         version: 0.14.7(vite@4.5.14(@types/node@20.19.43)(sass@1.99.0)(terser@5.15.1))(workbox-build@6.6.0)(workbox-window@6.6.0)
+      workbox-core:
+        specifier: ^7.4.1
+        version: 7.4.1
+      workbox-precaching:
+        specifier: ^7.4.1
+        version: 7.4.1
 
 packages:
 
@@ -913,6 +940,9 @@ packages:
     resolution: {integrity: sha512-Vd/9EVDiu6PPJt9yAh6roZP6El1xHrdvIVGjyBsHR0RYwNHgL7FJPyIIW4fANJNG6FtyZfvlRPpFI4ZM/lubvw==}
     engines: {node: '>=18'}
 
+  '@dao-xyz/borsh-rpc@2.0.5':
+    resolution: {integrity: sha512-BPzKZrH+K6nAt8/ZPeXIzue+rAmsu2lxe1x6cHM4kHemvMdgvcOm/I2CzwDS5KqqLEtf6ojtdBy64796beOfIg==}
+
   '@dao-xyz/borsh@6.0.1':
     resolution: {integrity: sha512-6KX7vC2YvE71nKfXIuWaJzh07QIMxFqSwR8hZf804TcH4+MCMJZBlHfxHLBS3BFuh05s8IQzZjwMwbtT6wbOkw==}
 
@@ -1561,9 +1591,6 @@ packages:
   '@libp2p/interface-internal@3.1.10':
     resolution: {integrity: sha512-JABQ6iHSKsYT25I9UzY7LNrmqiJscgjgVTfKBuFBA58Q9i0zO+sqHzNi2zGl8qaDbxNpDwrwuHS6CCBW+VLa3A==}
 
-  '@libp2p/interface@3.2.2':
-    resolution: {integrity: sha512-IU78g6uF8Ls0//4v9VE1rL5Jvy+i6I8LI/DssojFICbaDJSkL59Sn5XRfHrY5OCxTnUnUxnWK7pHz/3+UZcRNQ==}
-
   '@libp2p/interface@3.2.5':
     resolution: {integrity: sha512-RdTchTdakBBc4ShKKsvoME/bJYsrCoVDpdYQVdd4TQ30TCb8QwWKGClqAtw7gfLNuaUKm41xz06kASW6AZpbDA==}
 
@@ -1970,6 +1997,18 @@ packages:
   '@peerbit/cache@3.1.1':
     resolution: {integrity: sha512-OtRe+3XfmWCxTxFn/dyA+JtCQ1NdnyUIVwgFYhgYLVc4Jo2Z6mWRXMmubXYgtEQsnnrRBeoOvevd8PxLdVDORg==}
 
+  '@peerbit/canonical-client@1.1.43':
+    resolution: {integrity: sha512-og135LHQBi5e1vFmT5Oyo8pxUVqvCc+YBhukyqLxxaP1OeAvOn+r/PYWLAAvoeb4Zx6prQo6TGpJF/C6qejOCQ==}
+    engines: {node: '>=18'}
+
+  '@peerbit/canonical-host@1.0.53':
+    resolution: {integrity: sha512-fnSlzvJ1qKD2eoHqSeTOgNGSewHBUn9WVx8GvEMDD+EiJN8dgmX7hQ77q7m6Sk/rH3/p2pxSCd62swXtGnL3Zg==}
+    engines: {node: '>=18'}
+
+  '@peerbit/canonical-transport@1.0.0':
+    resolution: {integrity: sha512-yfsO6EZ8QHWb8QLixHDHWIXWzUxbwBWWEflA2IBIPS8QUjmmAtGzK1EVztDxM/ie+1n26hEpHsvRmoeGTwp1Xw==}
+    engines: {node: '>=18'}
+
   '@peerbit/crypto@3.1.4':
     resolution: {integrity: sha512-Iaij+DH4p+Nx3uPJfXsxKFJF0+oOjzLXHjMiFhv2iT88DN3ThiBZ5FWhdnx6z90SF0VzF8R72S+WWqCTDPkuOA==}
 
@@ -2023,6 +2062,10 @@ packages:
 
   '@peerbit/rpc@6.1.8':
     resolution: {integrity: sha512-PTxv0IqhCAsccUgxVmUrSWdJaVd7y2XSCM06NmDNL5HEWIwoOvpMaeRwUsoTEXDktYHrreUOGJAg9phZOHAuRA==}
+
+  '@peerbit/shared-log-proxy@2.0.59':
+    resolution: {integrity: sha512-0XHXRukLKVI7dK04GCT+zI399wFXA6txYN+oWX6H24E4lD3Np53SBGFaz/BiksAPuZy+iFUntwv+m09ZLEsd9Q==}
+    engines: {node: '>=18'}
 
   '@peerbit/shared-log-rust@0.1.3':
     resolution: {integrity: sha512-7m4obLPuKnViO1pUHH7CvR01lV6nYCw3fJDxxUZu0TrQ6SP/xSdO4lI6Q8K0V6m1KOxopVJrrKUrNhW35NHhJQ==}
@@ -4623,6 +4666,11 @@ packages:
   fs.realpath@1.0.0:
     resolution: {integrity: sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==}
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -6843,6 +6891,16 @@ packages:
     resolution: {integrity: sha512-NPE8TDbzl/3YQYY7CSS228s3g2ollTFnc+Qi3tqmqJp9Vg2ovUpixcJEo2HJScN2Ez+kEaal6y70c0ehqJBJeA==}
     engines: {node: '>=10'}
 
+  playwright-core@1.62.1:
+    resolution: {integrity: sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.62.1:
+    resolution: {integrity: sha512-0M+L3LAD8/nm554LOla9Ayx0j0tmFZ0FBcoQ7F1VuVHpM/XpiC8RcDzBQB8W5+hA8L22THxELzeF+2WcUzvcLg==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   plist-merge-patch@0.2.0:
     resolution: {integrity: sha512-JAkxPVP8F+6e28Ppd2T6QpP79/pZWj1BM1mWxE+9TRMRLeAlodmK+I8Db/cp98GPxRWPPwHxUOIKR2vnCX1J4Q==}
 
@@ -8880,6 +8938,9 @@ packages:
   workbox-core@6.6.0:
     resolution: {integrity: sha512-GDtFRF7Yg3DD859PMbPAYPeJyg5gJYXuBQAC+wyrWuuXgpfoOrIQIvFRZnQ7+czTIQjIr1DhLEGFzZanAT/3bQ==}
 
+  workbox-core@7.4.1:
+    resolution: {integrity: sha512-DT+vu46eh/2vRsSHTY4Xmc32Z1rr9PRlQUXr1Dx30ZuXRWwOsvZgGgcwxcasubQLQmbTNYZjv44LkBAQ4tT5tQ==}
+
   workbox-expiration@6.6.0:
     resolution: {integrity: sha512-baplYXcDHbe8vAo7GYvyAmlS4f6998Jff513L4XvlzAOxcl8F620O91guoJ5EOf5qeXG4cGdNZHkkVAPouFCpw==}
 
@@ -8893,6 +8954,9 @@ packages:
   workbox-precaching@6.6.0:
     resolution: {integrity: sha512-eYu/7MqtRZN1IDttl/UQcSZFkHP7dnvr/X3Vn6Iw6OsPMruQHiVjjomDFCNtd8k2RdjLs0xiz9nq+t3YVBcWPw==}
 
+  workbox-precaching@7.4.1:
+    resolution: {integrity: sha512-cdr/9qByww7yzEp7zg/qI4ukUrrNjQLgN+ONQRpjy/VqGQXwkgHwr00KksGJK8v0VifwDXBb8a4cWNZH71jn3Q==}
+
   workbox-range-requests@6.6.0:
     resolution: {integrity: sha512-V3aICz5fLGq5DpSYEU8LxeXvsT//mRWzKrfBOIxzIdQnV/Wj7R+LyJVTczi4CQ4NwKhAaBVaSujI1cEjXW+hTw==}
 
@@ -8902,8 +8966,14 @@ packages:
   workbox-routing@6.6.0:
     resolution: {integrity: sha512-x8gdN7VDBiLC03izAZRfU+WKUXJnbqt6PG9Uh0XuPRzJPpZGLKce/FkOX95dWHRpOHWLEq8RXzjW0O+POSkKvw==}
 
+  workbox-routing@7.4.1:
+    resolution: {integrity: sha512-yubJGErZOusuidAenaL5ypfhQOa7urxP/f8E0ws7FPb4039RiWXUWBAyUkmUoOL/BcQGen3h0J8872d51IYxtA==}
+
   workbox-strategies@6.6.0:
     resolution: {integrity: sha512-eC07XGuINAKUWDnZeIPdRdVja4JQtTuc35TZ8SwMb1ztjp7Ddq2CJ4yqLvWzFWGlYI7CG/YGqaETntTxBGdKgQ==}
+
+  workbox-strategies@7.4.1:
+    resolution: {integrity: sha512-GZxpaw9NbmOelj7667uZ2kpk5BFpOGbO4X0qjwh5ls8XQ8C+Lha5LQchTiUzsTFSS+NlUpftYAyOVXvQUrcqOQ==}
 
   workbox-streams@6.6.0:
     resolution: {integrity: sha512-rfMJLVvwuED09CnH1RnIep7L9+mj4ufkTyDPVaXPKlhi9+0czCu+SJggWCIFbPpJaAZmp2iyVGLqS3RUmY3fxg==}
@@ -9995,6 +10065,10 @@ snapshots:
 
   '@csstools/css-tokenizer@3.0.4': {}
 
+  '@dao-xyz/borsh-rpc@2.0.5':
+    dependencies:
+      '@dao-xyz/borsh': 6.0.1
+
   '@dao-xyz/borsh@6.0.1':
     dependencies:
       '@protobufjs/float': 1.0.2
@@ -10803,15 +10877,6 @@ snapshots:
       '@multiformats/multiaddr': 13.0.3
       progress-events: 1.1.0
 
-  '@libp2p/interface@3.2.2':
-    dependencies:
-      '@multiformats/dns': 1.0.13
-      '@multiformats/multiaddr': 13.0.3
-      main-event: 1.0.4
-      multiformats: 13.4.2
-      progress-events: 1.1.0
-      uint8arraylist: 2.4.9
-
   '@libp2p/interface@3.2.5':
     dependencies:
       '@multiformats/dns': 1.0.13
@@ -11586,6 +11651,36 @@ snapshots:
     dependencies:
       yallist: 5.0.0
 
+  '@peerbit/canonical-client@1.1.43':
+    dependencies:
+      '@dao-xyz/borsh': 6.0.1
+      '@libp2p/interface': 3.2.5
+      '@libp2p/peer-id': 6.0.13
+      '@multiformats/multiaddr': 13.0.3
+      '@peerbit/canonical-transport': 1.0.0
+      '@peerbit/crypto': 3.1.4
+      '@peerbit/program': 6.0.40
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  '@peerbit/canonical-host@1.0.53(react-native@0.86.0(@babel/core@7.29.0)(react@19.2.8))':
+    dependencies:
+      '@dao-xyz/borsh': 6.0.1
+      '@libp2p/peer-id': 6.0.13
+      '@peerbit/canonical-transport': 1.0.0
+      '@peerbit/crypto': 3.1.4
+      peerbit: 5.3.12(react-native@0.86.0(@babel/core@7.29.0)(react@19.2.8))
+    transitivePeerDependencies:
+      - bufferutil
+      - react-native
+      - supports-color
+      - utf-8-validate
+
+  '@peerbit/canonical-transport@1.0.0':
+    dependencies:
+      '@dao-xyz/borsh': 6.0.1
+
   '@peerbit/crypto@3.1.4':
     dependencies:
       '@dao-xyz/borsh': 6.0.1
@@ -11769,6 +11864,23 @@ snapshots:
       p-defer: 4.0.1
     transitivePeerDependencies:
       - bufferutil
+      - utf-8-validate
+
+  '@peerbit/shared-log-proxy@2.0.59(react-native@0.86.0(@babel/core@7.29.0)(react@19.2.8))':
+    dependencies:
+      '@dao-xyz/borsh': 6.0.1
+      '@dao-xyz/borsh-rpc': 2.0.5
+      '@peerbit/canonical-client': 1.1.43
+      '@peerbit/canonical-host': 1.0.53(react-native@0.86.0(@babel/core@7.29.0)(react@19.2.8))
+      '@peerbit/crypto': 3.1.4
+      '@peerbit/indexer-interface': 3.0.8
+      '@peerbit/log': 6.2.10
+      '@peerbit/program': 6.0.40
+      '@peerbit/shared-log': 13.2.15
+    transitivePeerDependencies:
+      - bufferutil
+      - react-native
+      - supports-color
       - utf-8-validate
 
   '@peerbit/shared-log-rust@0.1.3':
@@ -14770,6 +14882,9 @@ snapshots:
 
   fs.realpath@1.0.0: {}
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -17399,7 +17514,7 @@ snapshots:
       '@libp2p/circuit-relay-v2': 4.2.10
       '@libp2p/crypto': 5.1.21
       '@libp2p/identify': 4.1.11
-      '@libp2p/interface': 3.2.2
+      '@libp2p/interface': 3.2.5
       '@libp2p/keychain': 6.1.5
       '@libp2p/tcp': 11.0.25
       '@libp2p/webrtc': 6.0.28(react-native@0.86.0(@babel/core@7.29.0)(react@19.2.8))
@@ -17501,6 +17616,14 @@ snapshots:
   pkg-dir@5.0.0:
     dependencies:
       find-up: 5.0.0
+
+  playwright-core@1.62.1: {}
+
+  playwright@1.62.1:
+    dependencies:
+      playwright-core: 1.62.1
+    optionalDependencies:
+      fsevents: 2.3.2
 
   plist-merge-patch@0.2.0:
     dependencies:
@@ -19818,6 +19941,8 @@ snapshots:
 
   workbox-core@6.6.0: {}
 
+  workbox-core@7.4.1: {}
+
   workbox-expiration@6.6.0:
     dependencies:
       idb: 7.1.1
@@ -19840,6 +19965,12 @@ snapshots:
       workbox-routing: 6.6.0
       workbox-strategies: 6.6.0
 
+  workbox-precaching@7.4.1:
+    dependencies:
+      workbox-core: 7.4.1
+      workbox-routing: 7.4.1
+      workbox-strategies: 7.4.1
+
   workbox-range-requests@6.6.0:
     dependencies:
       workbox-core: 6.6.0
@@ -19857,9 +19988,17 @@ snapshots:
     dependencies:
       workbox-core: 6.6.0
 
+  workbox-routing@7.4.1:
+    dependencies:
+      workbox-core: 7.4.1
+
   workbox-strategies@6.6.0:
     dependencies:
       workbox-core: 6.6.0
+
+  workbox-strategies@7.4.1:
+    dependencies:
+      workbox-core: 7.4.1
 
   workbox-streams@6.6.0:
     dependencies:

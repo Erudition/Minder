@@ -1,4 +1,12 @@
 {
 	"extends": "./tsconfig.test.json",
-	"include": ["www/peerbit-host.ts"]
+	"compilerOptions": {
+		"lib": ["ESNext", "DOM"],
+		"skipLibCheck": true
+	},
+	"include": [
+		"www/minder-log.ts",
+		"www/minder-log-host-module.ts",
+		"www/minder-log-client-adapter.ts"
+	]
 }

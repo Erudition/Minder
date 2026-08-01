@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"noEmit": false,
+		"outDir": "dist-test",
+		"rootDir": "www",
+		"module": "ESNext",
+		"moduleResolution": "Node",
+		"target": "ES2022",
+		"strict": true,
+		"strictPropertyInitialization": false,
+		"types": ["vite/client", "node"],
+		"lib": ["ESNext", "DOM"],
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"useDefineForClassFields": false,
+		"noEmitHelpers": false,
+		"importHelpers": true,
+		"skipLibCheck": true
+	},
+	"include": [
+		"www/minder-log.ts"
+	]
+}

@@ -18,7 +18,37 @@ import {registerNotificationTaskPorts, scheduleNotifications} from './scripts/ca
 import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
 import { native } from '@nativescript/capacitor';
 import { minderAsciiLogo } from './scripts/asciiArt';
-import { createPeerbitHost } from '../dist-test/www/peerbit-host.js';
+// import { registerSW } from 'virtual:pwa-register';
+import { connectServiceWorker, connectSharedWorker, PeerbitCanonicalClient } from '@peerbit/canonical-client';
+import { CanonicalConnection, CanonicalChannelMessage, CanonicalFrame } from '@peerbit/canonical-transport';
+import { deserialize } from '@dao-xyz/borsh';
+import { MinderLog } from './minder-log.js';
+import { minderLogAdapter, type MinderLogProxy } from './minder-log-client-adapter.js';
+import { registerSW } from 'virtual:pwa-register';
+
+// Monkey patch CanonicalConnection.prototype.onMessage to survive instanceof mismatch across bundler chunks
+const origOnMessage = (CanonicalConnection.prototype as any).onMessage;
+(CanonicalConnection.prototype as any).onMessage = function (data: Uint8Array) {
+  try {
+    const frame = deserialize(data, CanonicalFrame) as any;
+    if (frame && typeof frame.channelId === "number" && frame.payload instanceof Uint8Array) {
+      let state = (this as any).channels.get(frame.channelId);
+      if (!state) {
+        state = (this as any).channels.values().next().value;
+      }
+      if (state && !state.closed) {
+        for (const handler of state.handlers) {
+          console.log("EXECUTING HANDLER FOR PAYLOAD LENGTH:", frame.payload.length, "PREFIX:", frame.payload[0], frame.payload[1]);
+          handler(frame.payload);
+        }
+        return;
+      }
+    }
+  } catch (e) {
+    console.error("MONKEY PATCH ERROR:", e);
+  }
+  return origOnMessage.call(this, data);
+};
 
 
 
@@ -51,92 +81,22 @@ import '@ionic/core/css/display.css';
 addEventListener("error", (event) => {alert(event.message + "\n filename: " + event.filename + "\n line: " + event.lineno + "\n column: " + event.colno + "\n error: " + event.error)});
 
 function updateLoadInfo(message : string) : void {
-  document.getElementById("load-info")!.innerText = message;
+  const el = document.getElementById("load-info");
+  if (el) el.innerText = message;
 }
 updateLoadInfo("Starting JS");
 
-const PEERBIT_DIRECTORY = "minder-peerbit";
 const PROGRAM_ADDRESS_KEY = "minder-peerbit-program-address";
-
-async function createPeerbitHostWithRecovery(
-    storedProgramAddress: string | undefined,
-): Promise<Awaited<ReturnType<typeof createPeerbitHost>> | null> {
-    async function tryCreate(programAddress?: string) {
-        return createPeerbitHost(
-            programAddress
-                ? { directory: PEERBIT_DIRECTORY, programAddress }
-                : { directory: PEERBIT_DIRECTORY },
-        );
-    }
-
-    let host: Awaited<ReturnType<typeof createPeerbitHost>> | null = null;
-    try {
-        host = await tryCreate(storedProgramAddress);
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (
-            storedProgramAddress &&
-            message.includes("Failed to resolve program with address")
-        ) {
-            console.warn(
-                "Stored program address is stale; clearing it and creating a new program.",
-                error,
-            );
-            try {
-                await Preferences.remove({ key: PROGRAM_ADDRESS_KEY });
-            } catch (removeError) {
-                console.error(
-                    "Failed to remove stale program address; clearing to empty string instead.",
-                    removeError,
-                );
-                try {
-                    await Preferences.set({ key: PROGRAM_ADDRESS_KEY, value: "" });
-                } catch (setError) {
-                    console.error(
-                        "Failed to clear stale program address; continuing anyway.",
-                        setError,
-                    );
-                }
-            }
-            try {
-                host = await tryCreate();
-            } catch (retryError) {
-                console.error(
-                    "Peerbit host creation failed after clearing stale address; continuing without replication.",
-                    retryError,
-                );
-                return null;
-            }
-        } else {
-            console.error(
-                "Peerbit host creation failed; continuing without replication.",
-                error,
-            );
-            return null;
-        }
-    }
-
-    if (host) {
-        try {
-            await Preferences.set({
-                key: PROGRAM_ADDRESS_KEY,
-                value: host.programAddress,
-            });
-        } catch (error) {
-            console.error("Failed to persist program address; continuing.", error);
-        }
-    }
-
-    return host;
-}
 
 // START ELM
 async function startElmApp() {
-
+    console.log("startElmApp ENTERED");
     updateLoadInfo("Installing TaskPorts");
     await installTaskPorts();
+    console.log("installTaskPorts DONE");
     updateLoadInfo("Loading stored data");
     const storedRon = await Preferences.get({ key: 'appData' });
+    console.log("Preferences.get DONE");
     updateLoadInfo("Loading program address");
     let storedProgramAddress: string | undefined;
     try {
@@ -148,16 +108,110 @@ async function startElmApp() {
     } catch (error) {
         console.error("Failed to read stored program address; continuing without one.", error);
     }
-    updateLoadInfo("Creating Peerbit host");
-    const host = await createPeerbitHostWithRecovery(storedProgramAddress);
-    let allOpsText: string | undefined;
-    if (host) {
-        updateLoadInfo("Opening MinderLog");
-        const allOps = await host.getAllOps();
-        console.log('Peerbit host ready. Initial op count:', allOps.length);
-        allOpsText = allOps.join("❃");
-        updateLoadInfo("Peerbit host ready");
+    updateLoadInfo("Connecting Peerbit host");
+    let client: Awaited<ReturnType<typeof connectServiceWorker>> | null = null;
+    if (navigator.serviceWorker) {
+      const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', type: 'module' }).catch((e) => {
+        console.error("SW registration failed:", e);
+        return undefined;
+      });
+      const swReady = await navigator.serviceWorker.ready.catch((e) => {
+        console.error("navigator.serviceWorker.ready failed:", e);
+        return undefined;
+      });
+      const swTarget = swReady?.active || navigator.serviceWorker.controller || registration?.active;
+      if (swTarget) {
+        if (swTarget.state !== 'activated') {
+          console.log("RELOAD DEBUG: SW is activating, waiting for activated state...", swTarget.state);
+          await new Promise<void>((resolve) => {
+            const onStateChange = () => {
+              console.log("RELOAD DEBUG: SW state changed to:", swTarget.state);
+              if (swTarget.state === 'activated') {
+                swTarget.removeEventListener('statechange', onStateChange);
+                resolve();
+              }
+            };
+            swTarget.addEventListener('statechange', onStateChange);
+          });
+        }
+        
+        console.log("RELOAD DEBUG: Sending test ping to SW...");
+        const channel = new MessageChannel();
+        channel.port1.onmessage = (e) => console.log("RELOAD DEBUG: SW PING REPLY:", e.data);
+        swTarget.postMessage("TEST_PING", [channel.port2]);
+
+        console.log("RELOAD DEBUG: Calling connectServiceWorker with target SW...", swTarget.state);
+        client = await connectServiceWorker({ serviceWorker: swTarget, timeoutMs: 30_000 }).catch((e) => {
+          console.error("connectServiceWorker failed:", e);
+          return null;
+        });
+        console.log("RELOAD DEBUG: connectServiceWorker returned client:", !!client);
+      } else {
+        console.error("Service worker ready but target worker is missing");
+      }
     }
+    if (!client) {
+      console.warn("Could not connect to service worker, running without Peerbit sync.");
+      let fallbackApp = Elm.Main.init({ flags: 
+        { storedRonMaybe : null
+        , darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches
+        , notifPermission : await LocalNotifications.checkPermissions()
+        , launchTime : Date.now()
+        }
+      });
+      elmStarted(fallbackApp);
+      updateLoadInfo("App loaded (offline mode)");
+      // Remove the pre-js class so the app becomes visible
+      document.body.classList.remove("pre-js");
+      const loadInfo = document.getElementById("load-info");
+      if (loadInfo) loadInfo.style.display = "none";
+      return;
+    }
+    const peer = await PeerbitCanonicalClient.create(client, { adapters: [minderLogAdapter] });
+    updateLoadInfo("Opening MinderLog");
+    let proxy: MinderLogProxy | undefined;
+    let result: any;
+    console.log("RELOAD DEBUG: storedProgramAddress is:", storedProgramAddress);
+    try {
+      if (storedProgramAddress) {
+        console.log("RELOAD DEBUG: Opening stored address:", storedProgramAddress);
+        result = await peer.open(storedProgramAddress);
+        console.log("RELOAD DEBUG: Opened stored address result:", result);
+      } else {
+        console.log("RELOAD DEBUG: Opening new MinderLog...");
+        result = await peer.open(new MinderLog());
+        console.log("RELOAD DEBUG: Opened new MinderLog result:", result);
+      }
+    } catch (e: any) {
+      console.warn("Failed to open stored program address, clearing and creating fresh", e?.stack || e);
+      await Preferences.remove({ key: PROGRAM_ADDRESS_KEY }).catch(() => {});
+      try {
+        result = await peer.open(new MinderLog());
+      } catch (freshErr) {
+        console.error("Peerbit host open fresh MinderLog failed:", freshErr);
+      }
+    }
+    if (result?.address) {
+      await Preferences.set({ key: PROGRAM_ADDRESS_KEY, value: result.address.toString() }).catch(() => {});
+    }
+    proxy = result?.proxy || result;
+
+    let allOpsText: string | undefined;
+    if (proxy) {
+      const entries = await proxy.log.toArray();
+      console.log("RELOAD: PROXY LOG TOARRAY LENGTH:", entries.length);
+      const decoder = new TextDecoder();
+      const ops: string[] = [];
+      for (const entry of entries) {
+        const value = await Promise.resolve(entry.getPayloadValue());
+        if (value instanceof Uint8Array) ops.push(decoder.decode(value));
+        else if (typeof value === "string") ops.push(value);
+      }
+      allOpsText = ops.join("❃");
+      console.log("RELOAD: ALL OPS TEXT LENGTH:", allOpsText.length, "OPS COUNT:", ops.length, "PREVIEW:", allOpsText.slice(0, 100));
+      updateLoadInfo("Peerbit host ready");
+    }
+
     updateLoadInfo("Starting Elm app");
     let app = Elm.Main.init({ flags: 
         { storedRonMaybe : null // Phase 1: do not migrate old Preferences data; Peerbit is the source of truth
@@ -166,24 +220,65 @@ async function startElmApp() {
         , launchTime : Date.now()
         }
     });
+    (window as any).app = app;
 
-    if (host) {
-        if (allOpsText && app.ports.replicatorIn) {
-            app.ports.replicatorIn.send(allOpsText);
+    if (app.ports.replicatorOut) {
+      const encoder = new TextEncoder();
+      app.ports.replicatorOut.subscribe(async function(data: string) {
+        console.log("REPLICATOR OUT RECEIVED:", data, "proxy:", proxy);
+        if (proxy) {
+          const ops = data.split("❃").filter((op: string) => op.length > 0);
+          const appendFn = (proxy as any).proxy?.append || (proxy as any).append || (proxy as any).log?.append;
+          console.log("APPEND TARGET IS:", appendFn);
+          if (appendFn) {
+            for (const op of ops) {
+              await appendFn(encoder.encode(op));
+            }
+          }
         }
+      });
+    }
 
-        if (app.ports.replicatorOut) {
-            app.ports.replicatorOut.subscribe(async function(data : string) {
-                const ops = data.split("❃").filter(op => op.length > 0);
-                for (const op of ops) {
-                    await host.appendOp(op);
-                    console.log('Appended op to Peerbit. New op count:', (await host.getAllOps()).length);
-                }
-            });
+    if (proxy) {
+      if (allOpsText && app.ports.replicatorIn) {
+        const opsToSend = allOpsText;
+        setTimeout(() => {
+          console.log("SENDING INITIAL STORED OPS TO ELM:", opsToSend.slice(0, 50));
+          if (app.ports.replicatorIn) {
+            app.ports.replicatorIn.send(opsToSend);
+          }
+        }, 100);
+      }
+      // Live cross-tab & replication sync
+      const onSyncChange = async (evt?: any) => {
+        console.log("ON SYNC CHANGE FIRED! Detail:", !!evt?.detail);
+        const decoder = new TextDecoder();
+        let opText: string | undefined;
+        if (evt?.detail instanceof Uint8Array) {
+          opText = decoder.decode(evt.detail);
+        } else {
+          const entries = await proxy.log.toArray();
+          const ops: string[] = [];
+          for (const entry of entries) {
+            const value = await Promise.resolve(entry.getPayloadValue());
+            if (value instanceof Uint8Array) ops.push(decoder.decode(value));
+            else if (typeof value === "string") ops.push(value);
+          }
+          opText = ops.join("❃");
         }
+        console.log("ON SYNC CHANGE SENDING TO ELM:", opText?.slice(0, 50));
+        if (opText && app.ports.replicatorIn) {
+          app.ports.replicatorIn.send(opText);
+        }
+      };
+      proxy.events.addEventListener("change", onSyncChange);
+      proxy.events.addEventListener("replication:change", onSyncChange);
     }
 
     elmStarted(app);
+    document.body.classList.remove("pre-js");
+    const loadInfo = document.getElementById("load-info");
+    if (loadInfo) loadInfo.style.display = "none";
 
 }
 startElmApp();
