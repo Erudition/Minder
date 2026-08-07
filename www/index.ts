@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app'
 import { Toast } from '@capacitor/toast'
@@ -111,14 +112,18 @@ async function startElmApp() {
     updateLoadInfo("Connecting Peerbit host");
     let client: Awaited<ReturnType<typeof connectServiceWorker>> | null = null;
     if (navigator.serviceWorker) {
-      const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', type: 'module' }).catch((e) => {
+      const base = import.meta.env.BASE_URL;
+      const registration = await navigator.serviceWorker.register(`${base}sw.js`, { scope: base, ...(import.meta.env.DEV ? { type: 'module' } : {}) }).catch((e) => {
         console.error("SW registration failed:", e);
         return undefined;
       });
-      const swReady = await navigator.serviceWorker.ready.catch((e) => {
-        console.error("navigator.serviceWorker.ready failed:", e);
-        return undefined;
-      });
+      const swReady = await Promise.race([
+        navigator.serviceWorker.ready.catch((e) => {
+          console.error("navigator.serviceWorker.ready failed:", e);
+          return undefined;
+        }),
+        new Promise<ServiceWorkerRegistration | undefined>((resolve) => setTimeout(() => resolve(undefined), 10_000)),
+      ]);
       const swTarget = swReady?.active || navigator.serviceWorker.controller || registration?.active;
       if (swTarget) {
         if (swTarget.state !== 'activated') {
