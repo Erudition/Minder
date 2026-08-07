@@ -25,19 +25,7 @@ export default defineConfig({
           name: 'Minder Prototype',
           short_name: 'Minder',
           description: 'Mental Assistant',
-          theme_color: '#ffffff',
-          icons: [
-            {
-              src: 'android-chrome-192x192.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'android-chrome-512x512.png',
-              sizes: '512x512',
-              type: 'image/png'
-            }
-          ]
+          theme_color: '#ffffff'
         }
     }),
     elmPlugin({debug: false, optimize: false, nodeElmCompilerOptions: { pathToElm: "elm" }} ),
