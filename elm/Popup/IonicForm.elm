@@ -247,7 +247,6 @@ selectField { onChange, onBlur, disabled, value, error, showError, attributes } 
         toOption ( key, label_ ) =
             H.node "ion-select-option"
                 [ HA.value key
-                , HA.selected (value == key)
                 ]
                 [ H.text label_ ]
 
@@ -261,6 +260,7 @@ selectField { onChange, onBlur, disabled, value, error, showError, attributes } 
     H.node "ion-select"
         ([ HE.on "change" (JD.map onChange HE.targetValue)
          , HA.disabled disabled
+         , HA.value value
          ]
             |> withMaybeAttribute HE.onBlur onBlur
             |> withHtmlAttributes attributes.htmlAttributes

@@ -18,7 +18,14 @@ export default defineConfig({
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
         injectManifest: {
           globPatterns: ['**/*'],
-          globIgnores: ['**/*.js.map']
+          globIgnores: ['**/*.js.map'],
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+          buildPlugins: {
+            vite: [{
+              name: 'sw-vite-extra-assets',
+              config: () => ({ publicDir: 'vite-extra-assets', build: { copyPublicDir: false } })
+            }]
+          }
         },
         outDir: "../dist", // weird it's not default, it looks for webapp files to cache here
         manifest: {
@@ -49,7 +56,6 @@ export default defineConfig({
       //https://github.com/vitejs/vite/issues/2433
       //maxParallelFileOps: 2,
       output: {
-        sourcemap: true, //don't sourcemap node_modules?
         // manualChunks: (id) => { 
         //   // this makes node_modules manually chunked so we don't have a huge index.ts file or too many micro js files
         //   if (id.includes('capacitor')) {
