@@ -113,7 +113,7 @@ async function startElmApp() {
     let client: Awaited<ReturnType<typeof connectServiceWorker>> | null = null;
     if (navigator.serviceWorker) {
       const base = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
-      const registration = await navigator.serviceWorker.register(`${base}sw.js`, { scope: base, ...(import.meta.env.DEV ? { type: 'module' } : {}) }).catch((e) => {
+      const registration = await navigator.serviceWorker.register(`${base}sw.js`, { scope: base, type: 'module' }).catch((e) => {
         console.error("SW registration failed:", e);
         return undefined;
       });
