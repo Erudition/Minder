@@ -77,7 +77,8 @@ export default defineConfig({
         '@ionic/core/loader', //fix weird Vite error "outdated optimize dep"
         '@ionic/pwa-elements/loader', // same
         '@ionic/pwa-elements/dist/esm-es5/pwa-toast.entry.js',
-        '@peerbit/shared-log-rust' // keep WASM relative import pointing at the package's dist/wasm directory
+        '@peerbit/shared-log-rust', // keep WASM relative import pointing at the package's dist/wasm directory
+        '@peerbit/native-backbone', // same: its new URL('../../wasm/...') references need vite's rewrite, not esbuild pre-bundle
     ],
     force: true
   },

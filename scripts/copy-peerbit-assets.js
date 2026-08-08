@@ -38,3 +38,18 @@ const opfsSource = path.join(opfsDir, '@peerbit', 'any-store-opfs', 'dist', 'ass
 const opfsTarget = path.join('www', 'vite-extra-assets', 'peerbit', 'opfs');
 const opfsCount = copyAssetDir(opfsSource, opfsTarget);
 console.log(`Copied ${opfsCount} Peerbit OPFS assets to`, opfsTarget);
+
+// wasm files loaded by the SW host runtime via package-relative '../wasm/...'
+// URLs that break in the bundled sw.js. Copy them un-hashed under peerbit/wasm/
+// so the SW's fetch shim can serve them from the deployment root.
+const wasmTarget = path.join('www', 'vite-extra-assets', 'peerbit', 'wasm');
+
+const sharedLogRustDir = findPnpmDir('@peerbit+shared-log-rust@');
+const sharedLogRustSource = path.join(sharedLogRustDir, '@peerbit', 'shared-log-rust', 'dist', 'wasm');
+const sharedLogRustCount = copyAssetDir(sharedLogRustSource, wasmTarget);
+console.log(`Copied ${sharedLogRustCount} shared-log-rust wasm assets to`, wasmTarget);
+
+const nativeBackboneDir = findPnpmDir('@peerbit+native-backbone@');
+const nativeBackboneSource = path.join(nativeBackboneDir, '@peerbit', 'native-backbone', 'dist', 'wasm');
+const nativeBackboneCount = copyAssetDir(nativeBackboneSource, wasmTarget);
+console.log(`Copied ${nativeBackboneCount} native-backbone wasm assets to`, wasmTarget);
