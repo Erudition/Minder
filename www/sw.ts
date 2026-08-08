@@ -2,7 +2,7 @@ declare let self: ServiceWorkerGlobalScope & {
   skipWaiting: () => void
   addEventListener: typeof globalThis.addEventListener
   clients: any
-  location: Location
+  location: { origin: string; href: string }
 }
 declare interface ExtendableMessageEvent extends MessageEvent {
   readonly ports: MessagePort[]
@@ -40,6 +40,20 @@ self.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => consol
 
 import { CanonicalHost, PeerbitCanonicalRuntime } from '@peerbit/canonical-host'
 import { minderLogModule } from './minder-log-host-module.js'
+import { IndexedDBStore } from './minder-idb-store.js'
+
+// Storage backends for the Peerbit host. A directory-based peer cannot run
+// inside a service worker: @peerbit/any-store's default browser store is
+// OPFSStore, whose constructor unconditionally spawns a Worker (blocked in SW
+// scope). Inject worker-free IndexedDB stores instead. Each factory ignores
+// the directory argument Peerbit passes and uses its own IDB database name.
+const idbStoreFactory = (dbName: string) => () => new IndexedDBStore(dbName);
+
+const peerStorageOptions = {
+  storeFactory: idbStoreFactory("minder-peerbit-cache"),
+  blocksStoreFactory: idbStoreFactory("minder-peerbit-blocks"),
+  keychainStoreFactory: idbStoreFactory("minder-peerbit-keychain"),
+};
 
 let hostPromise: Promise<any> | undefined
 
@@ -58,7 +72,7 @@ self.addEventListener('message', (event: any) => {
 					if (!hostPromise) {
 						hostPromise = (async () => {
 							console.log("SW: Creating PeerbitCanonicalRuntime...");
-							const runtime = new PeerbitCanonicalRuntime({ peerOptions: { bootstrapRecovery: true } })
+							const runtime = new PeerbitCanonicalRuntime({ peerOptions: { bootstrapRecovery: true, storage: peerStorageOptions } })
 							console.log("SW: Creating CanonicalHost...");
 							const host = new CanonicalHost(runtime)
 							console.log("SW: Registering module...");
@@ -180,6 +194,44 @@ function swDebug(msg: string) {
     });
   } catch {}
 }
+
+// ---- Debug: mirror ALL SW console output to window clients ----------------
+// The page cannot see the SW's devtools console. Forward every log/warn/error
+// so the host runtime's full flow (Peerbit's internal logger included) is
+// visible in the page console during hang debugging.
+const _origConsoleLog = console.log.bind(console);
+const _origConsoleWarn = console.warn.bind(console);
+const _origConsoleError = console.error.bind(console);
+const forwardToWindowClients = (level: string, args: unknown[]) => {
+  try {
+    const msg = args
+      .map((a) => {
+        try {
+          if (a instanceof Error) return `${a.name}: ${a.message}`;
+          if (typeof a === 'string') return a;
+          return JSON.stringify(a);
+        } catch {
+          return String(a);
+        }
+      })
+      .join(' ');
+    self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((all: any[]) => {
+      for (const c of all) c.postMessage({ type: 'sw-debug', level, msg });
+    });
+  } catch {}
+};
+console.log = (...args: unknown[]) => {
+  forwardToWindowClients('log', args);
+  _origConsoleLog(...args);
+};
+console.warn = (...args: unknown[]) => {
+  forwardToWindowClients('warn', args);
+  _origConsoleWarn(...args);
+};
+console.error = (...args: unknown[]) => {
+  forwardToWindowClients('error', args);
+  _origConsoleError(...args);
+};
 
 // 1) Wrap fetch so SW-internal requests (wasm loads inside the host runtime)
 // are rewritten. globalThis.fetch is rebound before the host ever runs.

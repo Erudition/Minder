@@ -20,7 +20,7 @@ import {registerPreferencesTaskPorts} from './scripts/capacitor/preferences'
 import { native } from '@nativescript/capacitor';
 import { minderAsciiLogo } from './scripts/asciiArt';
 // import { registerSW } from 'virtual:pwa-register';
-import { connectServiceWorker, connectSharedWorker, PeerbitCanonicalClient } from '@peerbit/canonical-client';
+import { connectServiceWorker, connectSharedWorker, PeerbitCanonicalClient, type CanonicalOpenOptions } from '@peerbit/canonical-client';
 import { CanonicalConnection, CanonicalChannelMessage, CanonicalFrame } from '@peerbit/canonical-transport';
 import { deserialize } from '@dao-xyz/borsh';
 import { MinderLog } from './minder-log.js';
@@ -88,6 +88,38 @@ function updateLoadInfo(message : string) : void {
 updateLoadInfo("Starting JS");
 
 const PROGRAM_ADDRESS_KEY = "minder-peerbit-program-address";
+const URL_SHARE_DATA_WAIT_MS = 20_000; // 20 seconds for head exchange on cross-browser ?program= shares
+
+async function sha256Bytes(text: string): Promise<Uint8Array> {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return new Uint8Array(hashBuffer);
+}
+
+async function readPassphraseSilently(): Promise<string | undefined> {
+  try {
+    const res = await Preferences.get({ key: 'minder-alpha-passphrase' });
+    return res.value ?? undefined;
+  } catch (error) {
+    return undefined;
+  }
+}
+
+const escapeHtml = (text: string): string =>
+  text.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string));
+
+export function showLoadError(title: string, message: string, buttonLabel: string, onButton: () => void) {
+  const loadInfo = document.getElementById("load-info");
+  if (loadInfo) {
+    loadInfo.innerHTML = `
+      <div style="max-width: 400px; margin: 0 auto;">
+        <h2 style="margin-bottom: 0.5rem; font-weight: bold;">${escapeHtml(title)}</h2>
+        <p style="margin-bottom: 1.5rem; line-height: 1.4;">${escapeHtml(message)}</p>
+        <button id="load-error-btn" style="padding: 0.75rem 1.5rem; border-radius: 8px; background: var(--ion-color-primary, #3880ff); color: #fff; border: none; cursor: pointer; font-size: 1rem; margin-top: 1rem;">${escapeHtml(buttonLabel)}</button>
+      </div>
+    `;
+    document.getElementById("load-error-btn")?.addEventListener("click", onButton);
+  }
+}
 
 // START ELM
 async function startElmApp() {
@@ -120,6 +152,14 @@ async function startElmApp() {
     updateLoadInfo("Connecting Peerbit host");
     let client: Awaited<ReturnType<typeof connectServiceWorker>> | null = null;
     if (navigator.serviceWorker) {
+      // Print SW-debug messages (forwarded from the SW's console) in the page
+      // console so host lifecycle/Peerbit logs are visible during debugging.
+      navigator.serviceWorker.addEventListener('message', (e: MessageEvent) => {
+        const d = e.data;
+        if (d && d.type === 'sw-debug') {
+          console.log(`[SW:${d.level ?? 'log'}]`, d.msg);
+        }
+      });
       const base = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
       const registration = await navigator.serviceWorker.register(`${base}sw.js`, { scope: base, type: 'module' }).catch((e) => {
         console.error("SW registration failed:", e);
@@ -185,139 +225,186 @@ async function startElmApp() {
     let proxy: MinderLogProxy | undefined;
     let result: any;
     console.log("RELOAD DEBUG: storedProgramAddress is:", storedProgramAddress);
+    
+    async function startFromScratch() {
+      updateLoadInfo("Starting from scratch...");
+      await Preferences.remove({ key: PROGRAM_ADDRESS_KEY }).catch(() => {});
+      await Preferences.remove({ key: 'appData' }).catch(() => {});
+      await Preferences.remove({ key: 'minder-alpha-passphrase' }).catch(() => {});
+      storedProgramAddress = undefined;
+      programAddressFromUrl = false;
+      const dialogRes = await Dialog.prompt({ 
+        title: 'New Profile', 
+        message: 'Choose a secret passphrase for your new Minder profile. Use the same passphrase on your other devices to sync.' 
+      });
+      const value = dialogRes.value;
+      const cancelled = dialogRes.cancelled;
+      if (cancelled || !value || value.trim() === "") {
+        showLoadError("No profile found", "You don't have a Minder profile yet. Create one to start saving your tasks.", "Start from Scratch", startFromScratch);
+        return;
+      }
+      await Preferences.set({ key: 'minder-alpha-passphrase', value });
+      const programId = await sha256Bytes("minder:" + value);
+      try {
+        result = await peer.open(new MinderLog({ id: programId }), { create: true } as CanonicalOpenOptions<MinderLog> & { create?: boolean });
+        continueAfterOpen(result);
+      } catch (err) {
+        console.error("Peerbit host open fresh MinderLog failed:", err);
+        showLoadError("Could not load your profile", "Minder could not open the saved program. This can happen if it was never saved, or after storage was cleared.", "Start from Scratch", startFromScratch);
+      }
+    }
+
     try {
       if (storedProgramAddress) {
         console.log("RELOAD DEBUG: Opening stored address:", storedProgramAddress);
         result = await peer.open(storedProgramAddress);
         console.log("RELOAD DEBUG: Opened stored address result:", result);
+      } else if (programAddressFromUrl) {
+        console.log("RELOAD DEBUG: Opening URL address:", storedProgramAddress);
+        result = await peer.open(storedProgramAddress as string);
+        console.log("RELOAD DEBUG: Opened URL address result:", result);
       } else {
-        console.log("RELOAD DEBUG: Opening new MinderLog...");
-        result = await peer.open(new MinderLog());
-        console.log("RELOAD DEBUG: Opened new MinderLog result:", result);
+        const passphrase = await readPassphraseSilently();
+        if (passphrase) {
+          console.log("RELOAD DEBUG: Opening new MinderLog derived from passphrase");
+          const programId = await sha256Bytes("minder:" + passphrase);
+          console.log("RELOAD DEBUG: programId derived from passphrase:", programId);
+          result = await peer.open(new MinderLog({ id: programId }), { create: true } as CanonicalOpenOptions<MinderLog> & { create?: boolean });
+          console.log("RELOAD DEBUG: Opened new MinderLog result:", result);
+        } else {
+          console.log("RELOAD DEBUG: No profile found, showing start screen");
+          showLoadError("No profile found", "You don't have a Minder profile yet. Create one to start saving your tasks.", "Start from Scratch", startFromScratch);
+          return;
+        }
       }
+      continueAfterOpen(result);
     } catch (e: any) {
       if (programAddressFromUrl) {
-        // Address came from ?program= — do NOT silently create a fresh program,
-        // that would fork the data. Surface the error and keep the URL address
-        // so a reload retries.
         console.error("Failed to open program address from URL:", storedProgramAddress, e?.stack || e);
-        updateLoadInfo(`Could not open shared program (${storedProgramAddress}). Is the other browser online? Reload to retry.`);
-        let fallbackApp = Elm.Main.init({ flags:
-          { storedRonMaybe : null
+        showLoadError("Could not open shared program", `The program ${storedProgramAddress} could not be loaded from the other browser. Is it online? Reload to retry.`, "Start from Scratch", startFromScratch);
+        return;
+      }
+      console.warn("Failed to open stored program address", e?.stack || e);
+      showLoadError("Could not load your profile", "Minder could not open the saved program. This can happen if it was never saved, or after storage was cleared.", "Start from Scratch", startFromScratch);
+      return;
+    }
+    
+    async function continueAfterOpen(result: any) {
+      if (result?.address) {
+        const programAddress = result.address.toString();
+        await Preferences.set({ key: PROGRAM_ADDRESS_KEY, value: programAddress }).catch(() => {});
+        console.log("RELOAD DEBUG: Program address is:", programAddress);
+        // Surface the program address so it can be shared with another browser
+        // via ?program=<address> (cross-browser sync).
+        const shareUrl = `${window.location.origin}${window.location.pathname}?program=${encodeURIComponent(programAddress)}${window.location.hash}`;
+        updateLoadInfo(`Peerbit host ready — program: ${programAddress}`);
+        console.log("RELOAD DEBUG: Share URL for other browser:", shareUrl);
+      }
+      proxy = result?.proxy || result;
+
+      // URL-share (cross-browser): the program address must actually deliver its
+      // data via peering. If nothing arrives within a bounded window, the address
+      // effectively does not exist — surface the explicit error instead of a
+      // silently blank task list (which would look like an implicit fresh program).
+      if (programAddressFromUrl && proxy) {
+        const deadline = Date.now() + URL_SHARE_DATA_WAIT_MS;
+        let entries = await proxy.log.toArray();
+        while (entries.length === 0 && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          entries = await proxy.log.toArray();
+          console.log("URL-SHARE: waiting for replicated data, entries:", entries.length);
+        }
+        if (entries.length === 0) {
+          console.warn("URL-SHARE: no data within", URL_SHARE_DATA_WAIT_MS, "ms; program address does not exist from the receiver's perspective");
+          showLoadError("Could not open shared program", `The program ${storedProgramAddress} could not be loaded from the other browser. Is it online? Reload to retry.`, "Start from Scratch", startFromScratch);
+          return;
+        }
+      }
+
+      let allOpsText: string | undefined;
+      if (proxy) {
+        const entries = await proxy.log.toArray();
+        console.log("RELOAD: PROXY LOG TOARRAY LENGTH:", entries.length);
+        const decoder = new TextDecoder();
+        const ops: string[] = [];
+        for (const entry of entries) {
+          const value = await Promise.resolve(entry.getPayloadValue());
+          if (value instanceof Uint8Array) ops.push(decoder.decode(value));
+          else if (typeof value === "string") ops.push(value);
+        }
+        allOpsText = ops.join("❃");
+        console.log("RELOAD: ALL OPS TEXT LENGTH:", allOpsText.length, "OPS COUNT:", ops.length, "PREVIEW:", allOpsText.slice(0, 100));
+        updateLoadInfo("Peerbit host ready");
+      }
+
+      updateLoadInfo("Starting Elm app");
+      let app = Elm.Main.init({ flags: 
+          { storedRonMaybe : null // Phase 1: do not migrate old Preferences data; Peerbit is the source of truth
           , darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches
           , notifPermission : await LocalNotifications.checkPermissions()
           , launchTime : Date.now()
           }
-        });
-        elmStarted(fallbackApp);
-        document.body.classList.remove("pre-js");
-        const loadInfo = document.getElementById("load-info");
-        if (loadInfo) loadInfo.style.display = "none";
-        return;
-      }
-      console.warn("Failed to open stored program address, clearing and creating fresh", e?.stack || e);
-      await Preferences.remove({ key: PROGRAM_ADDRESS_KEY }).catch(() => {});
-      try {
-        result = await peer.open(new MinderLog());
-      } catch (freshErr) {
-        console.error("Peerbit host open fresh MinderLog failed:", freshErr);
-      }
-    }
-    if (result?.address) {
-      const programAddress = result.address.toString();
-      await Preferences.set({ key: PROGRAM_ADDRESS_KEY, value: programAddress }).catch(() => {});
-      console.log("RELOAD DEBUG: Program address is:", programAddress);
-      // Surface the program address so it can be shared with another browser
-      // via ?program=<address> (cross-browser sync).
-      const shareUrl = `${window.location.origin}${window.location.pathname}?program=${encodeURIComponent(programAddress)}${window.location.hash}`;
-      updateLoadInfo(`Peerbit host ready — program: ${programAddress}`);
-      console.log("RELOAD DEBUG: Share URL for other browser:", shareUrl);
-    }
-    proxy = result?.proxy || result;
+      });
+      (window as any).app = app;
 
-    let allOpsText: string | undefined;
-    if (proxy) {
-      const entries = await proxy.log.toArray();
-      console.log("RELOAD: PROXY LOG TOARRAY LENGTH:", entries.length);
-      const decoder = new TextDecoder();
-      const ops: string[] = [];
-      for (const entry of entries) {
-        const value = await Promise.resolve(entry.getPayloadValue());
-        if (value instanceof Uint8Array) ops.push(decoder.decode(value));
-        else if (typeof value === "string") ops.push(value);
-      }
-      allOpsText = ops.join("❃");
-      console.log("RELOAD: ALL OPS TEXT LENGTH:", allOpsText.length, "OPS COUNT:", ops.length, "PREVIEW:", allOpsText.slice(0, 100));
-      updateLoadInfo("Peerbit host ready");
-    }
-
-    updateLoadInfo("Starting Elm app");
-    let app = Elm.Main.init({ flags: 
-        { storedRonMaybe : null // Phase 1: do not migrate old Preferences data; Peerbit is the source of truth
-        , darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches
-        , notifPermission : await LocalNotifications.checkPermissions()
-        , launchTime : Date.now()
-        }
-    });
-    (window as any).app = app;
-
-    if (app.ports.replicatorOut) {
-      const encoder = new TextEncoder();
-      app.ports.replicatorOut.subscribe(async function(data: string) {
-        console.log("REPLICATOR OUT RECEIVED:", data, "proxy:", proxy);
-        if (proxy) {
-          const ops = data.split("❃").filter((op: string) => op.length > 0);
-          const appendFn = (proxy as any).proxy?.append || (proxy as any).append || (proxy as any).log?.append;
-          console.log("APPEND TARGET IS:", appendFn);
-          if (appendFn) {
-            for (const op of ops) {
-              await appendFn(encoder.encode(op));
+      if (app.ports.replicatorOut) {
+        const encoder = new TextEncoder();
+        app.ports.replicatorOut.subscribe(async function(data: string) {
+          console.log("REPLICATOR OUT RECEIVED:", data, "proxy:", proxy);
+          if (proxy) {
+            const ops = data.split("❃").filter((op: string) => op.length > 0);
+            const appendFn = (proxy as any).proxy?.append || (proxy as any).append || (proxy as any).log?.append;
+            console.log("APPEND TARGET IS:", appendFn);
+            if (appendFn) {
+              for (const op of ops) {
+                await appendFn(encoder.encode(op));
+              }
             }
           }
-        }
-      });
-    }
-
-    if (proxy) {
-      if (allOpsText && app.ports.replicatorIn) {
-        const opsToSend = allOpsText;
-        setTimeout(() => {
-          console.log("SENDING INITIAL STORED OPS TO ELM:", opsToSend.slice(0, 50));
-          if (app.ports.replicatorIn) {
-            app.ports.replicatorIn.send(opsToSend);
-          }
-        }, 100);
+        });
       }
-      // Live cross-tab & replication sync
-      const onSyncChange = async (evt?: any) => {
-        console.log("ON SYNC CHANGE FIRED! Detail:", !!evt?.detail);
-        const decoder = new TextDecoder();
-        let opText: string | undefined;
-        if (evt?.detail instanceof Uint8Array) {
-          opText = decoder.decode(evt.detail);
-        } else {
-          const entries = await proxy.log.toArray();
-          const ops: string[] = [];
-          for (const entry of entries) {
-            const value = await Promise.resolve(entry.getPayloadValue());
-            if (value instanceof Uint8Array) ops.push(decoder.decode(value));
-            else if (typeof value === "string") ops.push(value);
-          }
-          opText = ops.join("❃");
-        }
-        console.log("ON SYNC CHANGE SENDING TO ELM:", opText?.slice(0, 50));
-        if (opText && app.ports.replicatorIn) {
-          app.ports.replicatorIn.send(opText);
-        }
-      };
-      proxy.events.addEventListener("change", onSyncChange);
-      proxy.events.addEventListener("replication:change", onSyncChange);
-    }
 
-    elmStarted(app);
-    document.body.classList.remove("pre-js");
-    const loadInfo = document.getElementById("load-info");
-    if (loadInfo) loadInfo.style.display = "none";
+      if (proxy) {
+        if (allOpsText && app.ports.replicatorIn) {
+          const opsToSend = allOpsText;
+          setTimeout(() => {
+            console.log("SENDING INITIAL STORED OPS TO ELM:", opsToSend.slice(0, 50));
+            if (app.ports.replicatorIn) {
+              app.ports.replicatorIn.send(opsToSend);
+            }
+          }, 100);
+        }
+        // Live cross-tab & replication sync
+        const onSyncChange = async (evt?: any) => {
+          console.log("ON SYNC CHANGE FIRED! Detail:", !!evt?.detail);
+          const decoder = new TextDecoder();
+          let opText: string | undefined;
+          if (evt?.detail instanceof Uint8Array) {
+            opText = decoder.decode(evt.detail);
+          } else {
+            const entries = await proxy.log.toArray();
+            const ops: string[] = [];
+            for (const entry of entries) {
+              const value = await Promise.resolve(entry.getPayloadValue());
+              if (value instanceof Uint8Array) ops.push(decoder.decode(value));
+              else if (typeof value === "string") ops.push(value);
+            }
+            opText = ops.join("❃");
+          }
+          console.log("ON SYNC CHANGE SENDING TO ELM:", opText?.slice(0, 50));
+          if (opText && app.ports.replicatorIn) {
+            app.ports.replicatorIn.send(opText);
+          }
+        };
+        proxy.events.addEventListener("change", onSyncChange);
+        proxy.events.addEventListener("replication:change", onSyncChange);
+      }
+
+      elmStarted(app);
+      document.body.classList.remove("pre-js");
+      const loadInfo = document.getElementById("load-info");
+      if (loadInfo) loadInfo.style.display = "none";
+    }
 
 }
 startElmApp();

@@ -12,22 +12,29 @@ import {
 import { SharedLogService } from "@peerbit/shared-log-proxy";
 import type { MinderLog } from "./minder-log.js";
 
-const encoder = new TextEncoder();
-
 export type MinderLogProxy = SharedLogProxy;
 
 /**
  * Open a MinderLog program over the canonical "minder-log" channel. The
- * program address travels as the channel payload (UTF-8 bytes); the host
- * module opens (or reuses) the underlying MinderLog and exposes its SharedLog
- * through the same SharedLogService RPC used by @peerbit/shared-log-proxy.
+ * 32-byte program id (the SharedLog Log id, serialized with the program)
+ * travels as the channel payload; the host module derives the deterministic
+ * program address from it and opens (or reuses) the underlying MinderLog,
+ * exposing its SharedLog through the same SharedLogService RPC used by
+ * @peerbit/shared-log-proxy.
  */
 export const openMinderLog = async (properties: {
 	client: CanonicalClient;
 	address: Address;
+	program: MinderLog;
+	create?: boolean;
 }): Promise<MinderLogProxy> => {
-	const addressBytes = encoder.encode(properties.address);
-	const channel = await properties.client.openPort("minder-log", addressBytes);
+	const idBytes = (properties.program as any).log?.log?.id;
+	if (!(idBytes instanceof Uint8Array) || idBytes.length !== 32) {
+		throw new Error("MinderLog program has no valid 32-byte id");
+	}
+	
+	const payload = properties.create ? new Uint8Array([0x01, ...idBytes]) : idBytes;
+	const channel = await properties.client.openPort("minder-log", payload);
 
 	const proxyRef: { current: MinderLogProxy | undefined } = { current: undefined };
 
@@ -93,9 +100,9 @@ export const openMinderLog = async (properties: {
 	export const minderLogAdapter = createVariantAdapter<MinderLog, MinderLogProxy>({
 	name: "minder-log",
 	variant: "minder-log",
-	open: async ({ program, address, client }: any) => {
+	open: async ({ program, address, client, options }: any) => {
 		const targetAddress = address || (program ? (await program.calculateAddress()).address : "");
-		const proxy = await openMinderLog({ client, address: targetAddress });
+		const proxy = await openMinderLog({ client, address: targetAddress, program, create: options?.create === true });
 		return { proxy, address: targetAddress };
 	},
 });

@@ -10,11 +10,11 @@ export type MinderLogArgs = {
 export class MinderLog extends Program<MinderLogArgs> {
 	log: SharedLog<Uint8Array>;
 
-	constructor() {
+	constructor(options?: { id?: Uint8Array }) {
 		super();
 		// Stage-3 decorators do not auto-initialize decorated fields, so we
 		// construct the sub-program explicitly before the Program framework opens it.
-		this.log = new SharedLog();
+		this.log = new SharedLog({ id: options?.id });
 	}
 
 	async open(args?: MinderLogArgs): Promise<void> {
