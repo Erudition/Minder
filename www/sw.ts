@@ -58,7 +58,7 @@ self.addEventListener('message', (event: any) => {
 					if (!hostPromise) {
 						hostPromise = (async () => {
 							console.log("SW: Creating PeerbitCanonicalRuntime...");
-							const runtime = new PeerbitCanonicalRuntime({})
+							const runtime = new PeerbitCanonicalRuntime({ peerOptions: { bootstrapRecovery: true } })
 							console.log("SW: Creating CanonicalHost...");
 							const host = new CanonicalHost(runtime)
 							console.log("SW: Registering module...");

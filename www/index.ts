@@ -100,6 +100,7 @@ async function startElmApp() {
     console.log("Preferences.get DONE");
     updateLoadInfo("Loading program address");
     let storedProgramAddress: string | undefined;
+    let programAddressFromUrl = false;
     try {
         const storedProgramAddressResult = await Preferences.get({ key: PROGRAM_ADDRESS_KEY });
         storedProgramAddress = storedProgramAddressResult.value ?? undefined;
@@ -108,6 +109,13 @@ async function startElmApp() {
         }
     } catch (error) {
         console.error("Failed to read stored program address; continuing without one.", error);
+    }
+    // Cross-browser sync: allow sharing a program address via ?program=<address>
+    const urlProgramAddress = new URLSearchParams(window.location.search).get('program');
+    if (!storedProgramAddress && urlProgramAddress) {
+        storedProgramAddress = urlProgramAddress;
+        programAddressFromUrl = true;
+        console.log("RELOAD DEBUG: Using program address from URL param:", storedProgramAddress);
     }
     updateLoadInfo("Connecting Peerbit host");
     let client: Awaited<ReturnType<typeof connectServiceWorker>> | null = null;
@@ -188,6 +196,25 @@ async function startElmApp() {
         console.log("RELOAD DEBUG: Opened new MinderLog result:", result);
       }
     } catch (e: any) {
+      if (programAddressFromUrl) {
+        // Address came from ?program= — do NOT silently create a fresh program,
+        // that would fork the data. Surface the error and keep the URL address
+        // so a reload retries.
+        console.error("Failed to open program address from URL:", storedProgramAddress, e?.stack || e);
+        updateLoadInfo(`Could not open shared program (${storedProgramAddress}). Is the other browser online? Reload to retry.`);
+        let fallbackApp = Elm.Main.init({ flags:
+          { storedRonMaybe : null
+          , darkTheme: window.matchMedia('(prefers-color-scheme: dark)').matches
+          , notifPermission : await LocalNotifications.checkPermissions()
+          , launchTime : Date.now()
+          }
+        });
+        elmStarted(fallbackApp);
+        document.body.classList.remove("pre-js");
+        const loadInfo = document.getElementById("load-info");
+        if (loadInfo) loadInfo.style.display = "none";
+        return;
+      }
       console.warn("Failed to open stored program address, clearing and creating fresh", e?.stack || e);
       await Preferences.remove({ key: PROGRAM_ADDRESS_KEY }).catch(() => {});
       try {
@@ -197,7 +224,14 @@ async function startElmApp() {
       }
     }
     if (result?.address) {
-      await Preferences.set({ key: PROGRAM_ADDRESS_KEY, value: result.address.toString() }).catch(() => {});
+      const programAddress = result.address.toString();
+      await Preferences.set({ key: PROGRAM_ADDRESS_KEY, value: programAddress }).catch(() => {});
+      console.log("RELOAD DEBUG: Program address is:", programAddress);
+      // Surface the program address so it can be shared with another browser
+      // via ?program=<address> (cross-browser sync).
+      const shareUrl = `${window.location.origin}${window.location.pathname}?program=${encodeURIComponent(programAddress)}${window.location.hash}`;
+      updateLoadInfo(`Peerbit host ready — program: ${programAddress}`);
+      console.log("RELOAD DEBUG: Share URL for other browser:", shareUrl);
     }
     proxy = result?.proxy || result;
 
