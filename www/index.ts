@@ -161,7 +161,9 @@ async function startElmApp() {
         }
       });
       const base = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
-      const registration = await navigator.serviceWorker.register(`${base}sw.js`, { scope: base, type: 'module' }).catch((e) => {
+      // Dev SW is served at dev-sw.js?dev-sw (sw.js would hit the SPA fallback as text/html)
+      const swUrl = import.meta.env.DEV ? `${base}dev-sw.js?dev-sw` : `${base}sw.js`;
+      const registration = await navigator.serviceWorker.register(swUrl, { scope: base, type: 'module' }).catch((e) => {
         console.error("SW registration failed:", e);
         return undefined;
       });
