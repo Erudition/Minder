@@ -327,7 +327,7 @@ bottomNavTabBar route =
         , ( "projects-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.TaskList) "Projects" "list-outline" )
         , ( "timeflow-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.Timeflow) "Timeflow" "hourglass-outline" )
         , ( "timetracker-tab-button", Ion.Tab.labeledIconButton (buttonProps Route.Path.TimeTracker) "Activities" "stopwatch-outline" )
-        , ( "dev-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/devtools" ] "Dev" "code-working-outline" )
+        , ( "dev-tab-button", Ion.Tab.labeledIconButton [ HA.href "#/dev-tools" ] "Dev" "code-working-outline" )
         ]
 
 

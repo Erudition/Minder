@@ -24,7 +24,7 @@ const openPrograms: Map<string, { program: MinderLog; refs: number; channels: Se
 // `log.load({ reset: true, heads })` when an acquire finds zero heads.
 const headsStore = new IndexedDBStore("minder-peerbit-heads");
 
-const persistHeadHashes = async (peer: any, addressKey: string, shared: any): Promise<void> => {
+const persistHeadHashes = async (_peer: any, addressKey: string, shared: any): Promise<void> => {
 	try {
 		const lower = shared?.log;
 		if (!lower) return;
